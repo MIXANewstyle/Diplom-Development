@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # PostgreSQL (Единый кластер, скрипты инициализации схем добавим позже)
+  postgres:
+    image: postgres:16-alpine
+    container_name: diplom-postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminpassword
+      POSTGRES_DB: diplom_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # Redis (Хранение состояния чатов, кэш ленты, rate limiting)
+  redis:
+    image: redis:7-alpine
+    container_name: diplom-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  # RabbitMQ (Брокер сообщений, используем management образ для UI браузера)
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: diplom-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"   # Основной порт для микросервисов (AMQP)
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    restart: unless-stopped
+
+  # Prometheus (Сбор метрик из Spring Boot Actuator)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: diplom-prometheus
+    ports:
+      - "9090:9090"
+    # volumes:
+    #   - ./prometheus.yml:/etc/prometheus/prometheus.yml # Добавим позже для сбора метрик с сервисов
+    volumes:
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+
+  # Grafana (Визуализация метрик)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: diplom-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin # Дефолтный пароль, логин: admin
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana-data:/var/lib/grafana
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:
+  prometheus-data:
+  grafana-data:
