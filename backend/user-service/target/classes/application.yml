@@ -1,0 +1,39 @@
+server:
+  port: 8081 # Устанавливаем отдельный порт для сервиса, чтобы не конфликтовать с Gateway
+
+spring:
+  application:
+    name: user-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/diplom_db
+    username: admin
+    password: adminpassword
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate # Используем Flyway, поэтому hibernate не должен менять схему
+    show-sql: true
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    schemas: user_schema
+    default-schema: user_schema
+    create-schemas: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    export:
+      prometheus:
+        enabled: true
