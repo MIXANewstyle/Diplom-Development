@@ -57,6 +57,7 @@ public class UserProfile {
     @Column(name = "psych_profile", columnDefinition = "jsonb")
     private String psychProfile;
 
+    @org.hibernate.annotations.UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 }

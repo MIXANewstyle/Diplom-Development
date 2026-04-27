@@ -45,6 +45,7 @@ public class User {
     @Column(name = "status_id")
     private Integer statusId;
 
+    @org.hibernate.annotations.CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
