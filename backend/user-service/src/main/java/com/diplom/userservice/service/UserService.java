@@ -6,6 +6,7 @@ import com.diplom.userservice.entity.User;
 import com.diplom.userservice.entity.UserProfile;
 import com.diplom.userservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import java.time.OffsetDateTime;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public UserResponse registerUser(UserRegistrationRequest request) {
@@ -25,7 +27,7 @@ public class UserService {
 
         User user = User.builder()
                 .email(request.email())
-                .passwordHash(request.password()) // Placeholder, to be hashed later
+                .passwordHash(passwordEncoder.encode(request.password()))
                 .roleId(2) // 2='FREE'
                 .statusId(1) // 1='ACTIVE'
                 .build();
