@@ -3,7 +3,9 @@ package com.diplom.userservice.service;
 import com.diplom.userservice.dto.UserRegistrationRequest;
 import com.diplom.userservice.dto.UserResponse;
 import com.diplom.userservice.entity.User;
+import com.diplom.userservice.entity.UserOutboxEvent;
 import com.diplom.userservice.entity.UserProfile;
+import com.diplom.userservice.repository.UserOutboxEventRepository;
 import com.diplom.userservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,6 +20,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserOutboxEventRepository userOutboxEventRepository;
 
     @Transactional
     public UserResponse registerUser(UserRegistrationRequest request) {
@@ -42,6 +45,15 @@ public class UserService {
         user.setProfile(profile);
 
         User savedUser = userRepository.save(user);
+
+        // Transactional Outbox
+        String payload = String.format("{\"userId\":\"%s\", \"email\":\"%s\"}", savedUser.getId(), savedUser.getEmail());
+        UserOutboxEvent outboxEvent = UserOutboxEvent.builder()
+                .eventType("USER_REGISTERED")
+                .payload(payload)
+                .status("PENDING")
+                .build();
+        userOutboxEventRepository.save(outboxEvent);
 
         return new UserResponse(
                 savedUser.getId(),
