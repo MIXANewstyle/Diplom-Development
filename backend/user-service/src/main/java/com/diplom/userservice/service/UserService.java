@@ -5,7 +5,9 @@ import com.diplom.userservice.dto.UserResponse;
 import com.diplom.userservice.entity.User;
 import com.diplom.userservice.entity.UserOutboxEvent;
 import com.diplom.userservice.entity.UserProfile;
+import com.diplom.userservice.dto.ProfileUpdateRequest;
 import com.diplom.userservice.repository.UserOutboxEventRepository;
+import com.diplom.userservice.repository.UserProfileRepository;
 import com.diplom.userservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +24,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserOutboxEventRepository userOutboxEventRepository;
+    private final UserProfileRepository userProfileRepository;
 
     @Transactional
     public UserResponse registerUser(UserRegistrationRequest request) {
@@ -60,5 +64,47 @@ public class UserService {
                 savedUser.getEmail(),
                 savedUser.getProfile().getUsername()
         );
+    }
+
+    @Transactional
+    public void updateProfile(UUID userId, ProfileUpdateRequest request) {
+        UserProfile profile = userProfileRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("UserProfile not found"));
+
+        boolean isProfileChanged = false;
+
+        if (request.username() != null && !request.username().equals(profile.getUsername())) {
+            profile.setUsername(request.username());
+            isProfileChanged = true;
+        }
+
+        if (request.fullName() != null && !request.fullName().equals(profile.getFullName())) {
+            profile.setFullName(request.fullName());
+            isProfileChanged = true;
+        }
+
+        if (request.avatarUrl() != null && !request.avatarUrl().equals(profile.getAvatarUrl())) {
+            profile.setAvatarUrl(request.avatarUrl());
+            isProfileChanged = true;
+        }
+
+        if (request.psychProfile() != null && !request.psychProfile().equals(profile.getPsychProfile())) {
+            profile.setPsychProfile(request.psychProfile());
+        }
+
+        profile.setUpdatedAt(OffsetDateTime.now());
+        userProfileRepository.save(profile);
+
+        if (isProfileChanged) {
+            String payload = String.format("{\"userId\":\"%s\", \"username\":\"%s\", \"fullName\":\"%s\", \"avatarUrl\":\"%s\"}",
+                    userId, profile.getUsername(), profile.getFullName(), profile.getAvatarUrl());
+
+            UserOutboxEvent event = UserOutboxEvent.builder()
+                    .eventType("PROFILE_CHANGED")
+                    .payload(payload)
+                    .status("PENDING")
+                    .build();
+            userOutboxEventRepository.save(event);
+        }
     }
 }

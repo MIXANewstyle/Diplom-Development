@@ -2,17 +2,21 @@ package com.diplom.userservice.controller;
 
 import com.diplom.userservice.dto.JwtResponse;
 import com.diplom.userservice.dto.LoginRequest;
+import com.diplom.userservice.dto.ProfileUpdateRequest;
 import com.diplom.userservice.dto.UserRegistrationRequest;
 import com.diplom.userservice.dto.UserResponse;
 import com.diplom.userservice.entity.User;
 import com.diplom.userservice.repository.UserRepository;
 import com.diplom.userservice.security.JwtService;
+import java.util.UUID;
 import com.diplom.userservice.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,5 +48,13 @@ public class UserController {
 
         String token = jwtService.generateToken(user.getEmail(), user.getRoleId());
         return ResponseEntity.ok(new JwtResponse(token));
+    }
+
+    @PutMapping("/{userId}/profile")
+    public ResponseEntity<Void> updateProfile(
+            @PathVariable UUID userId,
+            @RequestBody ProfileUpdateRequest request) {
+        userService.updateProfile(userId, request);
+        return ResponseEntity.ok().build();
     }
 }
