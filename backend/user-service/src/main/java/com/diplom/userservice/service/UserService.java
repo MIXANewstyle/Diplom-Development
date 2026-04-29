@@ -107,4 +107,35 @@ public class UserService {
             userOutboxEventRepository.save(event);
         }
     }
+    @Transactional
+    public void updateUserRole(UUID userId, Integer roleId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        user.setRoleId(roleId);
+        userRepository.save(user);
+
+        String payload = String.format("{\"userId\":\"%s\", \"roleId\":%d}", userId, roleId);
+        UserOutboxEvent event = UserOutboxEvent.builder()
+                .eventType("ROLE_UPDATED")
+                .payload(payload)
+                .status("PENDING")
+                .build();
+        userOutboxEventRepository.save(event);
+    }
+
+    @Transactional
+    public void updateUserStatus(UUID userId, Integer statusId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        user.setStatusId(statusId);
+        userRepository.save(user);
+
+        String payload = String.format("{\"userId\":\"%s\", \"statusId\":%d}", userId, statusId);
+        UserOutboxEvent event = UserOutboxEvent.builder()
+                .eventType("ACCOUNT_MODERATED")
+                .payload(payload)
+                .status("PENDING")
+                .build();
+        userOutboxEventRepository.save(event);
+    }
 }
