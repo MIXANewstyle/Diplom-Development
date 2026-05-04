@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.diplom.userservice.security.CustomUserDetails;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -46,15 +48,15 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        String token = jwtService.generateToken(user.getEmail(), user.getRoleId());
+        String token = jwtService.generateToken(user.getId(), user.getEmail(), user.getRoleId());
         return ResponseEntity.ok(new JwtResponse(token));
     }
 
-    @PutMapping("/{userId}/profile")
+    @PutMapping("/me/profile")
     public ResponseEntity<Void> updateProfile(
-            @PathVariable UUID userId,
+            @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestBody ProfileUpdateRequest request) {
-        userService.updateProfile(userId, request);
+        userService.updateProfile(userDetails.getId(), request);
         return ResponseEntity.ok().build();
     }
 }

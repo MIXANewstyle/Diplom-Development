@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.diplom.userservice.security.CustomUserDetails;
 
 import java.util.UUID;
 
@@ -18,19 +20,19 @@ public class SocialController {
 
     private final SocialService socialService;
 
-    @PostMapping("/{followerId}/follow/{authorId}")
+    @PostMapping("/me/follow/{authorId}")
     public ResponseEntity<Void> followAuthor(
-            @PathVariable UUID followerId, 
+            @AuthenticationPrincipal CustomUserDetails userDetails, 
             @PathVariable UUID authorId) {
-        socialService.followAuthor(followerId, authorId);
+        socialService.followAuthor(userDetails.getId(), authorId);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
-    @PostMapping("/{requesterId}/friends/request/{addresseeId}")
+    @PostMapping("/me/friends/request/{addresseeId}")
     public ResponseEntity<Void> sendFriendRequest(
-            @PathVariable UUID requesterId, 
+            @AuthenticationPrincipal CustomUserDetails userDetails, 
             @PathVariable UUID addresseeId) {
-        socialService.sendFriendRequest(requesterId, addresseeId);
+        socialService.sendFriendRequest(userDetails.getId(), addresseeId);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 }
