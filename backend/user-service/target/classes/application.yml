@@ -5,6 +5,12 @@ spring:
   application:
     name: user-service
 
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
   datasource:
     url: jdbc:postgresql://localhost:5433/diplom_db
     username: admin
