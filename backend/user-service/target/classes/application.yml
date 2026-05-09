@@ -1,6 +1,11 @@
 server:
   port: 8081 # Устанавливаем отдельный порт для сервиса, чтобы не конфликтовать с Gateway
 
+logging:
+  level:
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
+
 spring:
   application:
     name: user-service
