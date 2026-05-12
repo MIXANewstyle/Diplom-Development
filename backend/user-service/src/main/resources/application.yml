@@ -10,6 +10,10 @@ spring:
   application:
     name: user-service
 
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
   rabbitmq:
     host: localhost
     port: 5672
@@ -25,7 +29,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate # Используем Flyway, поэтому hibernate не должен менять схему
-    show-sql: true
+    show-sql: false
 
   flyway:
     enabled: true

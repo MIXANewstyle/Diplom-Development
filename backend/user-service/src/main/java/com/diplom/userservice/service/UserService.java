@@ -6,6 +6,12 @@ import com.diplom.userservice.entity.User;
 import com.diplom.userservice.entity.UserOutboxEvent;
 import com.diplom.userservice.entity.UserProfile;
 import com.diplom.userservice.dto.ProfileUpdateRequest;
+import com.diplom.userservice.event.AccountModeratedEvent;
+import com.diplom.userservice.event.EventType;
+import com.diplom.userservice.event.ProfileChangedEvent;
+import com.diplom.userservice.event.RoleUpdatedEvent;
+import com.diplom.userservice.event.UserRegisteredEvent;
+import com.diplom.userservice.outbox.OutboxEventFactory;
 import com.diplom.userservice.repository.UserOutboxEventRepository;
 import com.diplom.userservice.repository.UserProfileRepository;
 import com.diplom.userservice.repository.UserRepository;
@@ -25,6 +31,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserOutboxEventRepository userOutboxEventRepository;
     private final UserProfileRepository userProfileRepository;
+    private final OutboxEventFactory outboxEventFactory;
 
     @Transactional
     public UserResponse registerUser(UserRegistrationRequest request) {
@@ -51,12 +58,8 @@ public class UserService {
         User savedUser = userRepository.save(user);
 
         // Transactional Outbox
-        String payload = String.format("{\"userId\":\"%s\", \"email\":\"%s\"}", savedUser.getId(), savedUser.getEmail());
-        UserOutboxEvent outboxEvent = UserOutboxEvent.builder()
-                .eventType("USER_REGISTERED")
-                .payload(payload)
-                .status("PENDING")
-                .build();
+        UserRegisteredEvent payloadDto = new UserRegisteredEvent(savedUser.getId(), savedUser.getEmail(), OffsetDateTime.now());
+        UserOutboxEvent outboxEvent = outboxEventFactory.create(EventType.USER_REGISTERED, payloadDto);
         userOutboxEventRepository.save(outboxEvent);
 
         return new UserResponse(
@@ -96,14 +99,8 @@ public class UserService {
         userProfileRepository.save(profile);
 
         if (isProfileChanged) {
-            String payload = String.format("{\"userId\":\"%s\", \"username\":\"%s\", \"fullName\":\"%s\", \"avatarUrl\":\"%s\"}",
-                    userId, profile.getUsername(), profile.getFullName(), profile.getAvatarUrl());
-
-            UserOutboxEvent event = UserOutboxEvent.builder()
-                    .eventType("PROFILE_CHANGED")
-                    .payload(payload)
-                    .status("PENDING")
-                    .build();
+            ProfileChangedEvent payloadDto = new ProfileChangedEvent(userId, profile.getUsername(), profile.getFullName(), profile.getAvatarUrl(), OffsetDateTime.now());
+            UserOutboxEvent event = outboxEventFactory.create(EventType.PROFILE_CHANGED, payloadDto);
             userOutboxEventRepository.save(event);
         }
     }
@@ -114,12 +111,8 @@ public class UserService {
         user.setRoleId(roleId);
         userRepository.save(user);
 
-        String payload = String.format("{\"userId\":\"%s\", \"roleId\":%d}", userId, roleId);
-        UserOutboxEvent event = UserOutboxEvent.builder()
-                .eventType("ROLE_UPDATED")
-                .payload(payload)
-                .status("PENDING")
-                .build();
+        RoleUpdatedEvent payloadDto = new RoleUpdatedEvent(userId, roleId, OffsetDateTime.now());
+        UserOutboxEvent event = outboxEventFactory.create(EventType.ROLE_UPDATED, payloadDto);
         userOutboxEventRepository.save(event);
     }
 
@@ -130,12 +123,8 @@ public class UserService {
         user.setStatusId(statusId);
         userRepository.save(user);
 
-        String payload = String.format("{\"userId\":\"%s\", \"statusId\":%d}", userId, statusId);
-        UserOutboxEvent event = UserOutboxEvent.builder()
-                .eventType("ACCOUNT_MODERATED")
-                .payload(payload)
-                .status("PENDING")
-                .build();
+        AccountModeratedEvent payloadDto = new AccountModeratedEvent(userId, statusId, OffsetDateTime.now());
+        UserOutboxEvent event = outboxEventFactory.create(EventType.ACCOUNT_MODERATED, payloadDto);
         userOutboxEventRepository.save(event);
     }
 }

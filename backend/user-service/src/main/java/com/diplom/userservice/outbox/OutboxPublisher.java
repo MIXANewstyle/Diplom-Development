@@ -2,6 +2,7 @@ package com.diplom.userservice.outbox;
 
 import com.diplom.userservice.config.RabbitMQConfig;
 import com.diplom.userservice.entity.UserOutboxEvent;
+import com.diplom.userservice.event.EventType;
 import com.diplom.userservice.repository.UserOutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,12 +52,11 @@ public class OutboxPublisher {
     }
 
     private String getRoutingKey(String eventType) {
-        return switch (eventType) {
-            case "USER_REGISTERED" -> "user.registered";
-            case "PROFILE_CHANGED" -> "user.profile-changed";
-            case "ROLE_UPDATED" -> "user.role-updated";
-            case "ACCOUNT_MODERATED" -> "user.account-moderated";
-            default -> throw new IllegalArgumentException("Unknown event type: " + eventType);
+        return switch (EventType.valueOf(eventType)) {
+            case USER_REGISTERED -> "user.registered";
+            case PROFILE_CHANGED -> "user.profile-changed";
+            case ROLE_UPDATED -> "user.role-updated";
+            case ACCOUNT_MODERATED -> "user.account-moderated";
         };
     }
 }

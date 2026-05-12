@@ -1,5 +1,7 @@
+e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\event\ProfileChangedEvent.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\config\SecurityConfig.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\dto\UserResponse.java
+e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\event\AccountModeratedEvent.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\entity\AuthorFollow.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\repository\UserOutboxEventRepository.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\controller\AdminModerationController.java
@@ -8,10 +10,12 @@ e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\controller\GlobalExceptionHandler.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\repository\FriendshipRepository.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\entity\AuthorFollowId.java
+e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\event\EventType.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\repository\UserRepository.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\security\CustomUserDetails.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\entity\Friendship.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\controller\UserController.java
+e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\outbox\OutboxEventFactory.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\dto\StatusUpdateRequest.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\UserServiceApplication.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\entity\User.java
@@ -25,7 +29,10 @@ e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\dto\LoginRequest.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\entity\UserProfile.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\entity\FriendshipId.java
+e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\event\RoleUpdatedEvent.java
+e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\event\UserRegisteredEvent.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\repository\UserProfileRepository.java
+e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\TestRunner.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\outbox\OutboxPublisher.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\dto\UserRegistrationRequest.java
 e:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\config\RabbitMQConfig.java
