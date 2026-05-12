@@ -10,6 +10,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import com.diplom.userservice.entity.UserRole;
 import io.jsonwebtoken.Claims;
 
 @Service
@@ -22,7 +23,7 @@ public class JwtService {
     public String generateToken(UUID userId, String email, Integer roleId) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId.toString());
-        claims.put("role", roleId);
+        claims.put("role", UserRole.fromId(roleId).getName());
         
         return createToken(claims, email);
     }

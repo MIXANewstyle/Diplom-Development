@@ -16,11 +16,11 @@ public class CustomUserDetails implements UserDetails {
     
     private final UUID id;
     private final String email;
-    private final Integer roleId;
+    private final String roleName;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.singleton(new SimpleGrantedAuthority("ROLE_" + roleId));
+        return Collections.singleton(new SimpleGrantedAuthority("ROLE_" + roleName));
     }
 
     @Override
