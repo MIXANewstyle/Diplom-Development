@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
 
 import java.util.UUID;
 
@@ -23,7 +24,7 @@ public class AdminModerationController {
     @PutMapping("/{userId}/role")
     public ResponseEntity<Void> updateRole(
             @PathVariable UUID userId,
-            @RequestBody RoleUpdateRequest request) {
+            @Valid @RequestBody RoleUpdateRequest request) {
         userService.updateUserRole(userId, request.roleId());
         return ResponseEntity.ok().build();
     }
@@ -31,7 +32,7 @@ public class AdminModerationController {
     @PutMapping("/{userId}/status")
     public ResponseEntity<Void> updateStatus(
             @PathVariable UUID userId,
-            @RequestBody StatusUpdateRequest request) {
+            @Valid @RequestBody StatusUpdateRequest request) {
         userService.updateUserStatus(userId, request.statusId());
         return ResponseEntity.ok().build();
     }

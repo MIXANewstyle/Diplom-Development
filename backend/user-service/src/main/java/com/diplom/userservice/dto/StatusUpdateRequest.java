@@ -1,4 +1,8 @@
 package com.diplom.userservice.dto;
 
-public record StatusUpdateRequest(Integer statusId) {
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+
+public record StatusUpdateRequest(@NotNull @Min(1) @Max(3) Integer statusId) {
 }

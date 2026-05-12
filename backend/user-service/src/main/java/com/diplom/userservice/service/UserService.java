@@ -11,6 +11,9 @@ import com.diplom.userservice.event.EventType;
 import com.diplom.userservice.event.ProfileChangedEvent;
 import com.diplom.userservice.event.RoleUpdatedEvent;
 import com.diplom.userservice.event.UserRegisteredEvent;
+import com.diplom.userservice.exception.EmailAlreadyTakenException;
+import com.diplom.userservice.exception.UserNotFoundException;
+import com.diplom.userservice.exception.UserProfileNotFoundException;
 import com.diplom.userservice.outbox.OutboxEventFactory;
 import com.diplom.userservice.repository.UserOutboxEventRepository;
 import com.diplom.userservice.repository.UserProfileRepository;
@@ -36,7 +39,7 @@ public class UserService {
     @Transactional
     public UserResponse registerUser(UserRegistrationRequest request) {
         if (userRepository.findByEmail(request.email()).isPresent()) {
-            throw new RuntimeException("Email is already taken");
+            throw new EmailAlreadyTakenException("Email " + request.email() + " is already taken");
         }
 
         User user = User.builder()
@@ -72,7 +75,7 @@ public class UserService {
     @Transactional
     public void updateProfile(UUID userId, ProfileUpdateRequest request) {
         UserProfile profile = userProfileRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("UserProfile not found"));
+                .orElseThrow(() -> new UserProfileNotFoundException("Profile for user " + userId + " not found"));
 
         boolean isProfileChanged = false;
 
@@ -107,7 +110,7 @@ public class UserService {
     @Transactional
     public void updateUserRole(UUID userId, Integer roleId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User " + userId + " not found"));
         user.setRoleId(roleId);
         userRepository.save(user);
 
@@ -119,7 +122,7 @@ public class UserService {
     @Transactional
     public void updateUserStatus(UUID userId, Integer statusId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User " + userId + " not found"));
         user.setStatusId(statusId);
         userRepository.save(user);
 
