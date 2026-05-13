@@ -100,6 +100,18 @@ public class UserService {
             profile.setPsychProfile(request.psychProfile());
         }
 
+        if (request.contactInfo() != null && !request.contactInfo().equals(profile.getContactInfo())) {
+            profile.setContactInfo(request.contactInfo());
+        }
+
+        if (request.birthDate() != null && !request.birthDate().equals(profile.getBirthDate())) {
+            profile.setBirthDate(request.birthDate());
+        }
+
+        if (request.genderId() != null && !request.genderId().equals(profile.getGenderId())) {
+            profile.setGenderId(request.genderId());
+        }
+
         profile.setUpdatedAt(OffsetDateTime.now());
         userProfileRepository.save(profile);
 
