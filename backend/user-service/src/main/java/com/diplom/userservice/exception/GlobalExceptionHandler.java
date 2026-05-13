@@ -26,6 +26,30 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
     }
 
+    @ExceptionHandler({SelfActionException.class, AuthorRoleRequiredException.class})
+    public ResponseEntity<Map<String, Object>> handleBadRequestDomainExceptions(RuntimeException ex) {
+        log.warn("Bad request: {}", ex.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
+    }
+
+    @ExceptionHandler({InvalidFriendshipStateException.class, AlreadyFollowingException.class, FriendshipAlreadyExistsException.class})
+    public ResponseEntity<Map<String, Object>> handleConflictDomainExceptions(RuntimeException ex) {
+        log.warn("Conflict: {}", ex.getMessage());
+        return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+    }
+
+    @ExceptionHandler({NotFollowingException.class, FriendshipNotFoundException.class})
+    public ResponseEntity<Map<String, Object>> handleNotFoundDomainExceptions(RuntimeException ex) {
+        log.warn("Not found: {}", ex.getMessage());
+        return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage());
+    }
+
+    @ExceptionHandler(UnauthorizedFriendshipActionException.class)
+    public ResponseEntity<Map<String, Object>> handleUnauthorizedDomainExceptions(RuntimeException ex) {
+        log.warn("Forbidden: {}", ex.getMessage());
+        return buildResponse(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage());
+    }
+
     @ExceptionHandler({UserNotFoundException.class, UserProfileNotFoundException.class})
     public ResponseEntity<Map<String, Object>> handleNotFound(RuntimeException ex) {
         log.warn("Not found: {}", ex.getMessage());

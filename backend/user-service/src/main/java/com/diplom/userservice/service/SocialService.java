@@ -5,13 +5,24 @@ import com.diplom.userservice.entity.AuthorFollowId;
 import com.diplom.userservice.entity.Friendship;
 import com.diplom.userservice.entity.FriendshipId;
 import com.diplom.userservice.entity.User;
+import com.diplom.userservice.entity.UserRole;
+import com.diplom.userservice.entity.FriendshipStatus;
+import com.diplom.userservice.entity.UserOutboxEvent;
+import com.diplom.userservice.event.EventType;
+import com.diplom.userservice.event.AuthorFollowedEvent;
+import com.diplom.userservice.event.AuthorUnfollowedEvent;
+import com.diplom.userservice.event.FriendshipAcceptedEvent;
+import com.diplom.userservice.exception.*;
+import com.diplom.userservice.outbox.OutboxEventFactory;
 import com.diplom.userservice.repository.UserRepository;
 import com.diplom.userservice.repository.AuthorFollowRepository;
 import com.diplom.userservice.repository.FriendshipRepository;
+import com.diplom.userservice.repository.UserOutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Service
@@ -21,40 +32,115 @@ public class SocialService {
     private final AuthorFollowRepository authorFollowRepository;
     private final FriendshipRepository friendshipRepository;
     private final UserRepository userRepository;
+    private final OutboxEventFactory outboxEventFactory;
+    private final UserOutboxEventRepository outboxEventRepository;
 
     @Transactional
     public void followAuthor(UUID followerId, UUID authorId) {
         if (followerId.equals(authorId)) {
-            throw new IllegalArgumentException("Cannot follow yourself");
+            throw new SelfActionException("Cannot follow yourself");
         }
         User author = userRepository.findById(authorId)
-                .orElseThrow(() -> new IllegalArgumentException("Author not found"));
-        if (author.getRoleId() != 4) {
-            throw new IllegalArgumentException("You can only follow users with the AUTHOR role");
+                .orElseThrow(() -> new UserNotFoundException("User " + authorId + " not found"));
+        if (author.getRoleId() != UserRole.AUTHOR.getId()) {
+            throw new AuthorRoleRequiredException("Target user is not an author");
         }
         if (authorFollowRepository.existsById(new AuthorFollowId(followerId, authorId))) {
-            throw new IllegalArgumentException("Already following this author");
+            throw new AlreadyFollowingException("Already following this author");
         }
         AuthorFollow follow = AuthorFollow.builder()
                 .followerId(followerId)
                 .authorId(authorId)
                 .build();
         authorFollowRepository.save(follow);
+
+        UserOutboxEvent event = outboxEventFactory.create(
+                EventType.FOLLOW_ADDED,
+                new AuthorFollowedEvent(followerId, authorId, OffsetDateTime.now())
+        );
+        outboxEventRepository.save(event);
+    }
+
+    @Transactional
+    public void unfollowAuthor(UUID followerId, UUID authorId) {
+        if (followerId.equals(authorId)) {
+            throw new SelfActionException("Cannot unfollow yourself");
+        }
+        if (!authorFollowRepository.existsByFollowerIdAndAuthorId(followerId, authorId)) {
+            throw new NotFollowingException("Not following this author");
+        }
+        authorFollowRepository.deleteByFollowerIdAndAuthorId(followerId, authorId);
+
+        UserOutboxEvent event = outboxEventFactory.create(
+                EventType.FOLLOW_REMOVED,
+                new AuthorUnfollowedEvent(followerId, authorId, OffsetDateTime.now())
+        );
+        outboxEventRepository.save(event);
     }
 
     @Transactional
     public void sendFriendRequest(UUID requesterId, UUID addresseeId) {
         if (requesterId.equals(addresseeId)) {
-            throw new IllegalArgumentException("Cannot send friend request to yourself");
+            throw new SelfActionException("Cannot send friend request to yourself");
         }
         if (friendshipRepository.existsById(new FriendshipId(requesterId, addresseeId))) {
-            throw new IllegalArgumentException("Friend request already exists");
+            throw new FriendshipAlreadyExistsException("Friend request already exists");
         }
         Friendship friendship = Friendship.builder()
                 .requesterId(requesterId)
                 .addresseeId(addresseeId)
-                .statusId(1) // 1=PENDING
+                .statusId(FriendshipStatus.PENDING.getId())
                 .build();
         friendshipRepository.save(friendship);
+    }
+
+    @Transactional
+    public void acceptFriendRequest(UUID currentUserId, UUID requesterId) {
+        Friendship friendship = friendshipRepository.findByRequesterIdAndAddresseeId(requesterId, currentUserId)
+                .orElseThrow(() -> new FriendshipNotFoundException("Friend request not found"));
+        
+        if (!friendship.getAddresseeId().equals(currentUserId)) {
+            throw new UnauthorizedFriendshipActionException("Only the addressee can accept");
+        }
+        if (friendship.getStatusId() != FriendshipStatus.PENDING.getId()) {
+            throw new InvalidFriendshipStateException("Friendship is not in PENDING state");
+        }
+
+        friendship.setStatusId(FriendshipStatus.ACCEPTED.getId());
+        friendshipRepository.save(friendship);
+
+        UserOutboxEvent event = outboxEventFactory.create(
+                EventType.FRIENDSHIP_ACCEPTED,
+                new FriendshipAcceptedEvent(requesterId, currentUserId, OffsetDateTime.now())
+        );
+        outboxEventRepository.save(event);
+    }
+
+    @Transactional
+    public void declineFriendRequest(UUID currentUserId, UUID requesterId) {
+        Friendship friendship = friendshipRepository.findByRequesterIdAndAddresseeId(requesterId, currentUserId)
+                .orElseThrow(() -> new FriendshipNotFoundException("Friend request not found"));
+
+        if (!friendship.getAddresseeId().equals(currentUserId)) {
+            throw new UnauthorizedFriendshipActionException("Only the addressee can decline");
+        }
+        if (friendship.getStatusId() != FriendshipStatus.PENDING.getId()) {
+            throw new InvalidFriendshipStateException("Friendship is not in PENDING state");
+        }
+
+        friendship.setStatusId(FriendshipStatus.DECLINED.getId());
+        friendshipRepository.save(friendship);
+    }
+
+    @Transactional
+    public void cancelFriendRequest(UUID currentUserId, UUID addresseeId) {
+        Friendship friendship = friendshipRepository.findByRequesterIdAndAddresseeId(currentUserId, addresseeId)
+                .orElseThrow(() -> new FriendshipNotFoundException("Friend request not found"));
+
+        if (friendship.getStatusId() != FriendshipStatus.PENDING.getId()) {
+            throw new InvalidFriendshipStateException("Cannot cancel a friendship that is not pending");
+        }
+
+        friendshipRepository.deleteByRequesterIdAndAddresseeId(currentUserId, addresseeId);
     }
 }

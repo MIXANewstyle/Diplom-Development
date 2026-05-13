@@ -57,6 +57,9 @@ public class OutboxPublisher {
             case PROFILE_CHANGED -> "user.profile-changed";
             case ROLE_UPDATED -> "user.role-updated";
             case ACCOUNT_MODERATED -> "user.account-moderated";
+            case FOLLOW_ADDED -> "user.follow-added";
+            case FOLLOW_REMOVED -> "user.follow-removed";
+            case FRIENDSHIP_ACCEPTED -> "user.friendship-accepted";
         };
     }
 }
