@@ -23,7 +23,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
+
+import com.diplom.userservice.dto.FollowedAuthorResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -142,5 +145,18 @@ public class SocialService {
         }
 
         friendshipRepository.deleteByRequesterIdAndAddresseeId(currentUserId, addresseeId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<FollowedAuthorResponse> getFollowedAuthors(UUID userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new UserNotFoundException("User " + userId + " not found");
+        }
+        
+        List<AuthorFollow> follows = authorFollowRepository.findAllByFollowerId(userId);
+        
+        return follows.stream()
+                .map(f -> new FollowedAuthorResponse(f.getAuthorId(), f.getCreatedAt()))
+                .toList();
     }
 }

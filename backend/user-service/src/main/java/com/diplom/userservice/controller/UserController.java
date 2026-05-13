@@ -5,17 +5,23 @@ import com.diplom.userservice.dto.LoginRequest;
 import com.diplom.userservice.dto.ProfileUpdateRequest;
 import com.diplom.userservice.dto.UserRegistrationRequest;
 import com.diplom.userservice.dto.UserResponse;
+import com.diplom.userservice.dto.UserBatchRequest;
+import com.diplom.userservice.dto.UserBatchResponse;
+import com.diplom.userservice.dto.FollowedAuthorResponse;
 import com.diplom.userservice.entity.User;
 import com.diplom.userservice.repository.UserRepository;
 import com.diplom.userservice.security.JwtService;
 import java.util.UUID;
+import java.util.List;
 import com.diplom.userservice.service.UserService;
+import com.diplom.userservice.service.SocialService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,6 +40,7 @@ public class UserController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final SocialService socialService;
 
     @PostMapping("/register")
     public ResponseEntity<UserResponse> register(@Valid @RequestBody UserRegistrationRequest request) {
@@ -60,5 +67,17 @@ public class UserController {
             @Valid @RequestBody ProfileUpdateRequest request) {
         userService.updateProfile(userDetails.getId(), request);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/batch")
+    public ResponseEntity<List<UserBatchResponse>> getBatchProfiles(@Valid @RequestBody UserBatchRequest request) {
+        List<UserBatchResponse> response = userService.getBatchProfiles(request.ids());
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{userId}/follows")
+    public ResponseEntity<List<FollowedAuthorResponse>> getFollowedAuthors(@PathVariable UUID userId) {
+        List<FollowedAuthorResponse> response = socialService.getFollowedAuthors(userId);
+        return ResponseEntity.ok(response);
     }
 }

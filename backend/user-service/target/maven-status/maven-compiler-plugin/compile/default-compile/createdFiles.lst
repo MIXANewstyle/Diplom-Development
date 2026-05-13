@@ -8,12 +8,15 @@ com\diplom\userservice\repository\UserRepository.class
 com\diplom\userservice\security\JsonAccessDeniedHandler.class
 com\diplom\userservice\repository\AuthorFollowRepository.class
 com\diplom\userservice\exception\SelfActionException.class
+com\diplom\userservice\dto\UserBatchRequest.class
 com\diplom\userservice\exception\InvalidFriendshipStateException.class
 com\diplom\userservice\controller\AdminModerationController.class
 com\diplom\userservice\dto\StatusUpdateRequest.class
 com\diplom\userservice\UserServiceApplication.class
 com\diplom\userservice\dto\UserRegistrationRequest.class
 com\diplom\userservice\outbox\OutboxPublisher.class
+com\diplom\userservice\dto\FollowedAuthorResponse.class
+com\diplom\userservice\dto\UserBatchResponse.class
 com\diplom\userservice\entity\FriendshipStatus.class
 com\diplom\userservice\service\SocialService.class
 com\diplom\userservice\entity\Friendship$FriendshipBuilder.class

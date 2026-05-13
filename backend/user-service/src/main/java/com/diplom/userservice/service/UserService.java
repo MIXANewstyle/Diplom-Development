@@ -2,6 +2,7 @@ package com.diplom.userservice.service;
 
 import com.diplom.userservice.dto.UserRegistrationRequest;
 import com.diplom.userservice.dto.UserResponse;
+import com.diplom.userservice.dto.UserBatchResponse;
 import com.diplom.userservice.entity.User;
 import com.diplom.userservice.entity.UserOutboxEvent;
 import com.diplom.userservice.entity.UserProfile;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -129,5 +131,14 @@ public class UserService {
         AccountModeratedEvent payloadDto = new AccountModeratedEvent(userId, statusId, OffsetDateTime.now());
         UserOutboxEvent event = outboxEventFactory.create(EventType.ACCOUNT_MODERATED, payloadDto);
         userOutboxEventRepository.save(event);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserBatchResponse> getBatchProfiles(List<UUID> ids) {
+        List<UUID> dedupedIds = ids.stream().distinct().toList();
+        List<UserProfile> profiles = userProfileRepository.findAllByUserIdIn(dedupedIds);
+        return profiles.stream()
+                .map(p -> new UserBatchResponse(p.getUser().getId(), p.getUsername(), p.getAvatarUrl()))
+                .toList();
     }
 }
