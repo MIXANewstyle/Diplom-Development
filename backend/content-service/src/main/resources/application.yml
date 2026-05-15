@@ -16,11 +16,15 @@ spring:
   flyway:
     schemas: content_schema
     default-schema: content_schema
+
   rabbitmq:
     host: localhost
     port: 5672
     username: guest
     password: guest
+
+jwt:
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
 
 logging:
   level:

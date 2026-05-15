@@ -13,12 +13,16 @@ import java.util.UUID;
 import com.diplom.userservice.entity.UserRole;
 import io.jsonwebtoken.Claims;
 
+import org.springframework.beans.factory.annotation.Value;
+
 @Service
 public class JwtService {
 
-    // Hardcoded secret key for local development (at least 256 bits)
-    private static final String SECRET_KEY = "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970";
-    private static final long EXPIRATION_TIME = 86400000; // 1 day in milliseconds
+    @Value("${jwt.secret}")
+    private String secretKey;
+
+    @Value("${jwt.expiration-hours}")
+    private long expirationHours;
 
     public String generateToken(UUID userId, String email, Integer roleId) {
         Map<String, Object> claims = new HashMap<>();
@@ -33,13 +37,13 @@ public class JwtService {
                 .setClaims(claims)
                 .setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
+                .setExpiration(new Date(System.currentTimeMillis() + (expirationHours * 3600000)))
                 .signWith(getSigninKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
     private Key getSigninKey() {
-        byte[] keyBytes = io.jsonwebtoken.io.Decoders.BASE64.decode(SECRET_KEY);
+        byte[] keyBytes = io.jsonwebtoken.io.Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 

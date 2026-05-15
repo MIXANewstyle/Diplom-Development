@@ -25,3 +25,23 @@ spring:
           uri: http://localhost:8081
           predicates:
             - Path=/api/v1/social/**
+        - id: content-service-posts
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/v1/posts/**
+        - id: content-service-feed
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/v1/feed
+        - id: content-service-tags
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/v1/tags/**
+        - id: content-service-comments
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/v1/comments/**
+        - id: content-service-authors-posts
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/v1/authors/*/posts
