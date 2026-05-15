@@ -63,6 +63,34 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
     }
 
+    @ExceptionHandler(TagNotFoundException.class)
+    public ResponseEntity<Object> handleTagNotFoundException(TagNotFoundException ex) {
+        log.warn("TagNotFoundException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(PostNotFoundException.class)
+    public ResponseEntity<Object> handlePostNotFoundException(PostNotFoundException ex) {
+        log.warn("PostNotFoundException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(TagAlreadyExistsException.class)
+    public ResponseEntity<Object> handleTagAlreadyExistsException(TagAlreadyExistsException ex) {
+        log.warn("TagAlreadyExistsException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(TagInUseException.class)
+    public ResponseEntity<Object> handleTagInUseException(TagInUseException ex) {
+        log.warn("TagInUseException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> handleIllegalArgumentException(IllegalArgumentException ex) {
         log.warn("IllegalArgumentException: {}", ex.getMessage());
