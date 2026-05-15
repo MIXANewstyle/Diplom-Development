@@ -91,6 +91,34 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(body, HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(NotPostAuthorException.class)
+    public ResponseEntity<Object> handleNotPostAuthorException(NotPostAuthorException ex) {
+        log.warn("NotPostAuthorException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(InvalidPostStateException.class)
+    public ResponseEntity<Object> handleInvalidPostStateException(InvalidPostStateException ex) {
+        log.warn("InvalidPostStateException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(InvalidPublicationException.class)
+    public ResponseEntity<Object> handleInvalidPublicationException(InvalidPublicationException ex) {
+        log.warn("InvalidPublicationException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    @ExceptionHandler(InvalidTagReferenceException.class)
+    public ResponseEntity<Object> handleInvalidTagReferenceException(InvalidTagReferenceException ex) {
+        log.warn("InvalidTagReferenceException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> handleIllegalArgumentException(IllegalArgumentException ex) {
         log.warn("IllegalArgumentException: {}", ex.getMessage());
