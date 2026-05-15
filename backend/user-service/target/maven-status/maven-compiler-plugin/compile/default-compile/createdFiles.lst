@@ -2,7 +2,6 @@ com\diplom\userservice\controller\UserController.class
 com\diplom\userservice\entity\UserProfile$UserProfileBuilder.class
 com\diplom\userservice\dto\RoleUpdateRequest.class
 com\diplom\userservice\exception\GlobalExceptionHandler.class
-com\diplom\userservice\TestRunner.class
 com\diplom\userservice\exception\NotFollowingException.class
 com\diplom\userservice\repository\UserRepository.class
 com\diplom\userservice\security\JsonAccessDeniedHandler.class

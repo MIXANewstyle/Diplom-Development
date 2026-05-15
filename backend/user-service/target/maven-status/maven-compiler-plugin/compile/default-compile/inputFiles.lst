@@ -25,7 +25,6 @@ E:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java
 E:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\exception\FriendshipAlreadyExistsException.java
 E:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\event\UserRegisteredEvent.java
 E:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\repository\UserProfileRepository.java
-E:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\TestRunner.java
 E:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\outbox\OutboxPublisher.java
 E:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\config\RabbitMQConfig.java
 E:\Unik\Diplom Development\Diplom-Development\backend\user-service\src\main\java\com\diplom\userservice\controller\SocialController.java

@@ -1,0 +1,11 @@
+com\diplom\contentservice\config\RabbitMQConfig.class
+com\diplom\contentservice\entity\Post$PostBuilder.class
+com\diplom\contentservice\entity\PostStatus.class
+com\diplom\contentservice\entity\Post.class
+com\diplom\contentservice\outbox\OutboxEventFactory.class
+com\diplom\contentservice\outbox\OutboxPublisher.class
+com\diplom\contentservice\event\EventType.class
+com\diplom\contentservice\entity\ContentOutboxEvent.class
+com\diplom\contentservice\ContentServiceApplication.class
+com\diplom\contentservice\repository\ContentOutboxEventRepository.class
+com\diplom\contentservice\entity\ContentOutboxEvent$ContentOutboxEventBuilder.class
