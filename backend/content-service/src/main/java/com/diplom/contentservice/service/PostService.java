@@ -3,6 +3,7 @@ package com.diplom.contentservice.service;
 import com.diplom.contentservice.dto.PostCreateRequest;
 import com.diplom.contentservice.dto.PostResponse;
 import com.diplom.contentservice.dto.PostUpdateRequest;
+import com.diplom.contentservice.dto.UserBatchResponse;
 import com.diplom.contentservice.entity.ContentOutboxEvent;
 import com.diplom.contentservice.entity.Post;
 import com.diplom.contentservice.entity.PostStatus;
@@ -28,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -41,6 +43,7 @@ public class PostService {
     private final PostMapper postMapper;
     private final OutboxEventFactory outboxEventFactory;
     private final ContentOutboxEventRepository outboxEventRepository;
+    private final ProfileCacheService profileCacheService;
 
     @Transactional
     public PostResponse createDraft(PostCreateRequest request, UUID authorId) {
@@ -58,7 +61,8 @@ public class PostService {
                 .build();
 
         post = postRepository.save(post);
-        return postMapper.toResponse(post);
+        Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(Set.of(post.getAuthorId()));
+        return postMapper.toResponse(post, profiles.get(post.getAuthorId()));
     }
 
     @Transactional(readOnly = true)
@@ -90,7 +94,8 @@ public class PostService {
             }
         }
 
-        return postMapper.toResponse(post);
+        Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(Set.of(post.getAuthorId()));
+        return postMapper.toResponse(post, profiles.get(post.getAuthorId()));
     }
 
     @Transactional
@@ -129,7 +134,8 @@ public class PostService {
         }
 
         post = postRepository.save(post);
-        return postMapper.toResponse(post);
+        Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(Set.of(post.getAuthorId()));
+        return postMapper.toResponse(post, profiles.get(post.getAuthorId()));
     }
 
     @Transactional
@@ -193,7 +199,8 @@ public class PostService {
         ContentOutboxEvent event = outboxEventFactory.create(EventType.POST_PUBLISHED, payload);
         outboxEventRepository.save(event);
 
-        return postMapper.toResponse(post);
+        Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(Set.of(post.getAuthorId()));
+        return postMapper.toResponse(post, profiles.get(post.getAuthorId()));
     }
 
     @Transactional
@@ -221,7 +228,8 @@ public class PostService {
         ContentOutboxEvent event = outboxEventFactory.create(EventType.POST_ARCHIVED, payload);
         outboxEventRepository.save(event);
 
-        return postMapper.toResponse(post);
+        Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(Set.of(post.getAuthorId()));
+        return postMapper.toResponse(post, profiles.get(post.getAuthorId()));
     }
 
     private Set<Tag> resolveTagsOrThrow(Set<UUID> ids) {

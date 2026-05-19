@@ -4,6 +4,7 @@ import com.diplom.contentservice.dto.CommentCreateRequest;
 import com.diplom.contentservice.dto.CommentPageResponse;
 import com.diplom.contentservice.dto.CommentResponse;
 import com.diplom.contentservice.dto.CommentUpdateRequest;
+import com.diplom.contentservice.dto.UserBatchResponse;
 import com.diplom.contentservice.entity.Comment;
 import com.diplom.contentservice.entity.ContentOutboxEvent;
 import com.diplom.contentservice.entity.Post;
@@ -36,6 +37,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -64,6 +66,7 @@ public class CommentService {
     private final CommentMapper commentMapper;
     private final OutboxEventFactory outboxEventFactory;
     private final ContentOutboxEventRepository outboxEventRepository;
+    private final ProfileCacheService profileCacheService;
 
     @Transactional
     public CommentResponse createComment(UUID postId, CommentCreateRequest request, UUID currentUserId) {
@@ -113,7 +116,8 @@ public class CommentService {
         outboxEventRepository.save(event);
 
         Long repliesCount = comment.getParentId() == null ? 0L : null;
-        return commentMapper.toResponse(comment, repliesCount);
+        Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(Set.of(comment.getAuthorId()));
+        return commentMapper.toResponse(comment, repliesCount, profiles.get(comment.getAuthorId()));
     }
 
     @Transactional(readOnly = true)
@@ -143,8 +147,11 @@ public class CommentService {
                             RepliesCountProjection::getParentId,
                             RepliesCountProjection::getCnt));
 
+        Set<UUID> authorIds = result.stream().map(Comment::getAuthorId).collect(Collectors.toSet());
+        Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(authorIds);
+
         List<CommentResponse> items = result.stream()
-                .map(c -> commentMapper.toResponse(c, counts.getOrDefault(c.getId(), 0L)))
+                .map(c -> commentMapper.toResponse(c, counts.getOrDefault(c.getId(), 0L), profiles.get(c.getAuthorId())))
                 .toList();
 
         String nextCursor = null;
@@ -178,8 +185,11 @@ public class CommentService {
             result = result.subList(0, limit);
         }
 
+        Set<UUID> authorIds = result.stream().map(Comment::getAuthorId).collect(Collectors.toSet());
+        Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(authorIds);
+
         List<CommentResponse> items = result.stream()
-                .map(c -> commentMapper.toResponse(c, null))
+                .map(c -> commentMapper.toResponse(c, null, profiles.get(c.getAuthorId())))
                 .toList();
 
         String nextCursor = null;
@@ -214,7 +224,9 @@ public class CommentService {
         Long repliesCount = comment.getParentId() == null
                 ? commentRepository.countByParentId(comment.getId())
                 : null;
-        return commentMapper.toResponse(comment, repliesCount);
+        
+        Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(Set.of(comment.getAuthorId()));
+        return commentMapper.toResponse(comment, repliesCount, profiles.get(comment.getAuthorId()));
     }
 
     @Transactional

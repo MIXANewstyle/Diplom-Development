@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: content-service
+  data:
+    redis:
+      host: localhost
+      port: 6379
   datasource:
     url: jdbc:postgresql://localhost:5433/diplom_db
     username: admin
@@ -25,6 +29,9 @@ spring:
 
 jwt:
   secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+
+user-service:
+  base-url: http://localhost:8081
 
 logging:
   level:

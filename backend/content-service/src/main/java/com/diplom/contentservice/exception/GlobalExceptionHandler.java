@@ -175,6 +175,13 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(UserServiceUnavailableException.class)
+    public ResponseEntity<Object> handleUserServiceUnavailableException(UserServiceUnavailableException ex) {
+        log.error("UserServiceUnavailableException: {}", ex.getMessage(), ex);
+        Map<String, Object> body = createBody(HttpStatus.SERVICE_UNAVAILABLE, "Service Unavailable", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Object> handleAllUncaughtException(Exception ex) {
         log.error("Unknown exception occurred: ", ex);

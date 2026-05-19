@@ -7,6 +7,8 @@ public record CommentResponse(
     UUID id,
     UUID postId,
     UUID authorId,
+    String authorUsername,
+    String authorAvatarUrl,
     UUID parentId,
     String content,
     boolean deleted,
