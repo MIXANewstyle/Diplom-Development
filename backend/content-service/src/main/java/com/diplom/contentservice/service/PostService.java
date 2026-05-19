@@ -1,5 +1,6 @@
 package com.diplom.contentservice.service;
 
+import com.diplom.contentservice.dto.CounterDeltas;
 import com.diplom.contentservice.dto.PostCreateRequest;
 import com.diplom.contentservice.dto.PostResponse;
 import com.diplom.contentservice.dto.PostUpdateRequest;
@@ -41,6 +42,7 @@ public class PostService {
     private final PostRepository postRepository;
     private final TagRepository tagRepository;
     private final PostMapper postMapper;
+    private final CounterService counterService;
     private final OutboxEventFactory outboxEventFactory;
     private final ContentOutboxEventRepository outboxEventRepository;
     private final ProfileCacheService profileCacheService;
@@ -62,7 +64,8 @@ public class PostService {
 
         post = postRepository.save(post);
         Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(Set.of(post.getAuthorId()));
-        return postMapper.toResponse(post, profiles.get(post.getAuthorId()));
+        CounterDeltas deltas = counterService.getDeltas(post.getId());
+        return postMapper.toResponse(post, profiles.get(post.getAuthorId()), deltas);
     }
 
     @Transactional(readOnly = true)
@@ -70,32 +73,12 @@ public class PostService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new PostNotFoundException("Post not found: " + postId));
 
-        PostStatus status = PostStatus.fromId(post.getStatusId());
-        boolean isAuthor = post.getAuthorId().equals(currentUserId);
-        boolean isAdmin = "ADMIN".equals(currentUserRole);
+        assertVisible(post, postId, currentUserId, currentUserRole);
 
-        switch (status) {
-            case PUBLISHED -> {
-                if (!isAuthor && !isAdmin) {
-                    if (!isSubscribedRole(currentUserRole)) {
-                        throw new AccessDeniedException("Access denied");
-                    }
-                }
-            }
-            case DRAFT, ARCHIVED -> {
-                if (!isAuthor && !isAdmin) {
-                    throw new PostNotFoundException("Post not found: " + postId);
-                }
-            }
-            case MODERATED -> {
-                if (!isAdmin) {
-                    throw new PostNotFoundException("Post not found: " + postId);
-                }
-            }
-        }
-
+        counterService.incrementViews(postId);
+        CounterDeltas deltas = counterService.getDeltas(postId);
         Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(Set.of(post.getAuthorId()));
-        return postMapper.toResponse(post, profiles.get(post.getAuthorId()));
+        return postMapper.toResponse(post, profiles.get(post.getAuthorId()), deltas);
     }
 
     @Transactional
@@ -135,7 +118,8 @@ public class PostService {
 
         post = postRepository.save(post);
         Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(Set.of(post.getAuthorId()));
-        return postMapper.toResponse(post, profiles.get(post.getAuthorId()));
+        CounterDeltas deltas = counterService.getDeltas(post.getId());
+        return postMapper.toResponse(post, profiles.get(post.getAuthorId()), deltas);
     }
 
     @Transactional
@@ -172,7 +156,6 @@ public class PostService {
             throw new InvalidPostStateException("Moderated posts cannot be published by the author");
         }
 
-        // Pre-publish validation
         if (post.getTitle() == null || post.getTitle().isBlank()) {
             throw new InvalidPublicationException("Cannot publish: title is empty");
         }
@@ -200,7 +183,8 @@ public class PostService {
         outboxEventRepository.save(event);
 
         Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(Set.of(post.getAuthorId()));
-        return postMapper.toResponse(post, profiles.get(post.getAuthorId()));
+        CounterDeltas deltas = counterService.getDeltas(post.getId());
+        return postMapper.toResponse(post, profiles.get(post.getAuthorId()), deltas);
     }
 
     @Transactional
@@ -229,7 +213,32 @@ public class PostService {
         outboxEventRepository.save(event);
 
         Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(Set.of(post.getAuthorId()));
-        return postMapper.toResponse(post, profiles.get(post.getAuthorId()));
+        CounterDeltas deltas = counterService.getDeltas(post.getId());
+        return postMapper.toResponse(post, profiles.get(post.getAuthorId()), deltas);
+    }
+
+    private void assertVisible(Post post, UUID postId, UUID currentUserId, String currentUserRole) {
+        PostStatus status = PostStatus.fromId(post.getStatusId());
+        boolean isAuthor = post.getAuthorId().equals(currentUserId);
+        boolean isAdmin = "ADMIN".equals(currentUserRole);
+
+        switch (status) {
+            case PUBLISHED -> {
+                if (!isAuthor && !isAdmin && !isSubscribedRole(currentUserRole)) {
+                    throw new AccessDeniedException("Access denied");
+                }
+            }
+            case DRAFT, ARCHIVED -> {
+                if (!isAuthor && !isAdmin) {
+                    throw new PostNotFoundException("Post not found: " + postId);
+                }
+            }
+            case MODERATED -> {
+                if (!isAdmin) {
+                    throw new PostNotFoundException("Post not found: " + postId);
+                }
+            }
+        }
     }
 
     private Set<Tag> resolveTagsOrThrow(Set<UUID> ids) {

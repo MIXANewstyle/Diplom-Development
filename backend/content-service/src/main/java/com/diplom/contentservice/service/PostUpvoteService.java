@@ -24,6 +24,7 @@ public class PostUpvoteService {
 
     private final PostRepository postRepository;
     private final PostUpvoteRepository upvoteRepository;
+    private final CounterService counterService;
 
     @Transactional
     public UpvoteResponse toggleUpvote(UUID postId, UUID currentUserId) {
@@ -43,16 +44,16 @@ public class PostUpvoteService {
 
         if (wasUpvoted) {
             upvoteRepository.deleteById(id);
-            post.setUpvotesCount(Math.max(0, post.getUpvotesCount() - 1));
+            counterService.decrementUpvotes(postId);
         } else {
             upvoteRepository.save(PostUpvote.builder()
                     .postId(postId)
                     .userId(currentUserId)
                     .build());
-            post.setUpvotesCount(post.getUpvotesCount() + 1);
+            counterService.incrementUpvotes(postId);
         }
 
-        postRepository.save(post);
-        return new UpvoteResponse(!wasUpvoted, post.getUpvotesCount());
+        long mergedUpvotes = post.getUpvotesCount() + counterService.getDeltas(postId).upvotes();
+        return new UpvoteResponse(!wasUpvoted, (int) Math.max(0, mergedUpvotes));
     }
 }

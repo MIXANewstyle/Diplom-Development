@@ -63,6 +63,7 @@ public class CommentService {
 
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
+    private final CounterService counterService;
     private final CommentMapper commentMapper;
     private final OutboxEventFactory outboxEventFactory;
     private final ContentOutboxEventRepository outboxEventRepository;
@@ -102,8 +103,7 @@ public class CommentService {
 
         comment = commentRepository.saveAndFlush(comment);
 
-        post.setCommentsCount(post.getCommentsCount() + 1);
-        postRepository.save(post);
+        counterService.incrementComments(postId);
 
         CommentCreatedEvent payload = new CommentCreatedEvent(
                 comment.getId(),
@@ -245,10 +245,7 @@ public class CommentService {
         comment.setIsDeleted(true);
         commentRepository.save(comment);
 
-        Post post = postRepository.findById(comment.getPostId())
-                .orElseThrow(() -> new PostNotFoundException("Post not found: " + comment.getPostId()));
-        post.setCommentsCount(Math.max(0, post.getCommentsCount() - 1));
-        postRepository.save(post);
+        counterService.decrementComments(comment.getPostId());
     }
 
     private int clampPageSize(Integer pageSize) {
