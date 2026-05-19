@@ -3,8 +3,10 @@ package com.diplom.contentservice.controller;
 import com.diplom.contentservice.dto.PostCreateRequest;
 import com.diplom.contentservice.dto.PostResponse;
 import com.diplom.contentservice.dto.PostUpdateRequest;
+import com.diplom.contentservice.dto.UpvoteResponse;
 import com.diplom.contentservice.security.CustomUserDetails;
 import com.diplom.contentservice.service.PostService;
+import com.diplom.contentservice.service.PostUpvoteService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,6 +30,7 @@ import java.util.UUID;
 public class PostController {
 
     private final PostService postService;
+    private final PostUpvoteService postUpvoteService;
 
     @PostMapping
     @PreAuthorize("hasRole('AUTHOR')")
@@ -87,5 +90,14 @@ public class PostController {
     ) {
         PostResponse response = postService.archivePost(postId, user.getId());
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{postId}/upvote")
+    @PreAuthorize("hasRole('BASIC')")
+    public ResponseEntity<UpvoteResponse> toggleUpvote(
+        @AuthenticationPrincipal CustomUserDetails user,
+        @PathVariable UUID postId
+    ) {
+        return ResponseEntity.ok(postUpvoteService.toggleUpvote(postId, user.getId()));
     }
 }

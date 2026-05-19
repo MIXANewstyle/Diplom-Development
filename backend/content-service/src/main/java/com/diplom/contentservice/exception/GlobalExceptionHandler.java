@@ -168,6 +168,13 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(body, HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
+    @ExceptionHandler(SelfUpvoteException.class)
+    public ResponseEntity<Object> handleSelfUpvoteException(SelfUpvoteException ex) {
+        log.warn("SelfUpvoteException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Object> handleAllUncaughtException(Exception ex) {
         log.error("Unknown exception occurred: ", ex);
