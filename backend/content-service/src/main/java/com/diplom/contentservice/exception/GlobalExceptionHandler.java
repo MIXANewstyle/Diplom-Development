@@ -126,6 +126,48 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(CommentNotFoundException.class)
+    public ResponseEntity<Object> handleCommentNotFoundException(CommentNotFoundException ex) {
+        log.warn("CommentNotFoundException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(NotCommentAuthorException.class)
+    public ResponseEntity<Object> handleNotCommentAuthorException(NotCommentAuthorException ex) {
+        log.warn("NotCommentAuthorException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(InvalidCommentStateException.class)
+    public ResponseEntity<Object> handleInvalidCommentStateException(InvalidCommentStateException ex) {
+        log.warn("InvalidCommentStateException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(CommentEditWindowExpiredException.class)
+    public ResponseEntity<Object> handleCommentEditWindowExpiredException(CommentEditWindowExpiredException ex) {
+        log.warn("CommentEditWindowExpiredException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(ReplyToReplyException.class)
+    public ResponseEntity<Object> handleReplyToReplyException(ReplyToReplyException ex) {
+        log.warn("ReplyToReplyException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    @ExceptionHandler(InvalidCommentParentException.class)
+    public ResponseEntity<Object> handleInvalidCommentParentException(InvalidCommentParentException ex) {
+        log.warn("InvalidCommentParentException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Object> handleAllUncaughtException(Exception ex) {
         log.error("Unknown exception occurred: ", ex);
