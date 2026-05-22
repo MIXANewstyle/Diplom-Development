@@ -1,5 +1,6 @@
 package com.diplom.contentservice.client;
 
+import com.diplom.contentservice.dto.FollowedAuthorResponse;
 import com.diplom.contentservice.dto.UserBatchResponse;
 import com.diplom.contentservice.exception.UserServiceUnavailableException;
 import com.diplom.contentservice.security.TokenExtractor;
@@ -42,6 +43,28 @@ public class UserServiceClient {
             .build();
         this.tokenExtractor = tokenExtractor;
         this.baseUrl = baseUrl;
+    }
+
+    public List<FollowedAuthorResponse> getFollowedAuthors(UUID userId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.AUTHORIZATION, tokenExtractor.currentBearerHeader());
+        HttpEntity<Void> request = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<FollowedAuthorResponse[]> response = restTemplate.exchange(
+                baseUrl + "/api/v1/users/" + userId + "/follows",
+                HttpMethod.GET,
+                request,
+                FollowedAuthorResponse[].class
+            );
+            FollowedAuthorResponse[] arr = response.getBody();
+            return arr == null ? List.of() : Arrays.asList(arr);
+        } catch (RestClientException ex) {
+            log.error("Failed to fetch follows for userId={} from user-service",
+                userId, ex);
+            throw new UserServiceUnavailableException(
+                "User-service is currently unavailable");
+        }
     }
 
     public List<UserBatchResponse> batchGetProfiles(Collection<UUID> ids) {

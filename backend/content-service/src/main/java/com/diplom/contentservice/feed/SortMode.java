@@ -3,8 +3,8 @@ package com.diplom.contentservice.feed;
 public enum SortMode {
     NEWEST,
     MOST_LIKED,
-    MOST_COMMENTED;
-    // FOLLOWING — Phase 6.2
+    MOST_COMMENTED,
+    FOLLOWING;
 
     public static SortMode fromQueryParam(String s) {
         if (s == null || s.isBlank()) return NEWEST;

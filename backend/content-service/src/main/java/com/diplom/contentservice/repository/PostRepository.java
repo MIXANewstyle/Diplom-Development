@@ -100,4 +100,29 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
         @Param("tagCount") int tagCount,
         @Param("limit") int limit
     );
+
+    @Query(value = """
+        SELECT * FROM content_schema.posts p
+        WHERE p.status_id = 2
+          AND p.author_id = ANY(CAST(:authorIds AS uuid[]))
+          AND ( CAST(:cursorPublishedAt AS timestamptz) IS NULL
+                OR p.published_at < CAST(:cursorPublishedAt AS timestamptz)
+                OR (p.published_at = CAST(:cursorPublishedAt AS timestamptz) AND p.id < CAST(:cursorId AS uuid)) )
+          AND ( :tagCount = 0 OR p.id IN (
+                  SELECT pt.post_id FROM content_schema.post_tags pt
+                  WHERE pt.tag_id = ANY(CAST(:tagIds AS uuid[]))
+                  GROUP BY pt.post_id
+                  HAVING COUNT(DISTINCT pt.tag_id) = :tagCount
+                ) )
+        ORDER BY p.published_at DESC, p.id DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<Post> feedFollowing(
+        @Param("authorIds") String[] authorIds,
+        @Param("cursorPublishedAt") OffsetDateTime cursorPublishedAt,
+        @Param("cursorId") UUID cursorId,
+        @Param("tagIds") String[] tagIds,
+        @Param("tagCount") int tagCount,
+        @Param("limit") int limit
+    );
 }

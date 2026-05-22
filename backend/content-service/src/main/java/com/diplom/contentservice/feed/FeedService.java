@@ -7,6 +7,7 @@ import com.diplom.contentservice.dto.UserBatchResponse;
 import com.diplom.contentservice.entity.Post;
 import com.diplom.contentservice.repository.PostRepository;
 import com.diplom.contentservice.service.CounterService;
+import com.diplom.contentservice.service.FollowsCacheService;
 import com.diplom.contentservice.service.PostMapper;
 import com.diplom.contentservice.service.ProfileCacheService;
 import lombok.RequiredArgsConstructor;
@@ -33,13 +34,15 @@ public class FeedService {
     private final ProfileCacheService profileCacheService;
     private final CounterService counterService;
     private final PostMapper postMapper;
+    private final FollowsCacheService followsCacheService;
 
     @Transactional(readOnly = true)
     public FeedPageResponse getFeed(
         SortMode sort,
         String cursor,
         Integer pageSize,
-        List<UUID> tagIds
+        List<UUID> tagIds,
+        UUID currentUserId
     ) {
         int effectiveSize = clampPageSize(pageSize);
         int fetchLimit = (int) Math.ceil(effectiveSize * OVERFETCH_FACTOR) + 1;
@@ -71,6 +74,19 @@ public class FeedService {
                 c == null ? null : c.publishedAt(),
                 c == null ? null : c.id(),
                 tagIdArr, tagCount, fetchLimit);
+            case FOLLOWING -> {
+                List<UUID> followedAuthorIds = followsCacheService.getFollowedAuthorIds(currentUserId);
+                if (followedAuthorIds.isEmpty()) {
+                    yield List.of();
+                }
+                String[] authorIdArr = followedAuthorIds.stream()
+                    .map(UUID::toString).toArray(String[]::new);
+                yield postRepository.feedFollowing(
+                    authorIdArr,
+                    c == null ? null : c.publishedAt(),
+                    c == null ? null : c.id(),
+                    tagIdArr, tagCount, fetchLimit);
+            }
         };
 
         // TODO Phase 7: apply moderation blocklist filtering here.
@@ -101,7 +117,7 @@ public class FeedService {
         if (hasMore) {
             Post last = filtered.get(filtered.size() - 1);
             Long sortValue = switch (sort) {
-                case NEWEST -> null;
+                case NEWEST, FOLLOWING -> null;
                 case MOST_LIKED -> last.getUpvotesCount().longValue();
                 case MOST_COMMENTED -> last.getCommentsCount().longValue();
             };
