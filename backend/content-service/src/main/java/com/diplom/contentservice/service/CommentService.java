@@ -68,6 +68,7 @@ public class CommentService {
     private final OutboxEventFactory outboxEventFactory;
     private final ContentOutboxEventRepository outboxEventRepository;
     private final ProfileCacheService profileCacheService;
+    private final ModerationBlocklistService moderationBlocklistService;
 
     @Transactional
     public CommentResponse createComment(UUID postId, CommentCreateRequest request, UUID currentUserId) {
@@ -76,6 +77,10 @@ public class CommentService {
 
         if (post.getStatusId() != PostStatus.PUBLISHED.getId()) {
             throw new InvalidPostStateException("Comments can only be added to published posts");
+        }
+
+        if (moderationBlocklistService.isBlocked(post.getAuthorId())) {
+            throw new PostNotFoundException("Post not found");
         }
 
         if (request.parentId() != null) {

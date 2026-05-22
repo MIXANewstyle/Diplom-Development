@@ -47,6 +47,13 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Binding accountModeratedBinding(Queue userEventsQueue, TopicExchange userEventsExchange) {
+        return BindingBuilder.bind(userEventsQueue)
+            .to(userEventsExchange)
+            .with("user.account-moderated");
+    }
+
+    @Bean
     public Jackson2JsonMessageConverter messageConverter() {
         return new Jackson2JsonMessageConverter();
     }

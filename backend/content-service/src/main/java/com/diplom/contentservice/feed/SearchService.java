@@ -8,6 +8,7 @@ import com.diplom.contentservice.entity.Post;
 import com.diplom.contentservice.repository.PostRepository;
 import com.diplom.contentservice.repository.PostSearchHit;
 import com.diplom.contentservice.service.CounterService;
+import com.diplom.contentservice.service.ModerationBlocklistService;
 import com.diplom.contentservice.service.PostMapper;
 import com.diplom.contentservice.service.ProfileCacheService;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,7 @@ public class SearchService {
     private final ProfileCacheService profileCacheService;
     private final CounterService counterService;
     private final PostMapper postMapper;
+    private final ModerationBlocklistService moderationBlocklistService;
 
     @Transactional(readOnly = true)
     public FeedPageResponse search(
@@ -96,25 +98,36 @@ public class SearchService {
             return new FeedPageResponse(List.of(), null);
         }
 
-        boolean hasMore = hits.size() > effectiveSize;
-        if (hasMore) hits = hits.subList(0, effectiveSize);
-
-        // Collect ordered IDs and scores
-        List<UUID> orderedIds = hits.stream().map(PostSearchHit::getPostId).toList();
+        // Collect all IDs and scores from hits
+        List<UUID> allHitIds = hits.stream().map(PostSearchHit::getPostId).toList();
         Map<UUID, Double> scoreMap = hits.stream()
             .collect(Collectors.toMap(PostSearchHit::getPostId, PostSearchHit::getScore,
                 (a, b) -> a, LinkedHashMap::new));
 
         // Fetch full Post entities by IDs
-        List<Post> posts = postRepository.findAllById(orderedIds);
+        List<Post> posts = postRepository.findAllById(allHitIds);
 
         // Re-sort to preserve search ranking order
         Map<UUID, Post> postMap = posts.stream()
             .collect(Collectors.toMap(Post::getId, p -> p));
-        List<Post> ordered = orderedIds.stream()
+        List<Post> ordered = allHitIds.stream()
             .map(postMap::get)
             .filter(p -> p != null)
             .toList();
+
+        if (!ordered.isEmpty()) {
+            Set<UUID> distinctAuthors = ordered.stream()
+                .map(Post::getAuthorId).collect(Collectors.toSet());
+            Set<UUID> blocked = moderationBlocklistService.getBlockedFrom(distinctAuthors);
+            if (!blocked.isEmpty()) {
+                ordered = ordered.stream()
+                    .filter(p -> !blocked.contains(p.getAuthorId()))
+                    .toList();
+            }
+        }
+
+        boolean hasMore = ordered.size() > effectiveSize;
+        if (hasMore) ordered = ordered.subList(0, effectiveSize);
 
         if (ordered.isEmpty()) {
             return new FeedPageResponse(List.of(), null);

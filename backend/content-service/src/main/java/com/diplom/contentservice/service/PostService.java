@@ -46,6 +46,7 @@ public class PostService {
     private final OutboxEventFactory outboxEventFactory;
     private final ContentOutboxEventRepository outboxEventRepository;
     private final ProfileCacheService profileCacheService;
+    private final ModerationBlocklistService moderationBlocklistService;
 
     @Transactional
     public PostResponse createDraft(PostCreateRequest request, UUID authorId) {
@@ -238,6 +239,10 @@ public class PostService {
                     throw new PostNotFoundException("Post not found: " + postId);
                 }
             }
+        }
+
+        if (!isAdmin && moderationBlocklistService.isBlocked(post.getAuthorId())) {
+            throw new PostNotFoundException("Post not found");
         }
     }
 

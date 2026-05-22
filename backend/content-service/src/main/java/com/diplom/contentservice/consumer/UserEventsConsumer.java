@@ -2,6 +2,7 @@ package com.diplom.contentservice.consumer;
 
 import com.diplom.contentservice.config.RabbitMQConfig;
 import com.diplom.contentservice.service.FollowsCacheService;
+import com.diplom.contentservice.service.ModerationBlocklistService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,9 +18,10 @@ import java.util.UUID;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class FollowEventConsumer {
+public class UserEventsConsumer {
 
     private final FollowsCacheService followsCacheService;
+    private final ModerationBlocklistService moderationBlocklistService;
     private final ObjectMapper objectMapper;
 
     @RabbitListener(queues = RabbitMQConfig.USER_EVENTS_QUEUE)
@@ -33,13 +35,17 @@ public class FollowEventConsumer {
                     UUID followerId = extractFollowerId(json);
                     followsCacheService.invalidate(followerId);
                 }
-                default -> log.warn("Unhandled routing key on user-events queue: {}", routingKey);
+                case "user.account-moderated" -> {
+                    handleAccountModerated(json);
+                }
+                default -> {
+                    log.warn("Unhandled routing key on user-events queue: {}", routingKey);
+                }
             }
         } catch (Exception ex) {
-            // Swallow — a single bad message must not nack/requeue forever.
-            // The 5-min TTL on the cache acts as a safety net for missed invalidations.
             log.error("Failed to handle event routingKey={} payload={}",
                 routingKey, json, ex);
+            // Swallow — see Phase 6.2 rationale.
         }
     }
 
@@ -50,5 +56,22 @@ public class FollowEventConsumer {
             throw new IllegalArgumentException("Payload missing followerId");
         }
         return UUID.fromString(field.asText());
+    }
+
+    private void handleAccountModerated(String json) throws JsonProcessingException {
+        // Payload from user-service AccountModeratedEvent:
+        //   { "userId": "...", "statusId": 1|2|3, "occurredAt": "..." }
+        JsonNode node = objectMapper.readTree(json);
+
+        UUID userId = UUID.fromString(node.get("userId").asText());
+        int statusId = node.get("statusId").asInt();
+
+        // user_statuses dictionary: 1=ACTIVE, 2=BANNED, 3=DELETED
+        switch (statusId) {
+            case 2, 3 -> moderationBlocklistService.addToBlocklist(userId);
+            case 1    -> moderationBlocklistService.removeFromBlocklist(userId);
+            default   -> log.warn("Unknown status_id {} in ACCOUNT_MODERATED for {}",
+                            statusId, userId);
+        }
     }
 }

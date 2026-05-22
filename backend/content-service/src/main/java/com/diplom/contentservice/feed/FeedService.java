@@ -8,6 +8,7 @@ import com.diplom.contentservice.entity.Post;
 import com.diplom.contentservice.repository.PostRepository;
 import com.diplom.contentservice.service.CounterService;
 import com.diplom.contentservice.service.FollowsCacheService;
+import com.diplom.contentservice.service.ModerationBlocklistService;
 import com.diplom.contentservice.service.PostMapper;
 import com.diplom.contentservice.service.ProfileCacheService;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ public class FeedService {
     private final CounterService counterService;
     private final PostMapper postMapper;
     private final FollowsCacheService followsCacheService;
+    private final ModerationBlocklistService moderationBlocklistService;
 
     @Transactional(readOnly = true)
     public FeedPageResponse getFeed(
@@ -89,9 +91,17 @@ public class FeedService {
             }
         };
 
-        // TODO Phase 7: apply moderation blocklist filtering here.
-        // For now, the overfetched results pass through unfiltered.
         List<Post> filtered = fetched;
+        if (!filtered.isEmpty()) {
+            Set<UUID> distinctAuthors = filtered.stream()
+                .map(Post::getAuthorId).collect(Collectors.toSet());
+            Set<UUID> blocked = moderationBlocklistService.getBlockedFrom(distinctAuthors);
+            if (!blocked.isEmpty()) {
+                filtered = filtered.stream()
+                    .filter(p -> !blocked.contains(p.getAuthorId()))
+                    .toList();
+            }
+        }
 
         boolean hasMore = filtered.size() > effectiveSize;
         if (hasMore) filtered = filtered.subList(0, effectiveSize);
@@ -155,6 +165,17 @@ public class FeedService {
             c == null ? null : c.id(),
             tagIdArr, tagCount, fetchLimit
         );
+
+        if (!fetched.isEmpty()) {
+            Set<UUID> distinctAuthors = fetched.stream()
+                .map(Post::getAuthorId).collect(Collectors.toSet());
+            Set<UUID> blocked = moderationBlocklistService.getBlockedFrom(distinctAuthors);
+            if (!blocked.isEmpty()) {
+                fetched = fetched.stream()
+                    .filter(p -> !blocked.contains(p.getAuthorId()))
+                    .toList();
+            }
+        }
 
         boolean hasMore = fetched.size() > effectiveSize;
         if (hasMore) fetched = fetched.subList(0, effectiveSize);
