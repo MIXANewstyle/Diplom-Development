@@ -127,6 +127,60 @@ public class FeedService {
         return new FeedPageResponse(items, nextCursor);
     }
 
+    @Transactional(readOnly = true)
+    public FeedPageResponse getAuthorPosts(
+        UUID authorId,
+        String cursor,
+        Integer pageSize,
+        List<UUID> tagIds
+    ) {
+        int effectiveSize = clampPageSize(pageSize);
+        int fetchLimit = (int) Math.ceil(effectiveSize * OVERFETCH_FACTOR) + 1;
+
+        FeedCursor c = FeedCursor.decode(cursor);
+
+        String[] tagIdArr;
+        int tagCount;
+        if (tagIds == null || tagIds.isEmpty()) {
+            tagIdArr = new String[0];
+            tagCount = 0;
+        } else {
+            tagIdArr = tagIds.stream().map(UUID::toString).toArray(String[]::new);
+            tagCount = tagIds.size();
+        }
+
+        List<Post> fetched = postRepository.postsByAuthor(
+            authorId,
+            c == null ? null : c.publishedAt(),
+            c == null ? null : c.id(),
+            tagIdArr, tagCount, fetchLimit
+        );
+
+        boolean hasMore = fetched.size() > effectiveSize;
+        if (hasMore) fetched = fetched.subList(0, effectiveSize);
+        if (fetched.isEmpty()) return new FeedPageResponse(List.of(), null);
+
+        Set<UUID> authorIds = fetched.stream().map(Post::getAuthorId).collect(Collectors.toSet());
+        Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(authorIds);
+
+        Set<UUID> postIds = fetched.stream().map(Post::getId).collect(Collectors.toSet());
+        Map<UUID, CounterDeltas> deltas = counterService.getDeltasBatch(postIds);
+
+        List<PostResponse> items = fetched.stream()
+            .map(p -> postMapper.toResponse(
+                p, profiles.get(p.getAuthorId()),
+                deltas.getOrDefault(p.getId(), CounterDeltas.zero())))
+            .toList();
+
+        String nextCursor = null;
+        if (hasMore) {
+            Post last = fetched.get(fetched.size() - 1);
+            nextCursor = FeedCursor.encode(null, last.getPublishedAt(), last.getId());
+        }
+
+        return new FeedPageResponse(items, nextCursor);
+    }
+
     private int clampPageSize(Integer requested) {
         if (requested == null) return DEFAULT_PAGE_SIZE;
         if (requested < 1) throw new IllegalArgumentException("pageSize must be >= 1");

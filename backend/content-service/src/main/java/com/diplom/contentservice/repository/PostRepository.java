@@ -125,4 +125,81 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
         @Param("tagCount") int tagCount,
         @Param("limit") int limit
     );
+
+    @Query(value = """
+        SELECT * FROM content_schema.posts p
+        WHERE p.author_id = CAST(:authorId AS uuid)
+          AND p.status_id = 2
+          AND ( CAST(:cursorPublishedAt AS timestamptz) IS NULL
+                OR p.published_at < CAST(:cursorPublishedAt AS timestamptz)
+                OR (p.published_at = CAST(:cursorPublishedAt AS timestamptz) AND p.id < CAST(:cursorId AS uuid)) )
+          AND ( :tagCount = 0 OR p.id IN (
+                  SELECT pt.post_id FROM content_schema.post_tags pt
+                  WHERE pt.tag_id = ANY(CAST(:tagIds AS uuid[]))
+                  GROUP BY pt.post_id
+                  HAVING COUNT(DISTINCT pt.tag_id) = :tagCount
+                ) )
+        ORDER BY p.published_at DESC, p.id DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<Post> postsByAuthor(
+        @Param("authorId") UUID authorId,
+        @Param("cursorPublishedAt") OffsetDateTime cursorPublishedAt,
+        @Param("cursorId") UUID cursorId,
+        @Param("tagIds") String[] tagIds,
+        @Param("tagCount") int tagCount,
+        @Param("limit") int limit
+    );
+
+    @Query(value = """
+        SELECT p.id AS postId,
+               (ts_rank_cd(p.search_vector, query.q)
+                + CASE WHEN :keywordCount > 0 AND p.keywords && CAST(:keywordsArr AS text[])
+                       THEN 0.3 ELSE 0 END) AS score
+        FROM content_schema.posts p,
+             websearch_to_tsquery('russian', :q) AS query(q)
+        WHERE p.status_id = 2
+          AND ( p.search_vector @@ query.q
+                OR (:keywordCount > 0 AND p.keywords && CAST(:keywordsArr AS text[])) )
+          AND ( :cursorScore IS NULL
+                OR (ts_rank_cd(p.search_vector, query.q)
+                    + CASE WHEN :keywordCount > 0 AND p.keywords && CAST(:keywordsArr AS text[])
+                           THEN 0.3 ELSE 0 END) < :cursorScore
+                OR (ABS((ts_rank_cd(p.search_vector, query.q)
+                         + CASE WHEN :keywordCount > 0 AND p.keywords && CAST(:keywordsArr AS text[])
+                                THEN 0.3 ELSE 0 END) - :cursorScore) < 0.000001
+                    AND (p.published_at < CAST(:cursorPublishedAt AS timestamptz)
+                         OR (p.published_at = CAST(:cursorPublishedAt AS timestamptz) AND p.id < CAST(:cursorId AS uuid)))) )
+          AND ( :tagCount = 0 OR p.id IN (
+                  SELECT pt.post_id FROM content_schema.post_tags pt
+                  WHERE pt.tag_id = ANY(CAST(:tagIds AS uuid[]))
+                  GROUP BY pt.post_id
+                  HAVING COUNT(DISTINCT pt.tag_id) = :tagCount
+                ) )
+          AND ( :authorCount = 0 OR p.author_id = ANY(CAST(:authorIds AS uuid[])) )
+          AND ( CAST(:fromDate AS timestamptz) IS NULL OR p.published_at >= CAST(:fromDate AS timestamptz) )
+          AND ( CAST(:toDate AS timestamptz) IS NULL OR p.published_at <= CAST(:toDate AS timestamptz) )
+        ORDER BY
+            (ts_rank_cd(p.search_vector, query.q)
+             + CASE WHEN :keywordCount > 0 AND p.keywords && CAST(:keywordsArr AS text[])
+                    THEN 0.3 ELSE 0 END) DESC,
+            p.published_at DESC,
+            p.id DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<PostSearchHit> searchPostIds(
+        @Param("q") String q,
+        @Param("keywordsArr") String[] keywordsArr,
+        @Param("keywordCount") int keywordCount,
+        @Param("cursorScore") Double cursorScore,
+        @Param("cursorPublishedAt") OffsetDateTime cursorPublishedAt,
+        @Param("cursorId") UUID cursorId,
+        @Param("tagIds") String[] tagIds,
+        @Param("tagCount") int tagCount,
+        @Param("authorIds") String[] authorIds,
+        @Param("authorCount") int authorCount,
+        @Param("fromDate") OffsetDateTime fromDate,
+        @Param("toDate") OffsetDateTime toDate,
+        @Param("limit") int limit
+    );
 }
