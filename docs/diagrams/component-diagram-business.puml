@@ -1,0 +1,176 @@
+@startuml component-diagram-business
+' Диаграмма компонентов бизнес-логики платформы ментального здоровья
+' Реализация: user-service + content-service (Spring Boot)
+'
+' Как использовать с Visual Paradigm:
+'   VP не импортирует PlantUML через Instant Reverse.
+'   1) Сгенерируйте PNG/SVG (см. README в этой папке или plantuml.com)
+'   2) В VP: Diagram -> Import Diagram Image (или вставка как рисунок в Doc Composer)
+'   3) Либо воспроизведите вручную по этой схеме (Model Explorer -> Component Diagram)
+
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam linetype ortho
+
+title Диаграмма компонентов бизнес-логики\n(платформа ментального здоровья)
+
+package "user-service" as US {
+
+  component "Управление\nпользователями" as UserMgmt <<component>> {
+    note right
+      **UserService**
+      Регистрация, профиль,
+      роли и статус аккаунта
+    end note
+  }
+
+  component "Социальный\nграф" as SocialGraph <<component>> {
+    note right
+      **SocialService**
+      Подписки, дружба
+    end note
+  }
+
+  interface "IUserProfiles" as IUserProfiles
+  interface "IFollows" as IFollows
+  interface "IUserEvents" as IUserEvents
+
+  UserMgmt -up- IUserProfiles
+  UserMgmt -up- IUserEvents
+  SocialGraph -up- IFollows
+  SocialGraph -up- IUserEvents
+}
+
+package "content-service" as CS {
+
+  component "Управление\nпубликациями" as PostMgmt <<component>> {
+    note bottom
+      **PostService**
+    end note
+  }
+
+  component "Комментарии" as Comments <<component>> {
+    note bottom
+      **CommentService**
+    end note
+  }
+
+  component "Лента" as Feed <<component>> {
+    note bottom
+      **FeedService**
+    end note
+  }
+
+  component "Поиск" as Search <<component>> {
+    note bottom
+      **SearchService**
+    end note
+  }
+
+  component "Голосование" as Upvote <<component>> {
+    note bottom
+      **PostUpvoteService**
+    end note
+  }
+
+  component "Теги" as Tags <<component>> {
+    note bottom
+      **TagService**
+    end note
+  }
+
+  component "Модерация\nконтента" as ContentMod <<component>> {
+    note bottom
+      **AdminPostService**
+      **AdminCommentService**
+    end note
+  }
+
+  component "Обогащение\nпрофилями" as ProfileEnrich <<component>> {
+    note bottom
+      **ProfileCacheService**
+      **UserServiceClient**
+    end note
+  }
+
+  component "Кэш\nподписок" as FollowsCache <<component>> {
+    note bottom
+      **FollowsCacheService**
+    end note
+  }
+
+  component "Блоклист\nмодерации" as Blocklist <<component>> {
+    note bottom
+      **ModerationBlocklistService**
+    end note
+  }
+
+  component "Счётчики\nактивности" as Counters <<component>> {
+    note bottom
+      **CounterService**
+    end note
+  }
+
+  component "Обработчик\nсобытий пользователя" as UserEventsHandler <<component>> {
+    note bottom
+      **UserEventsConsumer**
+    end note
+  }
+
+  ' --- Внутренние зависимости content-service ---
+  PostMgmt ..> ProfileEnrich : <<use>>
+  PostMgmt ..> Blocklist : <<use>>
+  PostMgmt ..> Counters : <<use>>
+
+  Comments ..> ProfileEnrich : <<use>>
+  Comments ..> Blocklist : <<use>>
+  Comments ..> Counters : <<use>>
+
+  Feed ..> ProfileEnrich : <<use>>
+  Feed ..> FollowsCache : <<use>>
+  Feed ..> Blocklist : <<use>>
+  Feed ..> Counters : <<use>>
+
+  Search ..> ProfileEnrich : <<use>>
+  Search ..> Blocklist : <<use>>
+
+  Upvote ..> Counters : <<use>>
+  ContentMod ..> Blocklist : <<use>>
+
+  UserEventsHandler ..> FollowsCache : <<use>>
+  UserEventsHandler ..> Blocklist : <<use>>
+}
+
+' --- Межсервисные зависимости (через интерфейсы user-service) ---
+ProfileEnrich ..> IUserProfiles : <<use>>
+FollowsCache ..> IFollows : <<use>>
+UserEventsHandler ..> IUserEvents : <<use>>
+
+' --- Опционально: внешние системы (раскомментируйте для контекстной диаграммы) ---
+' package "Инфраструктура" as INF <<external>> #EEEEEE {
+'   component "PostgreSQL" as PG
+'   component "Redis" as Redis
+'   component "RabbitMQ" as MQ
+' }
+' UserMgmt ..> PG
+' SocialGraph ..> PG
+' PostMgmt ..> PG
+' ProfileEnrich ..> Redis
+' FollowsCache ..> Redis
+' Blocklist ..> Redis
+' Counters ..> Redis
+' UserMgmt ..> MQ
+' UserEventsHandler ..> MQ
+
+legend right
+  |= Обозначение |= Смысл |
+  | <<component>> | Компонент бизнес-логики |
+  | <<use>> | Зависимость (использование) |
+  | IUserProfiles | REST: batch-профили (UserService) |
+  | IFollows | REST: подписки (SocialService) |
+  | IUserEvents | AMQP: события user-service |
+endlegend
+
+@enduml

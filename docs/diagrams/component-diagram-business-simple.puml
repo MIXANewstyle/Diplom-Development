@@ -1,0 +1,89 @@
+@startuml component-diagram-business-simple
+' Упрощённая диаграмма компонентов бизнес-логики (6 компонентов + 2 интерфейса)
+' Для теоретической главы и ручного переноса в Visual Paradigm
+
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam linetype ortho
+
+title Диаграмма компонентов бизнес-логики (упрощённая)
+
+package "user-service" as US {
+
+  component "Управление\nаккаунтами" as Accounts <<component>> {
+    note right
+      **UserService**
+      Регистрация, профиль,
+      роли и статус
+    end note
+  }
+
+  component "Социальные\nсвязи" as Social <<component>> {
+    note right
+      **SocialService**
+      Подписки, дружба
+    end note
+  }
+
+  interface "IUserProfiles" as IUserProfiles
+  interface "ISocialGraph" as ISocialGraph
+
+  Accounts - IUserProfiles
+  Social - ISocialGraph
+}
+
+package "content-service" as CS {
+
+  component "Публикации\nи комментарии" as Content <<component>> {
+    note bottom
+      **PostService**, **CommentService**,
+      **TagService**
+    end note
+  }
+
+  component "Лента\nи поиск" as FeedSearch <<component>> {
+    note bottom
+      **FeedService**, **SearchService**
+    end note
+  }
+
+  component "Модерация\nконтента" as Moderation <<component>> {
+    note bottom
+      **AdminPostService**,
+      **AdminCommentService**,
+      **ModerationBlocklistService**
+    end note
+  }
+
+  component "Интеграция\nс пользователями" as UserIntegration <<component>> {
+    note bottom
+      **ProfileCacheService**,
+      **FollowsCacheService**,
+      **UserServiceClient**,
+      **UserEventsConsumer**
+    end note
+  }
+
+  Content ..> UserIntegration : <<use>>
+  FeedSearch ..> UserIntegration : <<use>>
+  Moderation ..> UserIntegration : <<use>>
+}
+
+UserIntegration ..> IUserProfiles : <<use>>
+UserIntegration ..> ISocialGraph : <<use>>
+
+legend right
+  |= Упрощение |= Классы в коде |
+  | Управление аккаунтами | UserService |
+  | Социальные связи | SocialService |
+  | Публикации и комментарии | Post, Comment, Tag |
+  | Лента и поиск | Feed, Search |
+  | Модерация контента | Admin*, Blocklist |
+  | Интеграция с пользователями | Cache, Client, Consumer |
+  | IUserProfiles | REST batch-профили |
+  | ISocialGraph | REST подписки + события AMQP |
+endlegend
+
+@enduml
