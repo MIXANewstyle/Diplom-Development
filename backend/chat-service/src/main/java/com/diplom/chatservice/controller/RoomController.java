@@ -25,12 +25,17 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
+import com.diplom.chatservice.dto.SubmitTurnRequest;
+import com.diplom.chatservice.dto.SubmitTurnResponse;
+import com.diplom.chatservice.service.TurnOrchestrationService;
+
 @RestController
 @RequestMapping("/api/v1/rooms")
 @RequiredArgsConstructor
 public class RoomController {
 
     private final RoomService roomService;
+    private final TurnOrchestrationService turnOrchestrationService;
 
     @PostMapping("/paired")
     @PreAuthorize("hasRole('BASIC')")
@@ -134,6 +139,25 @@ public class RoomController {
         @RequestParam(defaultValue = "50") int size
     ) {
         TurnsPageResponse response = roomService.getTurns(roomId, user.getId(), page, size);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{roomId}/turns")
+    public ResponseEntity<SubmitTurnResponse> submitTurn(
+        @AuthenticationPrincipal CustomUserDetails user,
+        @PathVariable UUID roomId,
+        @Valid @RequestBody SubmitTurnRequest request
+    ) {
+        SubmitTurnResponse response = turnOrchestrationService.submitTurn(roomId, user.getId(), request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{roomId}/turns/retry")
+    public ResponseEntity<SubmitTurnResponse> retryTurn(
+        @AuthenticationPrincipal CustomUserDetails user,
+        @PathVariable UUID roomId
+    ) {
+        SubmitTurnResponse response = turnOrchestrationService.retryTurn(roomId, user.getId());
         return ResponseEntity.ok(response);
     }
 }

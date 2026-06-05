@@ -118,4 +118,18 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = createBody(HttpStatus.SERVICE_UNAVAILABLE, "Service Unavailable", "The LLM provider is currently unavailable. Please try again later.");
         return new ResponseEntity<>(body, HttpStatus.SERVICE_UNAVAILABLE);
     }
+
+    @ExceptionHandler(NotYourTurnException.class)
+    public ResponseEntity<Object> handleNotYourTurnException(NotYourTurnException ex) {
+        log.warn("NotYourTurnException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<Object> handleRateLimitExceededException(RateLimitExceededException ex) {
+        log.warn("RateLimitExceededException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.TOO_MANY_REQUESTS, "Too Many Requests", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.TOO_MANY_REQUESTS);
+    }
 }

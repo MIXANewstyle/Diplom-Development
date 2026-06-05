@@ -26,28 +26,29 @@ import java.util.List;
 public class OpenAiCompatibleLlmClient implements LlmClient {
 
     private final RestTemplate restTemplate;
-    private final String baseUrl;
+    private String baseUrl;
     private final String model;
     private final String apiKey;
     private final int maxRetries;
 
     public OpenAiCompatibleLlmClient(
             RestTemplateBuilder restTemplateBuilder,
-            @Value("${chat.llm.base-url}") String baseUrl,
-            @Value("${chat.llm.model}") String model,
-            @Value("${chat.llm.api-key}") String apiKey,
-            @Value("${chat.llm.request-timeout-ms}") long timeoutMs,
-            @Value("${chat.llm.max-retries}") int maxRetries) {
+            com.diplom.chatservice.config.ChatLlmProperties properties) {
 
-        this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
-        this.model = model;
-        this.apiKey = apiKey;
-        this.maxRetries = maxRetries;
+        this.baseUrl = properties.baseUrl();
+        this.model = properties.model();
+        this.apiKey = properties.apiKey();
+        this.maxRetries = properties.maxRetries();
 
         this.restTemplate = restTemplateBuilder
-                .setConnectTimeout(Duration.ofMillis(timeoutMs))
-                .setReadTimeout(Duration.ofMillis(timeoutMs))
+                .setConnectTimeout(Duration.ofMillis(properties.requestTimeoutMs()))
+                .setReadTimeout(Duration.ofMillis(properties.requestTimeoutMs()))
                 .build();
+    }
+
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        this.baseUrl = this.baseUrl != null && this.baseUrl.endsWith("/") ? this.baseUrl : this.baseUrl + "/";
     }
 
     @Override
