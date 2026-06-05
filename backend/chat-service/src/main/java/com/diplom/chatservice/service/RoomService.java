@@ -1,7 +1,7 @@
 package com.diplom.chatservice.service;
 
 import com.diplom.chatservice.dto.CreatePairedRoomRequest;
-
+import com.diplom.chatservice.dto.CreateSoloRoomRequest;
 import com.diplom.chatservice.dto.EndDecision;
 import com.diplom.chatservice.dto.EndRespondRequest;
 import com.diplom.chatservice.dto.InviteMode;
@@ -98,12 +98,11 @@ public class RoomService {
             throw new IllegalArgumentException("Cannot invite yourself to a paired room");
         }
 
-        // Verify friendship using LEAST/GREATEST ordering
-        UUID userA = callerId.compareTo(request.friendUserId()) < 0 ? callerId : request.friendUserId();
-        UUID userB = callerId.compareTo(request.friendUserId()) < 0 ? request.friendUserId() : callerId;
-        FriendLinkId friendLinkId = new FriendLinkId(userA, userB);
+        // Verify friendship by checking both permutations to avoid UUID sort discrepancies
+        boolean isFriend = friendLinkRepository.existsById(new FriendLinkId(callerId, request.friendUserId())) ||
+                           friendLinkRepository.existsById(new FriendLinkId(request.friendUserId(), callerId));
 
-        if (!friendLinkRepository.existsById(friendLinkId)) {
+        if (!isFriend) {
             throw new NotFriendsException("You are not friends with the invited user");
         }
 
@@ -151,7 +150,7 @@ public class RoomService {
     // ==================== CREATE SOLO ====================
 
     @Transactional
-    public RoomResponse createSoloRoom(UUID callerId) {
+    public RoomResponse createSoloRoom(CreateSoloRoomRequest request, UUID callerId) {
         // Create room — solo goes straight to ACTIVE
         Room room = Room.builder()
             .typeId(ROOM_TYPE_SOLO)
