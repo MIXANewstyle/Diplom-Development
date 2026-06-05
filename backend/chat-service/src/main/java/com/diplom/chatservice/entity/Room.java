@@ -45,6 +45,9 @@ public class Room {
     @Column(name = "current_floor_participant_id")
     private UUID currentFloorParticipantId;
 
+    @Column(name = "ending_proposed_by_participant_id")
+    private UUID endingProposedByParticipantId;
+
     @Column(name = "phase", length = 20)
     private String phase;
 

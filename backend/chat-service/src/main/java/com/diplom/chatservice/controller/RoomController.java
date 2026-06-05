@@ -2,6 +2,7 @@ package com.diplom.chatservice.controller;
 
 import com.diplom.chatservice.dto.CreatePairedRoomRequest;
 import com.diplom.chatservice.dto.CreateSoloRoomRequest;
+import com.diplom.chatservice.dto.EndRespondRequest;
 import com.diplom.chatservice.dto.RoomResponse;
 import com.diplom.chatservice.dto.RoomSummaryResponse;
 import com.diplom.chatservice.dto.TurnsPageResponse;
@@ -66,6 +67,43 @@ public class RoomController {
         @PathVariable UUID roomId
     ) {
         RoomResponse response = roomService.consentStart(roomId, user.getId());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{roomId}/consent/revoke")
+    public ResponseEntity<RoomResponse> consentRevoke(
+        @AuthenticationPrincipal CustomUserDetails user,
+        @PathVariable UUID roomId
+    ) {
+        RoomResponse response = roomService.consentRevoke(roomId, user.getId());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{roomId}/end/propose")
+    public ResponseEntity<RoomResponse> endPropose(
+        @AuthenticationPrincipal CustomUserDetails user,
+        @PathVariable UUID roomId
+    ) {
+        RoomResponse response = roomService.endPropose(roomId, user.getId());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{roomId}/end/respond")
+    public ResponseEntity<RoomResponse> endRespond(
+        @AuthenticationPrincipal CustomUserDetails user,
+        @PathVariable UUID roomId,
+        @Valid @RequestBody EndRespondRequest request
+    ) {
+        RoomResponse response = roomService.endRespond(roomId, request, user.getId());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{roomId}/end")
+    public ResponseEntity<RoomResponse> endSolo(
+        @AuthenticationPrincipal CustomUserDetails user,
+        @PathVariable UUID roomId
+    ) {
+        RoomResponse response = roomService.endSolo(roomId, user.getId());
         return ResponseEntity.ok(response);
     }
 

@@ -2,6 +2,8 @@ package com.diplom.chatservice.service;
 
 import com.diplom.chatservice.dto.CreatePairedRoomRequest;
 import com.diplom.chatservice.dto.CreateSoloRoomRequest;
+import com.diplom.chatservice.dto.EndDecision;
+import com.diplom.chatservice.dto.EndRespondRequest;
 import com.diplom.chatservice.dto.InviteMode;
 import com.diplom.chatservice.dto.RoomResponse;
 import com.diplom.chatservice.dto.RoomSummaryResponse;
@@ -14,6 +16,7 @@ import com.diplom.chatservice.entity.RoomParticipant;
 import com.diplom.chatservice.entity.Turn;
 import com.diplom.chatservice.event.EventType;
 import com.diplom.chatservice.event.PairInviteSentEvent;
+import com.diplom.chatservice.event.RoomArchivedEvent;
 import com.diplom.chatservice.exception.InvalidRoomStateException;
 import com.diplom.chatservice.exception.NotFriendsException;
 import com.diplom.chatservice.exception.NotRoomParticipantException;
@@ -49,6 +52,10 @@ public class RoomService {
     private static final int STATUS_CREATED = 1;
     private static final int STATUS_WAITING_CONSENT = 2;
     private static final int STATUS_ACTIVE = 3;
+    private static final int STATUS_ENDING = 4;
+    private static final int STATUS_ARCHIVED = 5;
+    private static final int STATUS_ABANDONED = 6;
+    private static final int STATUS_EXPIRED = 7;
 
     private static final int ROLE_INITIATOR = 1;
     private static final int ROLE_INVITEE = 2;
@@ -68,6 +75,16 @@ public class RoomService {
 
     @Value("${chat.default-ai-model}")
     private String defaultAiModel;
+
+    @Value("${chat.default-ai-model}")
+    private String defaultAiModel;
+
+    private void checkNotTerminal(Room room) {
+        int status = room.getStatusId();
+        if (status == STATUS_ARCHIVED || status == STATUS_ABANDONED || status == STATUS_EXPIRED) {
+            throw new InvalidRoomStateException("Room is in a terminal state and cannot be modified");
+        }
+    }
 
     // ==================== CREATE PAIRED ====================
 
@@ -172,6 +189,8 @@ public class RoomService {
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
 
+        checkNotTerminal(room);
+
         // Caller cannot join their own room as the second participant
         if (room.getOwnerUserId().equals(callerId)) {
             throw new IllegalArgumentException("Cannot join your own room as the second participant");
@@ -213,6 +232,8 @@ public class RoomService {
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
 
+        checkNotTerminal(room);
+
         if (room.getStatusId() != STATUS_WAITING_CONSENT) {
             throw new InvalidRoomStateException("Room is not in WAITING_CONSENT state");
         }
@@ -242,6 +263,124 @@ public class RoomService {
             room.setCurrentFloorParticipantId(initiator.getId());
             room = roomRepository.save(room);
         }
+
+        return roomMapper.toRoomResponse(room, participants);
+    }
+
+    // ==================== CONSENT REVOKE ====================
+
+    @Transactional
+    public RoomResponse consentRevoke(UUID roomId, UUID callerId) {
+        Room room = roomRepository.findById(roomId)
+            .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
+
+        checkNotTerminal(room);
+
+        if (room.getStatusId() != STATUS_WAITING_CONSENT) {
+            throw new InvalidRoomStateException("Room is not in WAITING_CONSENT state");
+        }
+
+        RoomParticipant callerParticipant = participantRepository.findByRoomIdAndUserId(roomId, callerId)
+            .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
+
+        callerParticipant.setConsentStartAt(null);
+        participantRepository.save(callerParticipant);
+
+        return roomMapper.toRoomResponse(room, participantRepository.findByRoomId(roomId));
+    }
+
+    // ==================== END HANDSHAKE ====================
+
+    @Transactional
+    public RoomResponse endPropose(UUID roomId, UUID callerId) {
+        Room room = roomRepository.findById(roomId)
+            .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
+
+        checkNotTerminal(room);
+
+        if (room.getTypeId() != ROOM_TYPE_PAIRED || room.getStatusId() != STATUS_ACTIVE) {
+            throw new InvalidRoomStateException("Room must be PAIRED and ACTIVE to propose end");
+        }
+
+        RoomParticipant callerParticipant = participantRepository.findByRoomIdAndUserId(roomId, callerId)
+            .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
+
+        room.setStatusId(STATUS_ENDING);
+        room.setEndingProposedByParticipantId(callerParticipant.getId());
+        room = roomRepository.save(room);
+
+        return roomMapper.toRoomResponse(room, participantRepository.findByRoomId(roomId));
+    }
+
+    @Transactional
+    public RoomResponse endRespond(UUID roomId, EndRespondRequest request, UUID callerId) {
+        Room room = roomRepository.findById(roomId)
+            .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
+
+        checkNotTerminal(room);
+
+        if (room.getStatusId() != STATUS_ENDING) {
+            throw new InvalidRoomStateException("Room is not in ENDING state");
+        }
+
+        RoomParticipant callerParticipant = participantRepository.findByRoomIdAndUserId(roomId, callerId)
+            .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
+
+        if (callerParticipant.getId().equals(room.getEndingProposedByParticipantId())) {
+            throw new InvalidRoomStateException("The participant who proposed ending cannot respond to it");
+        }
+
+        List<RoomParticipant> participants = participantRepository.findByRoomId(roomId);
+
+        if (request.decision() == EndDecision.DECLINE) {
+            room.setStatusId(STATUS_ACTIVE);
+            room.setEndingProposedByParticipantId(null);
+            room = roomRepository.save(room);
+            return roomMapper.toRoomResponse(room, participants);
+        } else {
+            return archiveRoom(room, participants);
+        }
+    }
+
+    @Transactional
+    public RoomResponse endSolo(UUID roomId, UUID callerId) {
+        Room room = roomRepository.findById(roomId)
+            .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
+
+        checkNotTerminal(room);
+
+        if (room.getTypeId() != ROOM_TYPE_SOLO || room.getStatusId() != STATUS_ACTIVE) {
+            throw new InvalidRoomStateException("Room must be SOLO and ACTIVE to end");
+        }
+
+        if (!participantRepository.existsByRoomIdAndUserId(roomId, callerId)) {
+            throw new RoomNotFoundException("Room not found: " + roomId);
+        }
+
+        List<RoomParticipant> participants = participantRepository.findByRoomId(roomId);
+        return archiveRoom(room, participants);
+    }
+
+    private RoomResponse archiveRoom(Room room, List<RoomParticipant> participants) {
+        room.setStatusId(STATUS_ARCHIVED);
+        room.setEndedAt(OffsetDateTime.now());
+        room.setPhase(null);
+        room = roomRepository.save(room);
+
+        List<UUID> participantUserIds = participants.stream()
+            .map(RoomParticipant::getUserId)
+            .filter(userId -> userId != null)
+            .toList();
+
+        RoomArchivedEvent payload = new RoomArchivedEvent(
+            OffsetDateTime.now(),
+            room.getId(),
+            room.getTypeId() == ROOM_TYPE_PAIRED ? "PAIRED" : "SOLO",
+            participantUserIds,
+            room.getEndedAt()
+        );
+        ChatOutboxEvent outboxEvent = outboxEventFactory.create(EventType.ROOM_ARCHIVED, payload);
+        outboxEventRepository.save(outboxEvent);
 
         return roomMapper.toRoomResponse(room, participants);
     }
