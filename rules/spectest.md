@@ -20,7 +20,7 @@ Microservices (separate Spring Boot modules):
 - billing-service: subscriptions and transactions.
 - api-gateway: thin Spring Cloud Gateway router.
 
-Currently implemented: user-service (partial), api-gateway (routing only).
+Currently implemented: user-service, content-service, chat-service (in work), api-gateway (routing only).
 
 ## 2. Tech Stack
 
