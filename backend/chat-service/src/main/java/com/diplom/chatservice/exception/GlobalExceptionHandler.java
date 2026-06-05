@@ -63,6 +63,41 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
     }
 
+    @ExceptionHandler(RoomNotFoundException.class)
+    public ResponseEntity<Object> handleRoomNotFoundException(RoomNotFoundException ex) {
+        log.warn("RoomNotFoundException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(NotRoomParticipantException.class)
+    public ResponseEntity<Object> handleNotRoomParticipantException(NotRoomParticipantException ex) {
+        log.warn("NotRoomParticipantException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(RoomFullException.class)
+    public ResponseEntity<Object> handleRoomFullException(RoomFullException ex) {
+        log.warn("RoomFullException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(InvalidRoomStateException.class)
+    public ResponseEntity<Object> handleInvalidRoomStateException(InvalidRoomStateException ex) {
+        log.warn("InvalidRoomStateException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(NotFriendsException.class)
+    public ResponseEntity<Object> handleNotFriendsException(NotFriendsException ex) {
+        log.warn("NotFriendsException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> handleIllegalArgumentException(IllegalArgumentException ex) {
         log.warn("IllegalArgumentException: {}", ex.getMessage());

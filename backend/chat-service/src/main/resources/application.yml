@@ -33,6 +33,9 @@ jwt:
 user-service:
   base-url: http://localhost:8081
 
+chat:
+  default-ai-model: gemini-2.5-flash-lite
+
 logging:
   level:
     org.hibernate.SQL: WARN
