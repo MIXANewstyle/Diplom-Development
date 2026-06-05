@@ -23,6 +23,7 @@
         <module>api-gateway</module>
         <module>user-service</module>
         <module>content-service</module>
+        <module>chat-service</module>
     </modules>
 
     <properties>
