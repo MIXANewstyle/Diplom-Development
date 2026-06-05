@@ -1,7 +1,7 @@
 package com.diplom.chatservice.controller;
 
 import com.diplom.chatservice.dto.CreatePairedRoomRequest;
-import com.diplom.chatservice.dto.CreateSoloRoomRequest;
+
 import com.diplom.chatservice.dto.EndRespondRequest;
 import com.diplom.chatservice.dto.RoomResponse;
 import com.diplom.chatservice.dto.RoomSummaryResponse;
@@ -50,10 +50,9 @@ public class RoomController {
     @PostMapping("/solo")
     @PreAuthorize("hasRole('BASIC')")
     public ResponseEntity<RoomResponse> createSoloRoom(
-        @AuthenticationPrincipal CustomUserDetails user,
-        @Valid @RequestBody CreateSoloRoomRequest request
+        @AuthenticationPrincipal CustomUserDetails user
     ) {
-        RoomResponse response = roomService.createSoloRoom(request, user.getId());
+        RoomResponse response = roomService.createSoloRoom(user.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

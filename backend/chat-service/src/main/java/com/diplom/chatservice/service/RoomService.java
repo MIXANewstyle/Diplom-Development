@@ -1,7 +1,7 @@
 package com.diplom.chatservice.service;
 
 import com.diplom.chatservice.dto.CreatePairedRoomRequest;
-import com.diplom.chatservice.dto.CreateSoloRoomRequest;
+
 import com.diplom.chatservice.dto.EndDecision;
 import com.diplom.chatservice.dto.EndRespondRequest;
 import com.diplom.chatservice.dto.InviteMode;
@@ -151,7 +151,7 @@ public class RoomService {
     // ==================== CREATE SOLO ====================
 
     @Transactional
-    public RoomResponse createSoloRoom(CreateSoloRoomRequest request, UUID callerId) {
+    public RoomResponse createSoloRoom(UUID callerId) {
         // Create room — solo goes straight to ACTIVE
         Room room = Room.builder()
             .typeId(ROOM_TYPE_SOLO)
