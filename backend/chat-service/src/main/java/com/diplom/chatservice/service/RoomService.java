@@ -73,8 +73,6 @@ public class RoomService {
     private final ChatOutboxEventRepository outboxEventRepository;
     private final RoomMapper roomMapper;
 
-    @Value("${chat.default-ai-model}")
-    private String defaultAiModel;
 
     @Value("${chat.default-ai-model}")
     private String defaultAiModel;
