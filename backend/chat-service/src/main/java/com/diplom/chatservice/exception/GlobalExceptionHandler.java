@@ -111,4 +111,11 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = createBody(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred");
         return new ResponseEntity<>(body, HttpStatus.INTERNAL_SERVER_ERROR);
     }
+
+    @ExceptionHandler(LlmUnavailableException.class)
+    public ResponseEntity<Object> handleLlmUnavailableException(LlmUnavailableException ex) {
+        log.error("LlmUnavailableException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.SERVICE_UNAVAILABLE, "Service Unavailable", "The LLM provider is currently unavailable. Please try again later.");
+        return new ResponseEntity<>(body, HttpStatus.SERVICE_UNAVAILABLE);
+    }
 }
