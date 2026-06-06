@@ -132,4 +132,12 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = createBody(HttpStatus.TOO_MANY_REQUESTS, "Too Many Requests", ex.getMessage());
         return new ResponseEntity<>(body, HttpStatus.TOO_MANY_REQUESTS);
     }
+
+    @ExceptionHandler(UserServiceUnavailableException.class)
+    public ResponseEntity<Object> handleUserServiceUnavailableException(UserServiceUnavailableException ex) {
+        log.error("UserServiceUnavailableException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.SERVICE_UNAVAILABLE, "Service Unavailable",
+            "User-service is currently unavailable. Please try again later.");
+        return new ResponseEntity<>(body, HttpStatus.SERVICE_UNAVAILABLE);
+    }
 }

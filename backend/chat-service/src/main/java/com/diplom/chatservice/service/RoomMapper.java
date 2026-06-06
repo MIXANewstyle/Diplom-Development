@@ -73,14 +73,17 @@ public class RoomMapper {
         );
     }
 
-    public RoomSummaryResponse toRoomSummaryResponse(Room room, RoomParticipant myParticipant) {
+    public RoomSummaryResponse toRoomSummaryResponse(Room room, RoomParticipant myParticipant,
+                                                      String otherDisplayName, String otherAvatarUrl) {
         return new RoomSummaryResponse(
             room.getId(),
             roomTypeName(room.getTypeId()),
             roomStatusName(room.getStatusId()),
             participantRoleName(myParticipant.getRoleId()),
             room.getCreatedAt(),
-            room.getStartedAt()
+            room.getStartedAt(),
+            otherDisplayName,
+            otherAvatarUrl
         );
     }
 
@@ -93,7 +96,9 @@ public class RoomMapper {
             p.getJoinedAt(),
             p.getGuestDisplayName(),
             p.getGuestGenderId(),
-            p.getGuestAge()
+            p.getGuestAge(),
+            null,  // displayName — populated by ParticipantEnrichmentService
+            null   // avatarUrl — populated by ParticipantEnrichmentService
         );
     }
 

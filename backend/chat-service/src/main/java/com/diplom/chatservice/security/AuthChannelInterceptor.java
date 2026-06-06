@@ -111,6 +111,9 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
 
         accessor.setUser(authentication);
 
+        // Store raw JWT for downstream handlers (e.g. room-state snapshot enrichment)
+        accessor.getSessionAttributes().put("jwt", token);
+
         log.debug("STOMP CONNECT authenticated for userId={}", userId);
     }
 

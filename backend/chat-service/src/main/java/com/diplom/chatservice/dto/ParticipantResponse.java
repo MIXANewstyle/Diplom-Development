@@ -11,5 +11,7 @@ public record ParticipantResponse(
     OffsetDateTime joinedAt,
     String guestDisplayName,
     Integer guestGenderId,
-    Integer guestAge
+    Integer guestAge,
+    String displayName,
+    String avatarUrl
 ) {}

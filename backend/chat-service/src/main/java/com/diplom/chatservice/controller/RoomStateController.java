@@ -11,16 +11,19 @@ import com.diplom.chatservice.repository.RoomParticipantRepository;
 import com.diplom.chatservice.repository.RoomRepository;
 import com.diplom.chatservice.repository.TurnRepository;
 import com.diplom.chatservice.security.CustomUserDetails;
+import com.diplom.chatservice.service.ParticipantEnrichmentService;
 import com.diplom.chatservice.service.RoomMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.annotation.SubscribeMapping;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -39,22 +42,23 @@ public class RoomStateController {
     private final RoomParticipantRepository roomParticipantRepository;
     private final TurnRepository turnRepository;
     private final RoomMapper roomMapper;
+    private final ParticipantEnrichmentService participantEnrichmentService;
 
     /**
      * Returns a one-shot {@link RoomStateSnapshot} to the subscribing client.
      * Called when a client subscribes to {@code /app/rooms/{roomId}/state}.
      *
-     * @param roomId    the room UUID from the destination path
-     * @param principal the authenticated STOMP principal (set during CONNECT)
-     * @return room state snapshot with participants and last 50 turns
+     * @param roomId        the room UUID from the destination path
+     * @param headerAccessor STOMP header accessor (provides session attributes + principal)
+     * @return room state snapshot with enriched participants and last 50 turns
      */
     @SubscribeMapping("/rooms/{roomId}/state")
     public RoomStateSnapshot onSubscribeRoomState(
             @DestinationVariable UUID roomId,
-            Principal principal
+            SimpMessageHeaderAccessor headerAccessor
     ) {
         UsernamePasswordAuthenticationToken auth =
-                (UsernamePasswordAuthenticationToken) principal;
+                (UsernamePasswordAuthenticationToken) headerAccessor.getUser();
         CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
 
         log.debug("Room state snapshot requested by userId={} for roomId={}",
@@ -64,9 +68,21 @@ public class RoomStateController {
                 .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
 
         List<RoomParticipant> participants = roomParticipantRepository.findByRoomId(roomId);
-        List<ParticipantResponse> participantResponses = participants.stream()
-                .map(roomMapper::toParticipantResponse)
-                .toList();
+
+        // Retrieve the raw JWT stored during STOMP CONNECT
+        Map<String, Object> sessionAttributes = headerAccessor.getSessionAttributes();
+        String jwt = sessionAttributes != null ? (String) sessionAttributes.get("jwt") : null;
+
+        List<ParticipantResponse> participantResponses;
+        if (jwt != null) {
+            participantResponses = participantEnrichmentService.enrichParticipants(participants, jwt);
+        } else {
+            log.warn("No JWT in STOMP session attributes for userId={}, skipping enrichment",
+                    userDetails.getId());
+            participantResponses = participants.stream()
+                    .map(roomMapper::toParticipantResponse)
+                    .toList();
+        }
 
         // Last 50 turns by seq ascending (fetch desc, then reverse)
         List<Turn> turns = turnRepository.findTop50ByRoomIdOrderBySeqDesc(roomId);
@@ -85,3 +101,4 @@ public class RoomStateController {
         );
     }
 }
+

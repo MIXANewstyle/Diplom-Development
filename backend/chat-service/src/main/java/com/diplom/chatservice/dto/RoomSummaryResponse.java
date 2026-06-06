@@ -9,5 +9,7 @@ public record RoomSummaryResponse(
     String status,
     String myRole,
     OffsetDateTime createdAt,
-    OffsetDateTime startedAt
+    OffsetDateTime startedAt,
+    String otherParticipantDisplayName,
+    String otherParticipantAvatarUrl
 ) {}

@@ -3,11 +3,18 @@ package com.diplom.chatservice.controller;
 import com.diplom.chatservice.dto.CreatePairedRoomRequest;
 import com.diplom.chatservice.dto.CreateSoloRoomRequest;
 import com.diplom.chatservice.dto.EndRespondRequest;
+import com.diplom.chatservice.dto.ParticipantResponse;
 import com.diplom.chatservice.dto.RoomResponse;
 import com.diplom.chatservice.dto.RoomSummaryResponse;
 import com.diplom.chatservice.dto.TurnsPageResponse;
+import com.diplom.chatservice.entity.RoomParticipant;
+import com.diplom.chatservice.repository.RoomParticipantRepository;
 import com.diplom.chatservice.security.CustomUserDetails;
+import com.diplom.chatservice.service.ParticipantEnrichmentService;
+import com.diplom.chatservice.service.ProfileCacheService;
+import com.diplom.chatservice.service.RoomMapper;
 import com.diplom.chatservice.service.RoomService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -36,6 +43,10 @@ public class RoomController {
 
     private final RoomService roomService;
     private final TurnOrchestrationService turnOrchestrationService;
+    private final ParticipantEnrichmentService participantEnrichmentService;
+    private final ProfileCacheService profileCacheService;
+    private final RoomParticipantRepository roomParticipantRepository;
+    private final RoomMapper roomMapper;
 
     @PostMapping("/paired")
     @PreAuthorize("hasRole('BASIC')")
@@ -116,19 +127,34 @@ public class RoomController {
     public ResponseEntity<List<RoomSummaryResponse>> listRooms(
         @AuthenticationPrincipal CustomUserDetails user,
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size
+        @RequestParam(defaultValue = "20") int size,
+        HttpServletRequest httpRequest
     ) {
-        List<RoomSummaryResponse> response = roomService.listRooms(user.getId(), page, size);
+        String jwt = extractJwt(httpRequest);
+        List<RoomSummaryResponse> response = roomService.listRoomsEnriched(
+            user.getId(), page, size, jwt, profileCacheService, roomMapper);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{roomId}")
     public ResponseEntity<RoomResponse> getRoom(
         @AuthenticationPrincipal CustomUserDetails user,
-        @PathVariable UUID roomId
+        @PathVariable UUID roomId,
+        HttpServletRequest httpRequest
     ) {
-        RoomResponse response = roomService.getRoom(roomId, user.getId());
-        return ResponseEntity.ok(response);
+        RoomResponse base = roomService.getRoom(roomId, user.getId());
+        String jwt = extractJwt(httpRequest);
+
+        // Enrich the participant list with display names
+        List<RoomParticipant> participants = roomParticipantRepository.findByRoomId(roomId);
+        List<ParticipantResponse> enriched = participantEnrichmentService.enrichParticipants(participants, jwt);
+
+        RoomResponse enrichedResponse = new RoomResponse(
+            base.id(), base.type(), base.status(), base.phase(),
+            base.currentFloorParticipantId(), base.aiModel(), base.ownerUserId(),
+            base.createdAt(), base.startedAt(), enriched
+        );
+        return ResponseEntity.ok(enrichedResponse);
     }
 
     @GetMapping("/{roomId}/turns")
@@ -160,4 +186,13 @@ public class RoomController {
         SubmitTurnResponse response = turnOrchestrationService.retryTurn(roomId, user.getId());
         return ResponseEntity.ok(response);
     }
+
+    private String extractJwt(HttpServletRequest request) {
+        String auth = request.getHeader("Authorization");
+        if (auth != null && auth.startsWith("Bearer ")) {
+            return auth.substring(7);
+        }
+        throw new IllegalStateException("No bearer token in current request");
+    }
 }
+

@@ -392,10 +392,73 @@ public class RoomService {
             .map(room -> {
                 RoomParticipant myParticipant = participantRepository.findByRoomIdAndUserId(room.getId(), callerId)
                     .orElseThrow(() -> new IllegalStateException("Participant not found"));
-                return roomMapper.toRoomSummaryResponse(room, myParticipant);
+                return roomMapper.toRoomSummaryResponse(room, myParticipant, null, null);
             })
             .toList();
     }
+
+    /**
+     * List rooms with identity enrichment for the other participant.
+     * Called from the controller where the JWT is available.
+     */
+    @Transactional(readOnly = true)
+    public List<RoomSummaryResponse> listRoomsEnriched(UUID callerId, int page, int size,
+                                                        String jwt,
+                                                        ProfileCacheService profileCacheService,
+                                                        RoomMapper mapper) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Room> roomPage = roomRepository.findRoomsByParticipantUserId(callerId, pageable);
+
+        // Collect all other-participant user IDs across all rooms for a single batch lookup
+        List<Room> rooms = roomPage.getContent();
+        java.util.Map<UUID, List<RoomParticipant>> roomParticipantsMap = new java.util.HashMap<>();
+        java.util.Set<UUID> otherUserIds = new java.util.HashSet<>();
+
+        for (Room room : rooms) {
+            List<RoomParticipant> participants = participantRepository.findByRoomId(room.getId());
+            roomParticipantsMap.put(room.getId(), participants);
+            participants.stream()
+                .filter(p -> p.getUserId() != null && !p.getUserId().equals(callerId))
+                .forEach(p -> otherUserIds.add(p.getUserId()));
+        }
+
+        // Batch-fetch all other-participant profiles at once
+        java.util.Map<UUID, com.diplom.chatservice.dto.UserBatchResponse> profiles =
+            profileCacheService.getProfiles(otherUserIds, jwt);
+
+        return rooms.stream()
+            .map(room -> {
+                List<RoomParticipant> participants = roomParticipantsMap.get(room.getId());
+                RoomParticipant myParticipant = participants.stream()
+                    .filter(p -> callerId.equals(p.getUserId()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("Participant not found"));
+
+                // Find the other participant (if any — solo rooms have none)
+                String otherDisplayName = null;
+                String otherAvatarUrl = null;
+                for (RoomParticipant p : participants) {
+                    if (p.getUserId() != null && !p.getUserId().equals(callerId)) {
+                        com.diplom.chatservice.dto.UserBatchResponse profile = profiles.get(p.getUserId());
+                        if (profile != null) {
+                            otherDisplayName = profile.username();
+                            otherAvatarUrl = profile.avatarUrl();
+                        }
+                        break;
+                    }
+                    // Guest other-participant: use guestDisplayName, avatar null
+                    if (p.getUserId() == null && p.getGuestDisplayName() != null) {
+                        otherDisplayName = p.getGuestDisplayName();
+                        break;
+                    }
+                }
+
+                return mapper.toRoomSummaryResponse(room, myParticipant,
+                    otherDisplayName, otherAvatarUrl);
+            })
+            .toList();
+    }
+
 
     // ==================== GET ROOM ====================
 
