@@ -87,7 +87,16 @@ public class TurnOrchestrationService {
 
         LlmResponse llmResponse;
         try {
+            log.info("LLM call start roomId={}", roomId);
+            long llmStartMs = System.currentTimeMillis();
             llmResponse = llmClient.complete(llmRequest);
+            log.info(
+                    "LLM call end roomId={} latencyMs={} promptTokens={} completionTokens={}",
+                    roomId,
+                    System.currentTimeMillis() - llmStartMs,
+                    llmResponse.promptTokens(),
+                    llmResponse.completionTokens()
+            );
         } catch (LlmUnavailableException e) {
             turnPersistenceService.handleAiFailure(roomId);
             throw e;

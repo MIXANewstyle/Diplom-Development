@@ -11,6 +11,7 @@ import com.diplom.chatservice.security.CustomUserDetails;
 import com.diplom.chatservice.service.DraftService;
 import com.diplom.chatservice.service.TurnOrchestrationService;
 import com.diplom.chatservice.service.TurnPersistenceService;
+import com.diplom.chatservice.service.WsErrorSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
@@ -19,9 +20,10 @@ import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Controller;
 
+import java.security.Principal;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.RejectedExecutionException;
@@ -39,50 +41,78 @@ public class TurnWsController {
     private final TurnOrchestrationService turnOrchestrationService;
     private final SimpMessagingTemplate messagingTemplate;
     private final ThreadPoolTaskExecutor aiExecutor;
+    private final WsErrorSender wsErrorSender;
 
     @MessageMapping("/rooms/{roomId}/finish")
     public void finishThought(
-            @AuthenticationPrincipal CustomUserDetails user,
             @DestinationVariable UUID roomId,
-            @Payload FinishThoughtRequest request
+            @Payload FinishRequest request,
+            Principal principal
     ) {
+        CustomUserDetails user = extractUserDetails(principal);
+        String principalName = user.getUsername();
+        Long turnSeq = request != null ? request.turnSeq() : null;
+
         RoomParticipant caller = participantRepository.findByRoomIdAndUserId(roomId, user.getId())
                 .orElse(null);
 
-        if (caller == null) {
-            sendError(user.getUsername(), "Caller is not a participant of this room");
-            return;
-        }
-
         Room room = roomRepository.findById(roomId).orElse(null);
-        if (room == null || room.getStatusId() != 3) { // 3=ACTIVE
-            sendError(user.getUsername(), "Room is not ACTIVE");
-            return;
-        }
 
-        if (!"A_COMPOSING".equals(room.getPhase())) {
-            sendError(user.getUsername(), "AI is processing or room not ready");
-            return;
-        }
-
-        if (room.getTypeId() == 1 && !caller.getId().equals(room.getCurrentFloorParticipantId())) { // 1=PAIRED
-            sendError(user.getUsername(), "It is not your turn to submit");
-            return;
-        }
-
-        // Step B & C
         int headSeq = turnRepository.findByRoomIdOrderBySeqAsc(roomId, Pageable.unpaged())
                 .stream()
                 .map(Turn::getSeq)
                 .max(Integer::compareTo)
                 .orElse(0);
 
-        List<DraftBubble> buffer = draftService.readBuffer(roomId, caller.getId());
+        List<DraftBubble> buffer = caller != null
+                ? draftService.readBuffer(roomId, caller.getId())
+                : List.of();
+
+        boolean isFloorHolder = room != null && caller != null
+                && (room.getTypeId() != 1 || caller.getId().equals(room.getCurrentFloorParticipantId()));
+
+        log.info(
+                "FINISH_THOUGHT entry roomId={} callerParticipantId={} turnSeq={} bufferSize={} headSeq={} phase={} isFloorHolder={}",
+                roomId,
+                caller != null ? caller.getId() : null,
+                turnSeq,
+                buffer.size(),
+                headSeq,
+                room != null ? room.getPhase() : null,
+                isFloorHolder
+        );
+
+        if (caller == null) {
+            log.info("FINISH_THOUGHT branch=REJECTED roomId={} reason=caller_not_participant", roomId);
+            wsErrorSender.send(principalName, WsError.error("Caller is not a participant of this room"));
+            return;
+        }
+
+        if (room == null || room.getStatusId() != 3) { // 3=ACTIVE
+            log.info("FINISH_THOUGHT branch=REJECTED roomId={} reason=room_not_active statusId={}",
+                    roomId, room != null ? room.getStatusId() : null);
+            wsErrorSender.send(principalName, WsError.error("Room is not ACTIVE"));
+            return;
+        }
+
+        if (!"A_COMPOSING".equals(room.getPhase())) {
+            log.info("FINISH_THOUGHT branch=REJECTED roomId={} reason=wrong_phase phase={}", roomId, room.getPhase());
+            wsErrorSender.send(principalName, WsError.error("AI is processing or room not ready"));
+            return;
+        }
+
+        if (room.getTypeId() == 1 && !caller.getId().equals(room.getCurrentFloorParticipantId())) { // 1=PAIRED
+            log.info("FINISH_THOUGHT branch=REJECTED roomId={} reason=not_floor_holder floorHolder={}",
+                    roomId, room.getCurrentFloorParticipantId());
+            wsErrorSender.send(principalName, WsError.error("It is not your turn to submit"));
+            return;
+        }
 
         if (!buffer.isEmpty()) {
-            int expectedSeq = headSeq + 1;
-            if (request.turnSeq() != expectedSeq) {
-                log.debug("Ignored finish_thought due to stale turnSeq. expected={}, got={}", expectedSeq, request.turnSeq());
+            long expectedSeq = headSeq + 1L;
+            if (turnSeq == null || turnSeq != expectedSeq) {
+                log.info("FINISH_THOUGHT branch=IGNORED roomId={} expectedTurnSeq={} gotTurnSeq={}",
+                        roomId, expectedSeq, turnSeq);
                 return;
             }
 
@@ -93,15 +123,24 @@ public class TurnWsController {
             String joinedText = sb.toString();
 
             if (joinedText.length() > 8000) {
-                sendLimitError(user.getUsername(), "Packaged thought exceeds 8000 characters limit");
+                log.info("FINISH_THOUGHT branch=REJECTED roomId={} reason=text_over_limit length={}",
+                        roomId, joinedText.length());
+                wsErrorSender.send(principalName, WsError.limit("Packaged thought exceeds 8000 characters limit"));
                 return;
             }
 
+            log.info("FINISH_THOUGHT branch=FRESH roomId={}", roomId);
+
             Turn userTurn = turnPersistenceService.persistUserTurn(roomId, caller.getId(), joinedText);
+            log.info("USER turn persisted roomId={} seq={}", roomId, userTurn.getSeq());
+
             draftService.clearBuffer(roomId, caller.getId());
 
-            UserTurnDto userTurnDto = new UserTurnDto(userTurn.getId(), userTurn.getSeq(), userTurn.getParticipantId(), userTurn.getContent());
+            UserTurnDto userTurnDto = new UserTurnDto(
+                    userTurn.getId(), userTurn.getSeq(), userTurn.getParticipantId(), userTurn.getContent());
             messagingTemplate.convertAndSend("/topic/rooms/" + roomId, AiThinkingEvent.of(userTurnDto));
+            log.info("AI_THINKING broadcast roomId={}", roomId);
+
             submitAiTask(roomId, room.getTypeId());
             return;
         }
@@ -111,44 +150,68 @@ public class TurnWsController {
         if (!allTurns.isEmpty()) {
             Turn lastTurn = allTurns.get(allTurns.size() - 1);
             if (lastTurn.getRoleId() == 1 && caller.getId().equals(lastTurn.getParticipantId())) {
-                // Retry
+                log.info("FINISH_THOUGHT branch=RETRY roomId={} lastUserTurnSeq={}", roomId, lastTurn.getSeq());
                 turnPersistenceService.setAiProcessing(roomId);
                 messagingTemplate.convertAndSend("/topic/rooms/" + roomId, AiThinkingEvent.of(null));
+                log.info("AI_THINKING broadcast roomId={} (retry)", roomId);
                 submitAiTask(roomId, room.getTypeId());
                 return;
             }
         }
 
-        log.debug("Ignored empty finish_thought from {}", caller.getId());
+        log.info("FINISH_THOUGHT branch=NO_OP roomId={} callerParticipantId={}", roomId, caller.getId());
     }
 
-    private void sendError(String username, String message) {
-        messagingTemplate.convertAndSendToUser(username, "/queue/errors", WsError.error(message));
-    }
-
-    private void sendLimitError(String username, String message) {
-        messagingTemplate.convertAndSendToUser(username, "/queue/errors", WsError.limit(message));
+    private CustomUserDetails extractUserDetails(Principal principal) {
+        UsernamePasswordAuthenticationToken auth = (UsernamePasswordAuthenticationToken) principal;
+        return (CustomUserDetails) auth.getPrincipal();
     }
 
     private void submitAiTask(UUID roomId, Integer roomTypeId) {
         try {
             aiExecutor.execute(() -> {
+                log.info("AI task start roomId={}", roomId);
                 try {
                     Turn assistantTurn = turnOrchestrationService.executeAiStep(roomId);
-                    AssistantTurnDto assistantTurnDto = new AssistantTurnDto(assistantTurn.getId(), assistantTurn.getSeq(), assistantTurn.getContent());
+                    log.info("ASSISTANT turn persisted roomId={} seq={}", roomId, assistantTurn.getSeq());
+
+                    AssistantTurnDto assistantTurnDto = new AssistantTurnDto(
+                            assistantTurn.getId(), assistantTurn.getSeq(), assistantTurn.getContent());
                     messagingTemplate.convertAndSend("/topic/rooms/" + roomId, AiResponseEvent.of(assistantTurnDto));
-                    
+                    log.info("AI_RESPONSE broadcast roomId={} seq={}", roomId, assistantTurn.getSeq());
+
                     if (roomTypeId == 1) { // PAIRED
                         Room updatedRoom = roomRepository.findById(roomId).orElseThrow();
-                        messagingTemplate.convertAndSend("/topic/rooms/" + roomId, TurnChangedEvent.of(updatedRoom.getCurrentFloorParticipantId()));
+                        messagingTemplate.convertAndSend(
+                                "/topic/rooms/" + roomId,
+                                TurnChangedEvent.of(updatedRoom.getCurrentFloorParticipantId()));
+                        log.info("TURN_CHANGED broadcast roomId={} floorHolder={}",
+                                roomId, updatedRoom.getCurrentFloorParticipantId());
                     }
-                } catch (Exception e) {
-                    log.error("AI step failed for room {}", roomId, e);
+                } catch (Throwable t) {
+                    log.error("AI task failed roomId={}", roomId, t);
                     turnPersistenceService.handleAiFailure(roomId);
-                    messagingTemplate.convertAndSend("/topic/rooms/" + roomId, AiErrorEvent.of(e.getMessage() != null ? e.getMessage() : "AI processing failed"));
+                    messagingTemplate.convertAndSend(
+                            "/topic/rooms/" + roomId,
+                            AiErrorEvent.of(t.getMessage() != null ? t.getMessage() : "AI processing failed"));
+                } finally {
+                    try {
+                        Room room = roomRepository.findById(roomId).orElse(null);
+                        if (room != null && "AI_PROCESSING".equals(room.getPhase())) {
+                            log.error("room left in AI_PROCESSING — forced reset roomId={}", roomId);
+                            turnPersistenceService.handleAiFailure(roomId);
+                            messagingTemplate.convertAndSend(
+                                    "/topic/rooms/" + roomId,
+                                    AiErrorEvent.of("Room left in AI_PROCESSING — forced reset"));
+                        }
+                    } catch (Throwable cleanupError) {
+                        log.error("AI task finally cleanup failed roomId={}", roomId, cleanupError);
+                    }
                 }
             });
+            log.info("AI async task submitted roomId={}", roomId);
         } catch (RejectedExecutionException e) {
+            log.warn("AI executor rejected task roomId={}", roomId, e);
             turnPersistenceService.handleAiFailure(roomId);
             messagingTemplate.convertAndSend("/topic/rooms/" + roomId, LimitEvent.of("AI busy, retry shortly"));
         }
