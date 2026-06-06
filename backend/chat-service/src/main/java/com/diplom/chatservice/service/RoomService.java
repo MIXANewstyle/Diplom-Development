@@ -24,7 +24,9 @@ import com.diplom.chatservice.exception.RoomFullException;
 import com.diplom.chatservice.exception.SubscriptionRequiredException;
 import com.diplom.chatservice.exception.UserModeratedException;
 import com.diplom.chatservice.outbox.OutboxEventFactory;
+import com.diplom.chatservice.event.RoomArchivedInternalEvent;
 import com.diplom.chatservice.dto.ws.DialogueAbandonedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import com.diplom.chatservice.repository.ChatOutboxEventRepository;
 import com.diplom.chatservice.repository.FriendLinkRepository;
@@ -78,6 +80,7 @@ public class RoomService {
     private final ModerationBlocklistService moderationBlocklistService;
     private final RoleCacheService roleCacheService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
 
     @Value("${chat.default-ai-model}")
@@ -386,6 +389,9 @@ public class RoomService {
         );
         ChatOutboxEvent outboxEvent = outboxEventFactory.create(EventType.ROOM_ARCHIVED, payload);
         outboxEventRepository.save(outboxEvent);
+
+        // Publish internal event to trigger async summarization (Phase 4c-2a)
+        applicationEventPublisher.publishEvent(new RoomArchivedInternalEvent(room.getId(), room.getTypeId()));
 
         return roomMapper.toRoomResponse(room, participants);
     }

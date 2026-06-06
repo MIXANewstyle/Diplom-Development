@@ -26,4 +26,16 @@ public class ChatAsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    @Bean(name = "summaryExecutor")
+    public ThreadPoolTaskExecutor summaryExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("summary-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.initialize();
+        return executor;
+    }
 }
