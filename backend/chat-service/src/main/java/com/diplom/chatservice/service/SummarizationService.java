@@ -42,6 +42,7 @@ public class SummarizationService {
     private final LlmClient llmClient;
     private final ChatLlmProperties llmProperties;
     private final ObjectMapper objectMapper;
+    private final RateLimitService rateLimitService;
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
@@ -115,6 +116,12 @@ public class SummarizationService {
             saveSummary(roomId, response.content(), newSummarizedThroughSeq);
             log.info("Fold successful for room {}. folded through seq {}, PromptTokens={} CompletionTokens={}", 
                     roomId, newSummarizedThroughSeq, response.promptTokens(), response.completionTokens());
+            
+            // Phase 4d Token Accounting (attributed to the room's current floor holder, or creator if none)
+            UUID floorHolder = room.getCurrentFloorParticipantId();
+            if (floorHolder != null) {
+                rateLimitService.addDailyTokens(floorHolder, response.promptTokens() + response.completionTokens());
+            }
         } else {
             log.warn("Fold failed permanently for room {}", roomId);
         }

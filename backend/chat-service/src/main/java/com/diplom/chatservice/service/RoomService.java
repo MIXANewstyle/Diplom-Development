@@ -24,6 +24,7 @@ import com.diplom.chatservice.exception.NotRoomParticipantException;
 import com.diplom.chatservice.exception.RoomFullException;
 import com.diplom.chatservice.exception.SubscriptionRequiredException;
 import com.diplom.chatservice.exception.UserModeratedException;
+import com.diplom.chatservice.exception.RateLimitExceededException;
 import com.diplom.chatservice.outbox.OutboxEventFactory;
 import com.diplom.chatservice.event.RoomArchivedInternalEvent;
 import com.diplom.chatservice.dto.ws.DialogueAbandonedEvent;
@@ -82,6 +83,8 @@ public class RoomService {
     private final RoleCacheService roleCacheService;
     private final SimpMessagingTemplate messagingTemplate;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final RateLimitService rateLimitService;
+    private final ChatLimitsProperties chatLimits;
 
 
     @Value("${chat.default-ai-model}")
@@ -99,6 +102,8 @@ public class RoomService {
     @Transactional
     public RoomResponse createPairedRoom(CreatePairedRoomRequest request, UUID callerId) {
         checkPassiveGates(callerId, true);
+        checkActiveRoomsLimit(callerId);
+
         if (request.inviteMode() == InviteMode.LINK) {
             throw new IllegalArgumentException("LINK invite mode is not supported in this phase");
         }
@@ -178,6 +183,7 @@ public class RoomService {
     @Transactional
     public RoomResponse createSoloRoom(CreateSoloRoomRequest request, UUID callerId) {
         checkPassiveGates(callerId, true);
+        checkActiveRoomsLimit(callerId);
         // Create room — solo goes straight to ACTIVE
         Room room = Room.builder()
             .typeId(ROOM_TYPE_SOLO)
@@ -578,6 +584,13 @@ public class RoomService {
                 new DialogueAbandonedEvent(room.getId(), "MODERATION")
             );
             log.info("Abandoned room {} due to user {} moderation", room.getId(), userId);
+        }
+    }
+
+    private void checkActiveRoomsLimit(UUID userId) {
+        int activeRooms = rateLimitService.countActiveRooms(userId);
+        if (activeRooms >= chatLimits.concurrentActiveRooms()) {
+            throw new RateLimitExceededException("Too many active rooms");
         }
     }
 }

@@ -40,4 +40,11 @@ public interface RoomRepository extends JpaRepository<Room, UUID> {
         ORDER BY r.createdAt DESC
         """)
     Page<Room> findSeedEligibleRooms(@Param("userId") UUID userId, Pageable pageable);
+    @Query("""
+        SELECT COUNT(r) FROM Room r
+        WHERE r.statusId IN (1, 2, 3, 4) AND r.id IN (
+            SELECT rp.roomId FROM RoomParticipant rp WHERE rp.userId = :userId
+        )
+        """)
+    int countActiveOrEndingRoomsByParticipantUserId(@Param("userId") UUID userId);
 }

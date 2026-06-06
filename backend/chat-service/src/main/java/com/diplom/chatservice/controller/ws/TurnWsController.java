@@ -9,6 +9,7 @@ import com.diplom.chatservice.repository.RoomRepository;
 import com.diplom.chatservice.repository.TurnRepository;
 import com.diplom.chatservice.security.CustomUserDetails;
 import com.diplom.chatservice.service.DraftService;
+import com.diplom.chatservice.service.RateLimitService;
 import com.diplom.chatservice.service.TurnOrchestrationService;
 import com.diplom.chatservice.service.TurnPersistenceService;
 import com.diplom.chatservice.service.WsErrorSender;
@@ -42,6 +43,7 @@ public class TurnWsController {
     private final SimpMessagingTemplate messagingTemplate;
     private final ThreadPoolTaskExecutor aiExecutor;
     private final WsErrorSender wsErrorSender;
+    private final RateLimitService rateLimitService;
 
     @MessageMapping("/rooms/{roomId}/finish")
     public void finishThought(
@@ -105,6 +107,19 @@ public class TurnWsController {
             log.info("FINISH_THOUGHT branch=REJECTED roomId={} reason=not_floor_holder floorHolder={}",
                     roomId, room.getCurrentFloorParticipantId());
             wsErrorSender.send(principalName, WsError.error("It is not your turn to submit"));
+            return;
+        }
+
+        // Phase 4d Rate Limit Checks
+        if (rateLimitService.checkTurnRate(caller.getId())) {
+            log.info("FINISH_THOUGHT branch=REJECTED roomId={} reason=rate_limit participantId={}", roomId, caller.getId());
+            wsErrorSender.send(principalName, WsError.limit("Slow down"));
+            return;
+        }
+
+        if (rateLimitService.isOverDailyBudget(user.getId())) {
+            log.info("FINISH_THOUGHT branch=REJECTED roomId={} reason=daily_budget userId={}", roomId, user.getId());
+            wsErrorSender.send(principalName, WsError.limit("Daily usage limit reached"));
             return;
         }
 

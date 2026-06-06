@@ -39,6 +39,7 @@ public class TurnOrchestrationService {
     private final RoomParticipantRepository participantRepository;
     private final ChatLlmProperties llmProperties;
     private final SummarizationService summarizationService;
+    private final RateLimitService rateLimitService;
 
     public SubmitTurnResponse submitTurn(UUID roomId, UUID currentUserId, SubmitTurnRequest request) {
         Room room = roomRepository.findById(roomId)
@@ -47,6 +48,14 @@ public class TurnOrchestrationService {
         RoomParticipant callerParticipant = validateAndGetParticipant(roomId, currentUserId);
 
         validateSubmitPreconditions(room, callerParticipant);
+        
+        // Phase 4d Rate Limit Checks
+        if (rateLimitService.checkTurnRate(callerParticipant.getId())) {
+            throw new RateLimitExceededException("Slow down");
+        }
+        if (rateLimitService.isOverDailyBudget(currentUserId)) {
+            throw new RateLimitExceededException("Daily usage limit reached");
+        }
 
         // Transaction 1
         Turn userTurn = turnPersistenceService.persistUserTurn(roomId, callerParticipant.getId(), request.text());
@@ -64,6 +73,14 @@ public class TurnOrchestrationService {
         List<Turn> allTurns = loadHistory(roomId);
         if (allTurns.isEmpty() || allTurns.get(allTurns.size() - 1).getRoleId() != 1) { // 1=USER
             throw new InvalidRoomStateException("No pending AI response to retry");
+        }
+
+        // Phase 4d Rate Limit Checks
+        if (rateLimitService.checkTurnRate(callerParticipant.getId())) {
+            throw new RateLimitExceededException("Slow down");
+        }
+        if (rateLimitService.isOverDailyBudget(currentUserId)) {
+            throw new RateLimitExceededException("Daily usage limit reached");
         }
 
         // Transaction 1r
@@ -106,6 +123,13 @@ public class TurnOrchestrationService {
         } catch (LlmUnavailableException e) {
             turnPersistenceService.handleAiFailure(roomId);
             throw e;
+        }
+
+        // Phase 4d Token Accounting
+        try {
+            rateLimitService.addDailyTokens(updatedRoom.getCurrentFloorParticipantId(), llmResponse.promptTokens() + llmResponse.completionTokens());
+        } catch (Exception e) {
+            log.warn("Failed to account tokens for user {} in room {}", updatedRoom.getCurrentFloorParticipantId(), roomId, e);
         }
 
         // Transaction 2s

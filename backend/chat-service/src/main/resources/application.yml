@@ -39,6 +39,10 @@ internal:
   api-key: ${INTERNAL_API_KEY}
 
 chat:
+  limits:
+    turns-per-minute: 6
+    daily-token-budget: 200000
+    concurrent-active-rooms: 3
   default-ai-model: gemini-2.5-flash-lite
   llm:
     provider: openai-compatible

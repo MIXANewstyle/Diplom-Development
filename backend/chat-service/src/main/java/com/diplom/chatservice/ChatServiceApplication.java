@@ -6,9 +6,11 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.scheduling.annotation.EnableScheduling;
 import com.diplom.chatservice.config.ChatLlmProperties;
 
+import com.diplom.chatservice.config.ChatLimitsProperties;
+
 @SpringBootApplication
 @EnableScheduling
-@EnableConfigurationProperties(ChatLlmProperties.class)
+@EnableConfigurationProperties({ChatLlmProperties.class, ChatLimitsProperties.class})
 public class ChatServiceApplication {
     
     public static void main(String[] args) {
