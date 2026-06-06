@@ -4,14 +4,15 @@ import com.diplom.chatservice.config.ChatLlmProperties;
 import com.diplom.chatservice.entity.Room;
 import com.diplom.chatservice.entity.RoomParticipant;
 import com.diplom.chatservice.entity.Turn;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -19,6 +20,9 @@ import java.util.Optional;
 public class ConversationAssembler {
 
     private final ChatLlmProperties llmProperties;
+    private final ObjectMapper objectMapper;
+
+    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
     public LlmRequest assemble(Room room, List<RoomParticipant> participants, List<Turn> allTurns) {
         boolean isPaired = room.getTypeId() == 1; // 1=PAIRED
@@ -44,12 +48,13 @@ public class ConversationAssembler {
             } else if (turn.getRoleId() == 1) { // 1=USER
                 String content = turn.getContent();
                 if (isPaired) {
-                    Optional<RoomParticipant> author = participants.stream()
+                    RoomParticipant author = participants.stream()
                             .filter(p -> p.getId().equals(turn.getParticipantId()))
-                            .findFirst();
+                            .findFirst()
+                            .orElse(null);
 
-                    if (author.isPresent()) {
-                        String prefix = getIdentityPrefix(author.get());
+                    if (author != null) {
+                        String prefix = getIdentityPrefix(author);
                         content = prefix + content;
                     }
                 }
@@ -57,7 +62,7 @@ public class ConversationAssembler {
             }
         }
 
-        // TODO Phase 4: If room.runningSummary is not null, prepend it as a system message.
+        // TODO Phase 4c-2: If room.runningSummary is not null, prepend it as a system message.
 
         return new LlmRequest(
                 finalSystemPrompt,
@@ -68,13 +73,17 @@ public class ConversationAssembler {
     }
 
     private String buildContextBlock(Room room, List<RoomParticipant> participants, boolean isPaired) {
-        String template = llmProperties.prompts().contextBlockTemplate();
+        StringBuilder sb = new StringBuilder();
 
         String typeLabel = isPaired ? "paired" : "solo";
-        String modeLabel = !isPaired && room.getSoloModeId() != null && room.getSoloModeId() == 1 ? "PROBLEM_SOLVING" : "не указано";
-        
-        template = template.replace("{paired | solo}", typeLabel);
-        template = template.replace("{PROBLEM_SOLVING для соло}", modeLabel);
+        String modeLabel = !isPaired && room.getSoloModeId() != null && room.getSoloModeId() == 1
+                ? "PROBLEM_SOLVING" : "";
+
+        sb.append("Тип комнаты: ").append(typeLabel).append(".");
+        if (!modeLabel.isEmpty()) {
+            sb.append(" Режим: ").append(modeLabel).append(".");
+        }
+        sb.append("\n");
 
         RoomParticipant participantA = null;
         RoomParticipant participantB = null;
@@ -87,43 +96,87 @@ public class ConversationAssembler {
             }
         }
 
-        template = template.replace("{displayName}{, пол: …}{, возраст: …}", getDisplayName(participantA, "Партнёр A"));
-        template = template.replace("{about_A или «не указано»}", getAboutInfo(participantA));
+        if (isPaired) {
+            // PAIRED: Партнёр A and Партнёр B
+            Map<String, Object> snapshotA = parseSnapshot(participantA);
+            String nameA = snapshotDisplayName(snapshotA);
+            String aboutA = snapshotAbout(snapshotA);
 
-        if (isPaired && participantB != null) {
-            String bTemplate = "Участник B: " + getDisplayName(participantB, "Партнёр B") + ". О себе: " + getAboutInfo(participantB) + ".";
-            template = template.replace("Участник B: {displayName}{, пол: …}{, возраст: …}. О себе: {about_B}.        // только парная", bTemplate);
+            sb.append("Участник A: ").append(nameA != null ? nameA : "Партнёр A");
+            sb.append(". О себе: ").append(aboutA != null ? aboutA : "не указано");
+            sb.append(".\n");
+
+            if (participantB != null) {
+                Map<String, Object> snapshotB = parseSnapshot(participantB);
+                String nameB = snapshotDisplayName(snapshotB);
+                String aboutB = snapshotAbout(snapshotB);
+
+                sb.append("Участник B: ").append(nameB != null ? nameB : "Партнёр B");
+                sb.append(". О себе: ").append(aboutB != null ? aboutB : "не указано");
+                sb.append(".\n");
+            }
         } else {
-            template = template.replace("Участник B: {displayName}{, пол: …}{, возраст: …}. О себе: {about_B}.        // только парная\n", "");
+            // SOLO: single participant
+            Map<String, Object> snapshotA = parseSnapshot(participantA);
+            String nameA = snapshotDisplayName(snapshotA);
+            String aboutA = snapshotAbout(snapshotA);
+
+            sb.append("Участник: ").append(nameA != null ? nameA : "Участник");
+            sb.append(". О себе: ").append(aboutA != null ? aboutA : "не указано");
+            sb.append(".\n");
         }
 
+        // TODO Phase 4c-3: seed_summary line from seedContextRoomId
         if (room.getSeedContextRoomId() != null && room.getRunningSummary() != null) {
-            template = template.replace("Краткое содержание предыдущего диалога: {seed_summary}.                       // если есть seedContextRoomId", "Краткое содержание предыдущего диалога: " + room.getRunningSummary());
-        } else {
-            template = template.replace("Краткое содержание предыдущего диалога: {seed_summary}.                       // если есть seedContextRoomId\n", "");
-            template = template.replace("Краткое содержание предыдущего диалога: {seed_summary}.                       // если есть seedContextRoomId", "");
+            sb.append("Краткое содержание предыдущего диалога: ").append(room.getRunningSummary()).append("\n");
         }
 
-        return template.trim();
+        return sb.toString().trim();
     }
 
-    private String getDisplayName(RoomParticipant p, String defaultLabel) {
-        if (p == null) return defaultLabel;
-        // TODO Phase 4: Identity enrichment (real names for registered users)
-        return p.getGuestDisplayName() != null ? p.getGuestDisplayName() : defaultLabel;
-    }
-
-    private String getAboutInfo(RoomParticipant p) {
-        if (p == null || p.getContextSnapshot() == null) return "не указано";
-        // Parsing the JSONB contextSnapshot is deferred, but for Phase 2,
-        // it's always null anyway, so it evaluates to "не указано".
-        return "не указано";
-    }
-
+    /**
+     * Identity prefix for USER turns in paired rooms (§6.3).
+     * "[Партнёр A · {name}]: " or "[Партнёр A]: " if name is null.
+     */
     private String getIdentityPrefix(RoomParticipant p) {
         String roleLabel = p.getRoleId() == 1 ? "Партнёр A" : "Партнёр B";
-        String name = getDisplayName(p, roleLabel);
-        return "[" + roleLabel + " · " + name + "]: ";
+        Map<String, Object> snapshot = parseSnapshot(p);
+        String name = snapshotDisplayName(snapshot);
+
+        if (name != null) {
+            return "[" + roleLabel + " · " + name + "]: ";
+        }
+        return "[" + roleLabel + "]: ";
+    }
+
+    /**
+     * Parse the context_snapshot JSONB from a participant.
+     * Returns null if the snapshot is null or unparseable.
+     */
+    private Map<String, Object> parseSnapshot(RoomParticipant p) {
+        if (p == null || p.getContextSnapshot() == null || p.getContextSnapshot().isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(p.getContextSnapshot(), MAP_TYPE);
+        } catch (Exception e) {
+            log.warn("Failed to parse context_snapshot for participant {}", p.getId());
+            return null;
+        }
+    }
+
+    private String snapshotDisplayName(Map<String, Object> snapshot) {
+        if (snapshot == null) return null;
+        Object val = snapshot.get("displayName");
+        return val != null ? val.toString() : null;
+    }
+
+    private String snapshotAbout(Map<String, Object> snapshot) {
+        if (snapshot == null) return null;
+        Object val = snapshot.get("about");
+        if (val == null) return null;
+        String s = val.toString();
+        return s.isBlank() ? null : s;
     }
 
     private int estimateTokens(String text) {
@@ -152,7 +205,7 @@ public class ConversationAssembler {
                     selected.add(0, turn);
                     currentTokens += tokens;
                 } else {
-                    // TODO Phase 4: prepend running_summary instead of dropping oldest verbatim turns.
+                    // TODO Phase 4c-2: prepend running_summary instead of dropping oldest verbatim turns.
                     break;
                 }
             }

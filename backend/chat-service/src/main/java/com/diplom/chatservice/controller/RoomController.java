@@ -11,6 +11,7 @@ import com.diplom.chatservice.entity.RoomParticipant;
 import com.diplom.chatservice.repository.RoomParticipantRepository;
 import com.diplom.chatservice.security.CustomUserDetails;
 import com.diplom.chatservice.service.ParticipantEnrichmentService;
+import com.diplom.chatservice.service.ContextSnapshotService;
 import com.diplom.chatservice.service.ProfileCacheService;
 import com.diplom.chatservice.service.RoomMapper;
 import com.diplom.chatservice.service.RoomService;
@@ -45,6 +46,7 @@ public class RoomController {
     private final TurnOrchestrationService turnOrchestrationService;
     private final ParticipantEnrichmentService participantEnrichmentService;
     private final ProfileCacheService profileCacheService;
+    private final ContextSnapshotService contextSnapshotService;
     private final RoomParticipantRepository roomParticipantRepository;
     private final RoomMapper roomMapper;
 
@@ -62,9 +64,12 @@ public class RoomController {
     @PreAuthorize("hasRole('BASIC')")
     public ResponseEntity<RoomResponse> createSoloRoom(
         @AuthenticationPrincipal CustomUserDetails user,
-        @Valid @RequestBody CreateSoloRoomRequest request
+        @Valid @RequestBody CreateSoloRoomRequest request,
+        HttpServletRequest httpRequest
     ) {
         RoomResponse response = roomService.createSoloRoom(request, user.getId());
+        // Solo room is ACTIVE immediately — capture context snapshot outside the tx
+        contextSnapshotService.captureForRoom(response.id(), extractJwt(httpRequest));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -80,9 +85,14 @@ public class RoomController {
     @PostMapping("/{roomId}/consent/start")
     public ResponseEntity<RoomResponse> consentStart(
         @AuthenticationPrincipal CustomUserDetails user,
-        @PathVariable UUID roomId
+        @PathVariable UUID roomId,
+        HttpServletRequest httpRequest
     ) {
         RoomResponse response = roomService.consentStart(roomId, user.getId());
+        // If this consent caused WAITING_CONSENT → ACTIVE, capture context snapshots
+        if ("ACTIVE".equals(response.status())) {
+            contextSnapshotService.captureForRoom(roomId, extractJwt(httpRequest));
+        }
         return ResponseEntity.ok(response);
     }
 

@@ -35,6 +35,9 @@ jwt:
 user-service:
   base-url: http://localhost:8081
 
+internal:
+  api-key: ${INTERNAL_API_KEY}
+
 chat:
   default-ai-model: gemini-2.5-flash-lite
   llm:
@@ -48,6 +51,8 @@ chat:
     max-retries: 2
     prompt-token-budget: 6000
     hard-turn-cap: 60
+    context:
+      about-max-chars: 600
     prompts:
       paired-system: |
         Ты — тёплый, безоценочный и беспристрастный посредник между двумя людьми, которые

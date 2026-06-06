@@ -11,16 +11,19 @@ import com.diplom.chatservice.exception.NotRoomParticipantException;
 import com.diplom.chatservice.exception.RoomNotFoundException;
 import com.diplom.chatservice.repository.RoomParticipantRepository;
 import com.diplom.chatservice.security.CustomUserDetails;
+import com.diplom.chatservice.service.ContextSnapshotService;
 import com.diplom.chatservice.service.RoomService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 
 import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -31,6 +34,7 @@ public class WsConsentEndController {
     private final RoomService roomService;
     private final SimpMessagingTemplate messagingTemplate;
     private final RoomParticipantRepository participantRepository;
+    private final ContextSnapshotService contextSnapshotService;
 
     private RoomParticipant verifyParticipant(UUID roomId, UUID userId) {
         RoomParticipant p = participantRepository.findByRoomIdAndUserId(roomId, userId).orElse(null);
@@ -54,7 +58,8 @@ public class WsConsentEndController {
     @MessageMapping("/rooms/{roomId}/consent/start")
     public void consentStart(
             @AuthenticationPrincipal CustomUserDetails user,
-            @DestinationVariable UUID roomId
+            @DestinationVariable UUID roomId,
+            SimpMessageHeaderAccessor headerAccessor
     ) {
         try {
             verifyParticipant(roomId, user.getId());
@@ -63,6 +68,11 @@ public class WsConsentEndController {
             if ("ACTIVE".equals(response.status())) {
                 messagingTemplate.convertAndSend("/topic/rooms/" + roomId, 
                         DialogueStartedEvent.of(response.currentFloorParticipantId()));
+                // Capture context snapshots outside the consent tx
+                String jwt = extractWsJwt(headerAccessor);
+                if (jwt != null) {
+                    contextSnapshotService.captureForRoom(roomId, jwt);
+                }
             } else {
                 ParticipantResponse p = findParticipantResponse(response, user.getId());
                 if (p != null) {
@@ -78,6 +88,14 @@ public class WsConsentEndController {
             log.error("Unexpected error in WS consentStart", e);
             sendError(user.getUsername(), "An unexpected error occurred");
         }
+    }
+
+    private String extractWsJwt(SimpMessageHeaderAccessor headerAccessor) {
+        Map<String, Object> sessionAttrs = headerAccessor.getSessionAttributes();
+        if (sessionAttrs != null && sessionAttrs.containsKey("jwt")) {
+            return (String) sessionAttrs.get("jwt");
+        }
+        return null;
     }
 
     @MessageMapping("/rooms/{roomId}/consent/revoke")
