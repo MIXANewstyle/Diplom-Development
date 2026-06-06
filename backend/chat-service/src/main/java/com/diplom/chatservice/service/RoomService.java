@@ -129,7 +129,6 @@ public class RoomService {
             .roomId(room.getId())
             .userId(request.friendUserId())
             .roleId(ROLE_INVITEE)
-            .joinedAt(OffsetDateTime.now())
             .build();
         invitee = participantRepository.save(invitee);
 

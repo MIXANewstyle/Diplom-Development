@@ -55,7 +55,7 @@ public class RoomParticipant {
     @Column(name = "consent_start_at")
     private OffsetDateTime consentStartAt;
 
-    @Column(name = "joined_at", nullable = false)
+    @Column(name = "joined_at")
     private OffsetDateTime joinedAt;
 
     @Column(name = "last_seen_at")

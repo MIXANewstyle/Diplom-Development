@@ -12,7 +12,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.CreationTimestamp;
+
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -60,9 +60,9 @@ public class Room {
     @Column(name = "running_summary", columnDefinition = "TEXT")
     private String runningSummary;
 
-    @CreationTimestamp
+    @Builder.Default
     @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
+    private OffsetDateTime createdAt = OffsetDateTime.now();
 
     @Column(name = "started_at")
     private OffsetDateTime startedAt;
