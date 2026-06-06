@@ -14,8 +14,15 @@ public record ChatLlmProperties(
         int maxRetries,
         int promptTokenBudget,
         int hardTurnCap,
+        ExecutorProps executor,
         Prompts prompts
 ) {
+    public record ExecutorProps(
+            int corePoolSize,
+            int maxPoolSize,
+            int queueCapacity
+    ) {}
+
     public record Prompts(
             String pairedSystem,
             String soloSystem,

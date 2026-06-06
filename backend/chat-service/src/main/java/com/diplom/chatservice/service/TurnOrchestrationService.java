@@ -50,7 +50,7 @@ public class TurnOrchestrationService {
         // Transaction 1
         Turn userTurn = turnPersistenceService.persistUserTurn(roomId, callerParticipant.getId(), request.text());
 
-        return executeAiPipeline(roomId, userTurn);
+        return new SubmitTurnResponse(mapToResponse(userTurn), mapToResponse(executeAiStep(roomId)));
     }
 
     public SubmitTurnResponse retryTurn(UUID roomId, UUID currentUserId) {
@@ -68,10 +68,17 @@ public class TurnOrchestrationService {
         // Transaction 1r
         turnPersistenceService.setAiProcessing(roomId);
 
-        return executeAiPipeline(roomId, null);
+        return new SubmitTurnResponse(null, mapToResponse(executeAiStep(roomId)));
     }
 
-    private SubmitTurnResponse executeAiPipeline(UUID roomId, Turn userTurn) {
+    /**
+     * Executes the AI pipeline asynchronously or synchronously.
+     * sequence: load turns+participants → assembler.assemble → llmClient.complete
+     * → persist ASSISTANT turn → flip floor → set phase=A_COMPOSING.
+     * On failure, it throws the exception so the caller can handle it
+     * (or it rethrows LlmUnavailableException).
+     */
+    public Turn executeAiStep(UUID roomId) {
         Room updatedRoom = roomRepository.findById(roomId).orElseThrow();
         List<RoomParticipant> participants = participantRepository.findByRoomId(roomId);
         List<Turn> allTurns = loadHistory(roomId);
@@ -87,9 +94,7 @@ public class TurnOrchestrationService {
         }
 
         // Transaction 2s
-        Turn assistantTurn = turnPersistenceService.persistAssistantTurn(roomId, llmResponse.content(), llmResponse.promptTokens(), llmResponse.completionTokens());
-
-        return new SubmitTurnResponse(mapToResponse(userTurn), mapToResponse(assistantTurn));
+        return turnPersistenceService.persistAssistantTurn(roomId, llmResponse.content(), llmResponse.promptTokens(), llmResponse.completionTokens());
     }
 
     private RoomParticipant validateAndGetParticipant(UUID roomId, UUID currentUserId) {
