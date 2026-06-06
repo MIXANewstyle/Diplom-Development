@@ -24,11 +24,15 @@ import java.util.regex.Pattern;
  * Inbound STOMP channel interceptor handling:
  * <ul>
  *   <li><b>CONNECT</b> — JWT authentication (same principal type as the HTTP filter).</li>
- *   <li><b>SUBSCRIBE</b> — room-participant authorization for room destinations.</li>
+ *   <li><b>SUBSCRIBE</b> — room-participant authorization for room destinations;
+ *       {@code /user/**} subscriptions pass through (Spring scopes them to the
+ *       authenticated principal automatically).</li>
+ *   <li><b>SEND</b> — room-participant authorization for {@code /app/rooms/{roomId}/**}
+ *       destinations (§9.2 enforces authorization at the broker boundary for SEND too).</li>
  * </ul>
  *
  * <p>This replaces Spring Security's deprecated message-level security config.
- * Invalid/missing tokens or unauthorized subscriptions cause a {@link MessageDeliveryException}
+ * Invalid/missing tokens or unauthorized commands cause a {@link MessageDeliveryException}
  * which Spring translates to a STOMP ERROR frame.
  */
 @Slf4j
@@ -50,6 +54,10 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
     private static final Pattern ROOM_DESTINATION_PATTERN =
             Pattern.compile("^/(topic|app)/rooms/([0-9a-fA-F\\-]{36})(/.*)?$");
 
+    /** Matches /user/** destinations — these are always allowed for authenticated users. */
+    private static final Pattern USER_DESTINATION_PATTERN =
+            Pattern.compile("^/user/.*$");
+
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
         StompHeaderAccessor accessor =
@@ -62,6 +70,7 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
         switch (accessor.getCommand()) {
             case CONNECT -> handleConnect(accessor);
             case SUBSCRIBE -> handleSubscribe(accessor);
+            case SEND -> handleSend(accessor);
             default -> { /* pass through */ }
         }
 
@@ -107,11 +116,19 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
 
     /**
      * Authorize SUBSCRIBE to room destinations. Extracts roomId from the destination path
-     * and verifies the connected user is a participant. Non-room destinations pass through.
+     * and verifies the connected user is a participant. {@code /user/**} subscriptions
+     * pass through (Spring scopes them to the authenticated principal automatically).
+     * Non-room, non-user destinations pass through.
      */
     private void handleSubscribe(StompHeaderAccessor accessor) {
         String destination = accessor.getDestination();
         if (destination == null) {
+            return;
+        }
+
+        // /user/** subscriptions pass through — Spring scopes to the authenticated principal
+        if (USER_DESTINATION_PATTERN.matcher(destination).matches()) {
+            log.debug("SUBSCRIBE pass-through for user destination: {}", destination);
             return;
         }
 
@@ -121,6 +138,40 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
             return;
         }
 
+        verifyRoomParticipant(accessor, destination, matcher, "SUBSCRIBE");
+    }
+
+    /**
+     * Authorize SEND to {@code /app/rooms/{roomId}/**}. Extracts roomId and verifies the
+     * sender is a participant of the room (§9.2 enforces authorization at the broker
+     * boundary for SEND too).
+     */
+    private void handleSend(StompHeaderAccessor accessor) {
+        String destination = accessor.getDestination();
+        if (destination == null) {
+            return;
+        }
+
+        Matcher matcher = ROOM_DESTINATION_PATTERN.matcher(destination);
+        if (!matcher.matches()) {
+            // Not a room destination — pass through
+            return;
+        }
+
+        // Only authorize /app/ destinations (the inbound app prefix)
+        String prefix = matcher.group(1);
+        if (!"app".equals(prefix)) {
+            return;
+        }
+
+        verifyRoomParticipant(accessor, destination, matcher, "SEND");
+    }
+
+    /**
+     * Common participant-verification logic shared between SUBSCRIBE and SEND handlers.
+     */
+    private void verifyRoomParticipant(StompHeaderAccessor accessor, String destination,
+                                       Matcher matcher, String command) {
         UUID roomId;
         try {
             roomId = UUID.fromString(matcher.group(2));
@@ -139,11 +190,11 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
 
         boolean isParticipant = roomParticipantRepository.existsByRoomIdAndUserId(roomId, userId);
         if (!isParticipant) {
-            log.warn("SUBSCRIBE rejected: userId={} is not a participant of roomId={}", userId, roomId);
+            log.warn("{} rejected: userId={} is not a participant of roomId={}", command, userId, roomId);
             throw new MessageDeliveryException(
                     "Access denied: you are not a participant of this room");
         }
 
-        log.debug("SUBSCRIBE authorized: userId={} to destination={}", userId, destination);
+        log.debug("{} authorized: userId={} to destination={}", command, userId, destination);
     }
 }
