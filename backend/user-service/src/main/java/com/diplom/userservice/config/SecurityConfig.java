@@ -18,6 +18,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import com.diplom.userservice.security.JwtAuthenticationFilter;
 import com.diplom.userservice.security.JsonAccessDeniedHandler;
 import com.diplom.userservice.security.JsonAuthenticationEntryPoint;
+import com.diplom.userservice.security.InternalApiKeyFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -47,6 +48,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http, 
             JwtAuthenticationFilter jwtAuthenticationFilter,
+            InternalApiKeyFilter internalApiKeyFilter,
             JsonAuthenticationEntryPoint jsonAuthenticationEntryPoint,
             JsonAccessDeniedHandler jsonAccessDeniedHandler) throws Exception {
         http
@@ -57,10 +59,11 @@ public class SecurityConfig {
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/users/register", "/api/v1/users/login", "/error").permitAll()
+                .requestMatchers("/api/v1/users/register", "/api/v1/users/login", "/error", "/internal/**").permitAll()
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
+            .addFilterBefore(internalApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

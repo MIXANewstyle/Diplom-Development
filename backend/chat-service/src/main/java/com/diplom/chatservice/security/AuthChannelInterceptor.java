@@ -1,6 +1,8 @@
 package com.diplom.chatservice.security;
 
 import com.diplom.chatservice.repository.RoomParticipantRepository;
+import com.diplom.chatservice.service.ModerationBlocklistService;
+import com.diplom.chatservice.service.WsSessionRegistry;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +44,8 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
 
     private final JwtService jwtService;
     private final RoomParticipantRepository roomParticipantRepository;
+    private final ModerationBlocklistService moderationBlocklistService;
+    private final WsSessionRegistry wsSessionRegistry;
 
     /**
      * Matches destinations like:
@@ -102,6 +106,10 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
 
         CustomUserDetails userDetails = new CustomUserDetails(userId, email, roleName);
 
+        if (moderationBlocklistService.isBlocked(userId)) {
+            throw new MessageDeliveryException("Account is moderated");
+        }
+
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
                         userDetails,
@@ -113,6 +121,8 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
 
         // Store raw JWT for downstream handlers (e.g. room-state snapshot enrichment)
         accessor.getSessionAttributes().put("jwt", token);
+
+        wsSessionRegistry.registerUserId(userId, accessor.getSessionId());
 
         log.debug("STOMP CONNECT authenticated for userId={}", userId);
     }
@@ -128,6 +138,8 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
         if (destination == null) {
             return;
         }
+
+        checkNotBlocked(accessor);
 
         // /user/** subscriptions pass through — Spring scopes to the authenticated principal
         if (USER_DESTINATION_PATTERN.matcher(destination).matches()) {
@@ -154,6 +166,8 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
         if (destination == null) {
             return;
         }
+
+        checkNotBlocked(accessor);
 
         Matcher matcher = ROOM_DESTINATION_PATTERN.matcher(destination);
         if (!matcher.matches()) {
@@ -199,5 +213,15 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
         }
 
         log.debug("{} authorized: userId={} to destination={}", command, userId, destination);
+    }
+
+    private void checkNotBlocked(StompHeaderAccessor accessor) {
+        if (accessor.getUser() != null) {
+            UsernamePasswordAuthenticationToken auth = (UsernamePasswordAuthenticationToken) accessor.getUser();
+            CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
+            if (moderationBlocklistService.isBlocked(userDetails.getId())) {
+                throw new MessageDeliveryException("Account is moderated");
+            }
+        }
     }
 }

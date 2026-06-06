@@ -56,3 +56,6 @@ management:
 jwt:
   secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
   expiration-hours: 24
+
+internal:
+  api-key: ${INTERNAL_API_KEY}

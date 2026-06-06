@@ -43,6 +43,7 @@ public class PresenceEventListener {
     private final DraftService draftService;
     private final RoomParticipantRepository roomParticipantRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final WsSessionRegistry wsSessionRegistry;
 
     /**
      * Maps STOMP sessionId → set of {roomId, participantId} pairs the session subscribed to.
@@ -138,6 +139,8 @@ public class PresenceEventListener {
     public void handleDisconnect(SessionDisconnectEvent event) {
         SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.wrap(event.getMessage());
         String sessionId = accessor.getSessionId();
+
+        wsSessionRegistry.unregisterSessionId(sessionId);
 
         Set<SessionRoomEntry> entries = sessionRoomMap.remove(sessionId);
         if (entries == null || entries.isEmpty()) {

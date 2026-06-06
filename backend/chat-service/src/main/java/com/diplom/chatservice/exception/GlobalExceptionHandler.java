@@ -140,4 +140,18 @@ public class GlobalExceptionHandler {
             "User-service is currently unavailable. Please try again later.");
         return new ResponseEntity<>(body, HttpStatus.SERVICE_UNAVAILABLE);
     }
+
+    @ExceptionHandler(UserModeratedException.class)
+    public ResponseEntity<Object> handleUserModeratedException(UserModeratedException ex) {
+        log.warn("UserModeratedException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(SubscriptionRequiredException.class)
+    public ResponseEntity<Object> handleSubscriptionRequiredException(SubscriptionRequiredException ex) {
+        log.warn("SubscriptionRequiredException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
+    }
 }

@@ -2,6 +2,12 @@ package com.diplom.chatservice.consumer;
 
 import com.diplom.chatservice.config.RabbitMQConfig;
 import com.diplom.chatservice.service.FriendLinkProjectionService;
+import com.diplom.chatservice.service.ModerationBlocklistService;
+import com.diplom.chatservice.service.RoleCacheService;
+import com.diplom.chatservice.service.RoomService;
+import com.diplom.chatservice.service.WsSessionRegistry;
+import com.diplom.chatservice.consumer.dto.RoleUpdatedEvent;
+import com.diplom.chatservice.consumer.dto.AccountModeratedEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,6 +26,10 @@ import java.util.UUID;
 public class UserEventsConsumer {
 
     private final FriendLinkProjectionService friendLinkProjectionService;
+    private final ModerationBlocklistService moderationBlocklistService;
+    private final RoleCacheService roleCacheService;
+    private final RoomService roomService;
+    private final WsSessionRegistry wsSessionRegistry;
     private final ObjectMapper objectMapper;
 
     @RabbitListener(queues = RabbitMQConfig.USER_EVENTS_QUEUE)
@@ -30,6 +40,8 @@ public class UserEventsConsumer {
         try {
             switch (routingKey) {
                 case "user.friendship-accepted" -> handleFriendshipAccepted(json);
+                case "user.role-updated" -> handleRoleUpdated(json);
+                case "user.account-moderated" -> handleAccountModerated(json);
                 default -> log.warn("Unhandled routing key on user-events queue: {}", routingKey);
             }
         } catch (Exception ex) {
@@ -42,5 +54,30 @@ public class UserEventsConsumer {
         UUID requesterId = UUID.fromString(node.get("requesterId").asText());
         UUID addresseeId = UUID.fromString(node.get("addresseeId").asText());
         friendLinkProjectionService.upsertFriendship(requesterId, addresseeId);
+    }
+
+    private void handleRoleUpdated(String json) throws JsonProcessingException {
+        RoleUpdatedEvent event = objectMapper.readValue(json, RoleUpdatedEvent.class);
+        String roleStr = switch (event.roleId()) {
+            case 1 -> "GUEST";
+            case 2 -> "FREE";
+            case 3 -> "BASIC";
+            case 4 -> "AUTHOR";
+            default -> "GUEST";
+        };
+        roleCacheService.putRole(event.userId(), roleStr);
+    }
+
+    private void handleAccountModerated(String json) throws JsonProcessingException {
+        AccountModeratedEvent event = objectMapper.readValue(json, AccountModeratedEvent.class);
+        switch (event.statusId()) {
+            case 2, 3 -> {
+                moderationBlocklistService.block(event.userId());
+                roomService.abandonRoomsForBannedUser(event.userId());
+                wsSessionRegistry.terminateUserSessions(event.userId());
+            }
+            case 1 -> moderationBlocklistService.unblock(event.userId());
+            default -> log.warn("Unknown statusId {} in ACCOUNT_MODERATED for {}", event.statusId(), event.userId());
+        }
     }
 }

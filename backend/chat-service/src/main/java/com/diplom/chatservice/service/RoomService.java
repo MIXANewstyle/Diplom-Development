@@ -21,8 +21,11 @@ import com.diplom.chatservice.exception.InvalidRoomStateException;
 import com.diplom.chatservice.exception.NotFriendsException;
 import com.diplom.chatservice.exception.NotRoomParticipantException;
 import com.diplom.chatservice.exception.RoomFullException;
-import com.diplom.chatservice.exception.RoomNotFoundException;
+import com.diplom.chatservice.exception.SubscriptionRequiredException;
+import com.diplom.chatservice.exception.UserModeratedException;
 import com.diplom.chatservice.outbox.OutboxEventFactory;
+import com.diplom.chatservice.dto.ws.DialogueAbandonedEvent;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import com.diplom.chatservice.repository.ChatOutboxEventRepository;
 import com.diplom.chatservice.repository.FriendLinkRepository;
 import com.diplom.chatservice.repository.RoomParticipantRepository;
@@ -72,6 +75,9 @@ public class RoomService {
     private final OutboxEventFactory outboxEventFactory;
     private final ChatOutboxEventRepository outboxEventRepository;
     private final RoomMapper roomMapper;
+    private final ModerationBlocklistService moderationBlocklistService;
+    private final RoleCacheService roleCacheService;
+    private final SimpMessagingTemplate messagingTemplate;
 
 
     @Value("${chat.default-ai-model}")
@@ -88,6 +94,7 @@ public class RoomService {
 
     @Transactional
     public RoomResponse createPairedRoom(CreatePairedRoomRequest request, UUID callerId) {
+        checkPassiveGates(callerId, true);
         if (request.inviteMode() == InviteMode.LINK) {
             throw new IllegalArgumentException("LINK invite mode is not supported in this phase");
         }
@@ -150,6 +157,7 @@ public class RoomService {
 
     @Transactional
     public RoomResponse createSoloRoom(CreateSoloRoomRequest request, UUID callerId) {
+        checkPassiveGates(callerId, true);
         // Create room — solo goes straight to ACTIVE
         Room room = Room.builder()
             .typeId(ROOM_TYPE_SOLO)
@@ -182,6 +190,7 @@ public class RoomService {
 
     @Transactional
     public RoomResponse joinRoom(UUID roomId, UUID callerId) {
+        checkPassiveGates(callerId, false);
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
 
@@ -501,5 +510,35 @@ public class RoomService {
             turnPage.getTotalElements(),
             turnPage.getTotalPages()
         );
+    }
+
+    private void checkPassiveGates(UUID callerId, boolean checkRole) {
+        if (moderationBlocklistService.isBlocked(callerId)) {
+            throw new UserModeratedException();
+        }
+        if (checkRole) {
+            String role = roleCacheService.getCachedRole(callerId);
+            if (role != null && (role.equals("FREE") || role.equals("GUEST"))) {
+                throw new SubscriptionRequiredException();
+            }
+        }
+    }
+
+    @Transactional
+    public void abandonRoomsForBannedUser(UUID userId) {
+        List<Room> rooms = roomRepository.findActiveOrEndingRoomsByParticipantUserId(userId);
+        for (Room room : rooms) {
+            room.setStatusId(STATUS_ABANDONED);
+            room.setEndedAt(OffsetDateTime.now());
+            room.setPhase(null);
+            roomRepository.save(room);
+
+            // Broadcast DIALOGUE_ABANDONED to the room topic
+            messagingTemplate.convertAndSend(
+                "/topic/rooms/" + room.getId(),
+                new DialogueAbandonedEvent(room.getId(), "MODERATION")
+            );
+            log.info("Abandoned room {} due to user {} moderation", room.getId(), userId);
+        }
     }
 }
