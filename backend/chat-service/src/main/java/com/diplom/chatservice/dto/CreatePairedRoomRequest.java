@@ -6,5 +6,6 @@ import java.util.UUID;
 
 public record CreatePairedRoomRequest(
     @NotNull InviteMode inviteMode,
-    UUID friendUserId
+    UUID friendUserId,
+    UUID seedContextRoomId
 ) {}

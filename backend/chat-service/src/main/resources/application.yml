@@ -53,6 +53,7 @@ chat:
     hard-turn-cap: 60
     context:
       about-max-chars: 600
+      recent-turns-verbatim: 20
     prompts:
       paired-system: |
         Ты — тёплый, безоценочный и беспристрастный посредник между двумя людьми, которые

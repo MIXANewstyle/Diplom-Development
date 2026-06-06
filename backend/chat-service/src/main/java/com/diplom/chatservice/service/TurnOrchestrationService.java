@@ -38,6 +38,7 @@ public class TurnOrchestrationService {
     private final RoomRepository roomRepository;
     private final RoomParticipantRepository participantRepository;
     private final ChatLlmProperties llmProperties;
+    private final SummarizationService summarizationService;
 
     public SubmitTurnResponse submitTurn(UUID roomId, UUID currentUserId, SubmitTurnRequest request) {
         Room room = roomRepository.findById(roomId)
@@ -82,6 +83,11 @@ public class TurnOrchestrationService {
         Room updatedRoom = roomRepository.findById(roomId).orElseThrow();
         List<RoomParticipant> participants = participantRepository.findByRoomId(roomId);
         List<Turn> allTurns = loadHistory(roomId);
+
+        // Phase 4c-2b overflow folding check
+        handleOverflowFolding(updatedRoom, participants, allTurns);
+        // Reload room in case running_summary or summarized_through_seq was updated
+        updatedRoom = roomRepository.findById(roomId).orElseThrow();
 
         LlmRequest llmRequest = conversationAssembler.assemble(updatedRoom, participants, allTurns);
 
@@ -146,5 +152,48 @@ public class TurnOrchestrationService {
                 turn.getCompletionTokens(),
                 turn.getCreatedAt()
         );
+    }
+
+    private void handleOverflowFolding(Room room, List<RoomParticipant> participants, List<Turn> allTurns) {
+        if (room.getTypeId() != 1) { // Only PAIRED rooms
+            return;
+        }
+
+        int currentSummarizedThrough = room.getSummarizedThroughSeq() != null ? room.getSummarizedThroughSeq() : 0;
+        int maxSeq = allTurns.isEmpty() ? 0 : allTurns.get(allTurns.size() - 1).getSeq();
+
+        int recentVerbatimTurns = llmProperties.context().recentTurnsVerbatim();
+        int candidateThroughSeq = maxSeq - recentVerbatimTurns;
+
+        if (candidateThroughSeq <= currentSummarizedThrough) {
+            return; // Not enough foldable turns beyond what's already summarized and the required verbatim tail
+        }
+
+        // Estimate tokens
+        // For simplicity, we just estimate the sum of all turns in the verbatim tail + existing summary
+        // This relies on the ConversationAssembler's identical char/4 heuristic.
+        int verbatimTokens = 0;
+        for (Turn t : allTurns) {
+            if (t.getSeq() > currentSummarizedThrough && t.getRoleId() != 3) {
+                verbatimTokens += estimateTokens(t.getContent());
+            }
+        }
+        
+        int summaryTokens = room.getRunningSummary() != null ? estimateTokens(room.getRunningSummary()) : 0;
+        // system+context is roughly constant, we can add a flat 500 tokens buffer for system prompts and context block
+        int totalEstimate = verbatimTokens + summaryTokens + 500;
+        
+        int inputBudget = llmProperties.promptTokenBudget() - llmProperties.maxOutputTokens();
+
+        if (totalEstimate > inputBudget) {
+            log.info("Room {} exceeded input budget (est: {}, budget: {}), triggering fold up to seq {}", 
+                    room.getId(), totalEstimate, inputBudget, candidateThroughSeq);
+            summarizationService.foldTurnsIntoSummary(room.getId(), candidateThroughSeq);
+        }
+    }
+
+    private int estimateTokens(String text) {
+        if (text == null || text.isEmpty()) return 0;
+        return (int) Math.ceil(text.length() / 4.0);
     }
 }

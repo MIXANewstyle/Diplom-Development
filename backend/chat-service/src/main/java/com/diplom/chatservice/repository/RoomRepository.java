@@ -29,4 +29,15 @@ public interface RoomRepository extends JpaRepository<Room, UUID> {
         )
         """)
     java.util.List<Room> findActiveOrEndingRoomsByParticipantUserId(@Param("userId") UUID userId);
+
+    @Query("""
+        SELECT r FROM Room r
+        WHERE r.statusId = 5
+          AND r.runningSummary IS NOT NULL
+          AND r.id IN (
+              SELECT rp.roomId FROM RoomParticipant rp WHERE rp.userId = :userId
+          )
+        ORDER BY r.createdAt DESC
+        """)
+    Page<Room> findSeedEligibleRooms(@Param("userId") UUID userId, Pageable pageable);
 }

@@ -27,6 +27,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -34,7 +35,6 @@ import java.util.UUID;
 public class SummarizationService {
 
     private static final int ROOM_TYPE_PAIRED = 1;
-    private static final int STATUS_ARCHIVED = 5;
 
     private final RoomRepository roomRepository;
     private final TurnRepository turnRepository;
@@ -47,7 +47,7 @@ public class SummarizationService {
 
     /**
      * Listens for the archive event AFTER the transaction commits.
-     * Submits the work to the dedicated "summaryExecutor" so we don't block the caller or the aiExecutor.
+     * Submits the work to the dedicated "summaryExecutor".
      */
     @Async("summaryExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -55,48 +55,68 @@ public class SummarizationService {
         if (event.typeId() != ROOM_TYPE_PAIRED) {
             return; // Only summarize PAIRED rooms
         }
-        summarizeOnArchive(event.roomId());
+        // Archival summary covers the whole transcript
+        foldTurnsIntoSummary(event.roomId(), Integer.MAX_VALUE);
     }
 
     /**
-     * Idempotent summarization logic.
+     * Idempotent summarization logic for folding turns up to throughSeq into the running_summary.
      */
-    public void summarizeOnArchive(UUID roomId) {
+    public void foldTurnsIntoSummary(UUID roomId, int throughSeq) {
         Room room = roomRepository.findById(roomId).orElse(null);
         
-        if (room == null || room.getTypeId() != ROOM_TYPE_PAIRED || room.getStatusId() != STATUS_ARCHIVED) {
-            log.debug("Skipping summarization for room {} (not paired/archived or missing)", roomId);
+        if (room == null || room.getTypeId() != ROOM_TYPE_PAIRED) {
+            log.debug("Skipping fold for room {} (not paired or missing)", roomId);
             return;
         }
-        
-        if (room.getRunningSummary() != null) {
-            log.debug("Skipping summarization for room {} (already summarized)", roomId);
+
+        int currentThroughSeq = room.getSummarizedThroughSeq() != null ? room.getSummarizedThroughSeq() : 0;
+        if (currentThroughSeq >= throughSeq) {
+            log.debug("Skipping fold for room {} (already summarized through seq {})", roomId, currentThroughSeq);
             return;
         }
 
         List<Turn> turns = turnRepository.findByRoomIdOrderBySeqAsc(roomId, Pageable.unpaged()).getContent();
-        if (turns.isEmpty()) {
-            log.debug("Skipping summarization for room {} (no turns)", roomId);
+        
+        // Filter turns to fold: seq > currentThroughSeq AND seq <= throughSeq
+        List<Turn> turnsToFold = turns.stream()
+                .filter(t -> t.getSeq() > currentThroughSeq && t.getSeq() <= throughSeq)
+                .collect(Collectors.toList());
+
+        if (turnsToFold.isEmpty()) {
+            log.debug("Skipping fold for room {} (no turns to fold)", roomId);
             return;
         }
 
         List<RoomParticipant> participants = participantRepository.findByRoomId(roomId);
-        String transcript = buildTranscript(turns, participants);
+        String transcript = buildTranscript(turnsToFold, participants);
+        
+        String userMessageContent;
+        if (room.getRunningSummary() != null && !room.getRunningSummary().isBlank()) {
+            userMessageContent = "[Краткое содержание ранее: " + room.getRunningSummary() + "]\n\n" + transcript;
+        } else {
+            userMessageContent = transcript;
+        }
 
         LlmRequest request = new LlmRequest(
                 llmProperties.prompts().summarization(),
-                List.of(new LlmMessage("user", transcript)),
-                llmProperties.maxOutputTokens(), // or a separate limit if configured, but reusing maxOutputTokens is fine
+                List.of(new LlmMessage("user", userMessageContent)),
+                llmProperties.maxOutputTokens(),
                 0.3 // slightly lower temperature for summarization
         );
 
         LlmResponse response = executeWithRetry(request, roomId);
         if (response != null) {
-            saveSummary(roomId, response.content());
-            log.info("Summarization successful for room {}. PromptTokens={} CompletionTokens={}", 
-                    roomId, response.promptTokens(), response.completionTokens());
+            // Find the actual max seq among the turns we folded
+            int actualMaxSeq = turnsToFold.stream().mapToInt(Turn::getSeq).max().orElse(throughSeq);
+            // If the requested throughSeq is greater than actual max (e.g. MAX_VALUE on archive), use actual max
+            int newSummarizedThroughSeq = Math.min(actualMaxSeq, throughSeq);
+            
+            saveSummary(roomId, response.content(), newSummarizedThroughSeq);
+            log.info("Fold successful for room {}. folded through seq {}, PromptTokens={} CompletionTokens={}", 
+                    roomId, newSummarizedThroughSeq, response.promptTokens(), response.completionTokens());
         } else {
-            log.warn("Summarization failed permanently for room {}", roomId);
+            log.warn("Fold failed permanently for room {}", roomId);
         }
     }
 
@@ -106,22 +126,21 @@ public class SummarizationService {
             try {
                 long startMs = System.currentTimeMillis();
                 LlmResponse response = llmClient.complete(request);
-                log.info("Summarization LLM call took {} ms for room {}", (System.currentTimeMillis() - startMs), roomId);
+                log.info("Fold LLM call took {} ms for room {}", (System.currentTimeMillis() - startMs), roomId);
                 return response;
             } catch (LlmUnavailableException e) {
                 if (attempt == maxRetries) {
-                    log.warn("Summarization LLM call failed on attempt {} for room {}", attempt, roomId);
+                    log.warn("Fold LLM call failed on attempt {} for room {}", attempt, roomId);
                     return null;
                 }
                 try {
-                    // Exponential backoff: 2s, 4s
                     Thread.sleep(1000L * (1 << attempt));
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     return null;
                 }
             } catch (Exception e) {
-                log.warn("Summarization LLM call failed with unexpected error for room {}", roomId, e);
+                log.warn("Fold LLM call failed with unexpected error for room {}", roomId, e);
                 return null;
             }
         }
@@ -129,10 +148,11 @@ public class SummarizationService {
     }
 
     @Transactional
-    protected void saveSummary(UUID roomId, String summary) {
+    protected void saveSummary(UUID roomId, String summary, int throughSeq) {
         Room room = roomRepository.findById(roomId).orElse(null);
-        if (room != null && room.getRunningSummary() == null) {
+        if (room != null) {
             room.setRunningSummary(summary);
+            room.setSummarizedThroughSeq(throughSeq);
             roomRepository.save(room);
         }
     }

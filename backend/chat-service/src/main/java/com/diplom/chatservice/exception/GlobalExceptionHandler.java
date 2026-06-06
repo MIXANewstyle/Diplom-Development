@@ -154,4 +154,11 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = createBody(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage());
         return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
     }
+
+    @ExceptionHandler(InvalidSeedContextException.class)
+    public ResponseEntity<Object> handleInvalidSeedContextException(InvalidSeedContextException ex) {
+        log.warn("InvalidSeedContextException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
 }

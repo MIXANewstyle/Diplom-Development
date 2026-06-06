@@ -14,9 +14,15 @@ public record ChatLlmProperties(
         int maxRetries,
         int promptTokenBudget,
         int hardTurnCap,
+        ContextProps context,
         ExecutorProps executor,
         Prompts prompts
 ) {
+    public record ContextProps(
+            int aboutMaxChars,
+            int recentTurnsVerbatim
+    ) {}
+
     public record ExecutorProps(
             int corePoolSize,
             int maxPoolSize,

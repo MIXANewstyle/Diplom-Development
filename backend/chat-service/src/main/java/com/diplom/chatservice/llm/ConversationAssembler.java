@@ -4,6 +4,7 @@ import com.diplom.chatservice.config.ChatLlmProperties;
 import com.diplom.chatservice.entity.Room;
 import com.diplom.chatservice.entity.RoomParticipant;
 import com.diplom.chatservice.entity.Turn;
+import com.diplom.chatservice.repository.RoomRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class ConversationAssembler {
 
     private final ChatLlmProperties llmProperties;
     private final ObjectMapper objectMapper;
+    private final RoomRepository roomRepository;
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
@@ -32,10 +34,19 @@ public class ConversationAssembler {
         String finalSystemPrompt = systemPromptBase.replace("{context_block}", contextBlock);
 
         List<LlmMessage> messages = new ArrayList<>();
-        int systemTokens = estimateTokens(finalSystemPrompt);
-        int availableTokens = llmProperties.promptTokenBudget() - llmProperties.maxOutputTokens() - systemTokens;
+        
+        // Phase 4c-2b: Prepend THIS room's rolling summary if present
+        if (room.getRunningSummary() != null && !room.getRunningSummary().isBlank()) {
+            messages.add(new LlmMessage("assistant", "Ранее в этом диалоге: " + room.getRunningSummary()));
+        }
 
-        List<Turn> turnsToInclude = selectTurnsToFitBudget(allTurns, availableTokens);
+        int systemTokens = estimateTokens(finalSystemPrompt);
+        // Estimate the rolling summary tokens
+        int summaryTokens = room.getRunningSummary() != null ? estimateTokens(room.getRunningSummary()) : 0;
+        
+        int availableTokens = llmProperties.promptTokenBudget() - llmProperties.maxOutputTokens() - systemTokens - summaryTokens;
+
+        List<Turn> turnsToInclude = selectTurnsToFitBudget(allTurns, availableTokens, room.getSummarizedThroughSeq());
 
         for (Turn turn : turnsToInclude) {
             if (turn.getRoleId() == 3) { // 3=SYSTEM
@@ -61,8 +72,6 @@ public class ConversationAssembler {
                 messages.add(new LlmMessage("user", content));
             }
         }
-
-        // TODO Phase 4c-2: If room.runningSummary is not null, prepend it as a system message.
 
         return new LlmRequest(
                 finalSystemPrompt,
@@ -126,9 +135,12 @@ public class ConversationAssembler {
             sb.append(".\n");
         }
 
-        // TODO Phase 4c-3: seed_summary line from seedContextRoomId
-        if (room.getSeedContextRoomId() != null && room.getRunningSummary() != null) {
-            sb.append("Краткое содержание предыдущего диалога: ").append(room.getRunningSummary()).append("\n");
+        // Phase 4c-3: seed_summary line from seedContextRoomId
+        if (room.getSeedContextRoomId() != null) {
+            Room seedRoom = roomRepository.findById(room.getSeedContextRoomId()).orElse(null);
+            if (seedRoom != null && seedRoom.getRunningSummary() != null) {
+                sb.append("Краткое содержание предыдущего диалога: ").append(seedRoom.getRunningSummary()).append("\n");
+            }
         }
 
         return sb.toString().trim();
@@ -184,28 +196,42 @@ public class ConversationAssembler {
         return (int) Math.ceil(text.length() / 4.0);
     }
 
-    private List<Turn> selectTurnsToFitBudget(List<Turn> allTurns, int availableTokens) {
+    private List<Turn> selectTurnsToFitBudget(List<Turn> allTurns, int availableTokens, Integer summarizedThroughSeq) {
         List<Turn> selected = new ArrayList<>();
         if (allTurns == null || allTurns.isEmpty()) {
             return selected;
         }
 
+        int currentSummarizedThrough = summarizedThroughSeq != null ? summarizedThroughSeq : 0;
+        
+        // Filter out turns that are already summarized
+        List<Turn> verbatimCandidates = new ArrayList<>();
+        for (Turn t : allTurns) {
+            if (t.getSeq() > currentSummarizedThrough) {
+                verbatimCandidates.add(t);
+            }
+        }
+        
+        if (verbatimCandidates.isEmpty()) {
+            return selected;
+        }
+
         // We must always include the latest turn
-        Turn lastTurn = allTurns.get(allTurns.size() - 1);
+        Turn lastTurn = verbatimCandidates.get(verbatimCandidates.size() - 1);
         selected.add(lastTurn);
         
         int currentTokens = estimateTokens(lastTurn.getContent());
         
-        if (allTurns.size() > 1) {
-            for (int i = allTurns.size() - 2; i >= 0; i--) {
-                Turn turn = allTurns.get(i);
+        if (verbatimCandidates.size() > 1) {
+            for (int i = verbatimCandidates.size() - 2; i >= 0; i--) {
+                Turn turn = verbatimCandidates.get(i);
                 int tokens = estimateTokens(turn.getContent());
                 // include prefixes in token estimate ideally, but roughly it fits
                 if (currentTokens + tokens <= availableTokens) {
                     selected.add(0, turn);
                     currentTokens += tokens;
                 } else {
-                    // TODO Phase 4c-2: prepend running_summary instead of dropping oldest verbatim turns.
+                    log.warn("Pathological case: even with folding, verbatim tail exceeded budget. Truncating.");
                     break;
                 }
             }

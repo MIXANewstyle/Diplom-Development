@@ -60,6 +60,9 @@ public class Room {
     @Column(name = "running_summary", columnDefinition = "TEXT")
     private String runningSummary;
 
+    @Column(name = "summarized_through_seq")
+    private Integer summarizedThroughSeq;
+
     @Builder.Default
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();

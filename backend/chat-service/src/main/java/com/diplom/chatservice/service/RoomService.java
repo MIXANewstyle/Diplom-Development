@@ -17,6 +17,7 @@ import com.diplom.chatservice.entity.Turn;
 import com.diplom.chatservice.event.EventType;
 import com.diplom.chatservice.event.PairInviteSentEvent;
 import com.diplom.chatservice.event.RoomArchivedEvent;
+import com.diplom.chatservice.exception.InvalidSeedContextException;
 import com.diplom.chatservice.exception.InvalidRoomStateException;
 import com.diplom.chatservice.exception.NotFriendsException;
 import com.diplom.chatservice.exception.NotRoomParticipantException;
@@ -116,12 +117,28 @@ public class RoomService {
             throw new NotFriendsException("You are not friends with the invited user");
         }
 
+        UUID seedContextRoomId = request.seedContextRoomId();
+        if (seedContextRoomId != null) {
+            Room seedRoom = roomRepository.findById(seedContextRoomId)
+                .orElseThrow(() -> new InvalidSeedContextException("Seed room must be your own archived dialogue"));
+            
+            if (seedRoom.getStatusId() != STATUS_ARCHIVED) {
+                throw new InvalidSeedContextException("Seed room must be your own archived dialogue");
+            }
+            
+            boolean wasParticipant = participantRepository.existsByRoomIdAndUserId(seedContextRoomId, callerId);
+            if (!wasParticipant) {
+                throw new InvalidSeedContextException("Seed room must be your own archived dialogue");
+            }
+        }
+
         // Create room
         Room room = Room.builder()
             .typeId(ROOM_TYPE_PAIRED)
             .statusId(STATUS_CREATED)
             .ownerUserId(callerId)
             .aiModel(defaultAiModel)
+            .seedContextRoomId(seedContextRoomId)
             .build();
         room = roomRepository.save(room);
 
@@ -423,7 +440,23 @@ public class RoomService {
                                                         RoomMapper mapper) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Room> roomPage = roomRepository.findRoomsByParticipantUserId(callerId, pageable);
+        return enrichRoomPage(roomPage, callerId, jwt, profileCacheService, mapper);
+    }
 
+    @Transactional(readOnly = true)
+    public List<RoomSummaryResponse> listSeedEligibleRooms(UUID callerId, int page, int size,
+                                                           String jwt,
+                                                           ProfileCacheService profileCacheService,
+                                                           RoomMapper mapper) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Room> roomPage = roomRepository.findSeedEligibleRooms(callerId, pageable);
+        return enrichRoomPage(roomPage, callerId, jwt, profileCacheService, mapper);
+    }
+
+    private List<RoomSummaryResponse> enrichRoomPage(Page<Room> roomPage, UUID callerId,
+                                                     String jwt,
+                                                     ProfileCacheService profileCacheService,
+                                                     RoomMapper mapper) {
         // Collect all other-participant user IDs across all rooms for a single batch lookup
         List<Room> rooms = roomPage.getContent();
         java.util.Map<UUID, List<RoomParticipant>> roomParticipantsMap = new java.util.HashMap<>();

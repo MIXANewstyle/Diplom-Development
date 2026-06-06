@@ -146,6 +146,27 @@ public class RoomController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/archived")
+    public ResponseEntity<List<RoomSummaryResponse>> listArchivedRooms(
+        @AuthenticationPrincipal CustomUserDetails user,
+        @RequestParam(defaultValue = "false") boolean seedEligible,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size,
+        HttpServletRequest httpRequest
+    ) {
+        String jwt = extractJwt(httpRequest);
+        List<RoomSummaryResponse> response;
+        if (seedEligible) {
+            response = roomService.listSeedEligibleRooms(
+                user.getId(), page, size, jwt, profileCacheService, roomMapper);
+        } else {
+            // Future-proofing: if they want just archived rooms without seedEligible, we can fall back to a different method.
+            // For now, if not seedEligible, return empty list or support it if requested. The spec focuses on seedEligible=true.
+            response = java.util.Collections.emptyList();
+        }
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/{roomId}")
     public ResponseEntity<RoomResponse> getRoom(
         @AuthenticationPrincipal CustomUserDetails user,
