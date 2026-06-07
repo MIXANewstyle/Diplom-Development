@@ -37,19 +37,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (jwtService.isTokenValid(token)) {
             Claims claims = jwtService.extractAllClaims(token);
-            String email = claims.getSubject();
-            UUID userId = UUID.fromString(claims.get("userId", String.class));
-            String roleName = claims.get("role", String.class);
+            
+            String scope = claims.get("scope", String.class);
+            if ("guest".equals(scope)) {
+                UUID participantId = UUID.fromString(claims.getSubject());
+                String aud = claims.getAudience();
+                UUID roomId = UUID.fromString(aud.replace("room:", ""));
+                
+                GuestPrincipal guestPrincipal = new GuestPrincipal(participantId, roomId);
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        guestPrincipal,
+                        null,
+                        Collections.singleton(new SimpleGrantedAuthority("ROLE_GUEST"))
+                );
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            } else {
+                String email = claims.getSubject();
+                UUID userId = UUID.fromString(claims.get("userId", String.class));
+                String roleName = claims.get("role", String.class);
 
-            CustomUserDetails userDetails = new CustomUserDetails(userId, email, roleName);
-            
-            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                    userDetails,
-                    null,
-                    Collections.singleton(new SimpleGrantedAuthority("ROLE_" + roleName))
-            );
-            
-            SecurityContextHolder.getContext().setAuthentication(authToken);
+                CustomUserDetails userDetails = new CustomUserDetails(userId, email, roleName);
+                
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        Collections.singleton(new SimpleGrantedAuthority("ROLE_" + roleName))
+                );
+                
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            }
         }
 
         filterChain.doFilter(request, response);

@@ -100,31 +100,48 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
         }
 
         Claims claims = jwtService.extractAllClaims(token);
-        String email = claims.getSubject();
-        UUID userId = UUID.fromString(claims.get("userId", String.class));
-        String roleName = claims.get("role", String.class);
+        String scope = claims.get("scope", String.class);
+        
+        UsernamePasswordAuthenticationToken authentication;
+        
+        if ("guest".equals(scope)) {
+            UUID participantId = UUID.fromString(claims.getSubject());
+            String aud = claims.getAudience();
+            UUID roomId = UUID.fromString(aud.replace("room:", ""));
+            
+            GuestPrincipal guestPrincipal = new GuestPrincipal(participantId, roomId);
+            authentication = new UsernamePasswordAuthenticationToken(
+                    guestPrincipal,
+                    null,
+                    Collections.singleton(new SimpleGrantedAuthority("ROLE_GUEST"))
+            );
+            
+            log.debug("STOMP CONNECT authenticated for guest participantId={}", participantId);
+        } else {
+            String email = claims.getSubject();
+            UUID userId = UUID.fromString(claims.get("userId", String.class));
+            String roleName = claims.get("role", String.class);
 
-        CustomUserDetails userDetails = new CustomUserDetails(userId, email, roleName);
+            CustomUserDetails userDetails = new CustomUserDetails(userId, email, roleName);
 
-        if (moderationBlocklistService.isBlocked(userId)) {
-            throw new MessageDeliveryException("Account is moderated");
+            if (moderationBlocklistService.isBlocked(userId)) {
+                throw new MessageDeliveryException("Account is moderated");
+            }
+
+            authentication = new UsernamePasswordAuthenticationToken(
+                    userDetails,
+                    null,
+                    Collections.singleton(new SimpleGrantedAuthority("ROLE_" + roleName))
+            );
+            
+            wsSessionRegistry.registerUserId(userId, accessor.getSessionId());
+            log.debug("STOMP CONNECT authenticated for userId={}", userId);
         }
-
-        UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        Collections.singleton(new SimpleGrantedAuthority("ROLE_" + roleName))
-                );
 
         accessor.setUser(authentication);
 
         // Store raw JWT for downstream handlers (e.g. room-state snapshot enrichment)
         accessor.getSessionAttributes().put("jwt", token);
-
-        wsSessionRegistry.registerUserId(userId, accessor.getSessionId());
-
-        log.debug("STOMP CONNECT authenticated for userId={}", userId);
     }
 
     /**
@@ -202,25 +219,34 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
 
         UsernamePasswordAuthenticationToken auth =
                 (UsernamePasswordAuthenticationToken) accessor.getUser();
-        CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
-        UUID userId = userDetails.getId();
+        Object principal = auth.getPrincipal();
 
-        boolean isParticipant = roomParticipantRepository.existsByRoomIdAndUserId(roomId, userId);
+        boolean isParticipant = false;
+
+        if (principal instanceof GuestPrincipal guest) {
+            if (guest.getRoomId().equals(roomId)) {
+                isParticipant = roomParticipantRepository.existsByIdAndRoomId(guest.getParticipantId(), roomId);
+            }
+        } else if (principal instanceof CustomUserDetails user) {
+            isParticipant = roomParticipantRepository.existsByRoomIdAndUserId(roomId, user.getId());
+        }
+
         if (!isParticipant) {
-            log.warn("{} rejected: userId={} is not a participant of roomId={}", command, userId, roomId);
+            log.warn("{} rejected: principal is not a participant of roomId={}", command, roomId);
             throw new MessageDeliveryException(
                     "Access denied: you are not a participant of this room");
         }
 
-        log.debug("{} authorized: userId={} to destination={}", command, userId, destination);
+        log.debug("{} authorized: principal to destination={}", command, destination);
     }
 
     private void checkNotBlocked(StompHeaderAccessor accessor) {
         if (accessor.getUser() != null) {
             UsernamePasswordAuthenticationToken auth = (UsernamePasswordAuthenticationToken) accessor.getUser();
-            CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
-            if (moderationBlocklistService.isBlocked(userDetails.getId())) {
-                throw new MessageDeliveryException("Account is moderated");
+            if (auth.getPrincipal() instanceof CustomUserDetails userDetails) {
+                if (moderationBlocklistService.isBlocked(userDetails.getId())) {
+                    throw new MessageDeliveryException("Account is moderated");
+                }
             }
         }
     }

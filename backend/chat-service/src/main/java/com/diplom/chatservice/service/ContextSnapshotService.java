@@ -89,8 +89,31 @@ public class ContextSnapshotService {
         }
     }
 
-    // TODO Phase 4e: guests get a snapshot at guest join (§7.2) — displayName/gender/age only
+    @Transactional
+    public void captureForGuest(RoomParticipant guestParticipant, String genderLabel) {
+        if (guestParticipant.getContextSnapshot() != null) {
+            return;
+        }
 
+        String displayName = guestParticipant.getGuestDisplayName();
+        String about = String.format("Гость. Пол: %s, Возраст: %d", 
+            genderLabel != null ? genderLabel : "не указан", 
+            guestParticipant.getGuestAge() != null ? guestParticipant.getGuestAge() : 0);
+
+        try {
+            Map<String, Object> snapshot = new LinkedHashMap<>();
+            snapshot.put("displayName", displayName);
+            snapshot.put("about", about);
+            String json = objectMapper.writeValueAsString(snapshot);
+
+            guestParticipant.setContextSnapshot(json);
+            participantRepository.save(guestParticipant);
+
+            log.info("room {} context: guest participant {} captured", guestParticipant.getRoomId(), guestParticipant.getId());
+        } catch (Exception e) {
+            log.error("Failed to persist context_snapshot for guest participant {}: {}", guestParticipant.getId(), e.getMessage());
+        }
+    }
     @Transactional
     protected void persistSnapshots(
             List<RoomParticipant> participants,

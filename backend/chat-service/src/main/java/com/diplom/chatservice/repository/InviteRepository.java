@@ -8,4 +8,7 @@ import java.util.UUID;
 
 @Repository
 public interface InviteRepository extends JpaRepository<Invite, UUID> {
+    java.util.Optional<Invite> findByToken(String token);
+    
+    java.util.List<Invite> findByRoomIdAndStatusId(UUID roomId, Integer statusId);
 }

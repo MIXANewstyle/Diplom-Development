@@ -51,12 +51,19 @@ public class TurnWsController {
             @Payload FinishRequest request,
             Principal principal
     ) {
-        CustomUserDetails user = extractUserDetails(principal);
-        String principalName = user.getUsername();
+        Object authPrincipal = ((UsernamePasswordAuthenticationToken) principal).getPrincipal();
+        String principalName = "unknown";
+        UUID userId = com.diplom.chatservice.security.SecurityUtils.getUserIdOrNull(authPrincipal);
+        
+        if (authPrincipal instanceof CustomUserDetails user) {
+            principalName = user.getUsername();
+        } else if (authPrincipal instanceof com.diplom.chatservice.security.GuestPrincipal guest) {
+            principalName = "guest-" + guest.getParticipantId();
+        }
+        
         Long turnSeq = request != null ? request.turnSeq() : null;
 
-        RoomParticipant caller = participantRepository.findByRoomIdAndUserId(roomId, user.getId())
-                .orElse(null);
+        RoomParticipant caller = com.diplom.chatservice.security.SecurityUtils.getParticipantOrNull(authPrincipal, roomId, participantRepository);
 
         Room room = roomRepository.findById(roomId).orElse(null);
 
@@ -117,8 +124,8 @@ public class TurnWsController {
             return;
         }
 
-        if (rateLimitService.isOverDailyBudget(user.getId())) {
-            log.info("FINISH_THOUGHT branch=REJECTED roomId={} reason=daily_budget userId={}", roomId, user.getId());
+        if (userId != null && rateLimitService.isOverDailyBudget(userId)) {
+            log.info("FINISH_THOUGHT branch=REJECTED roomId={} reason=daily_budget userId={}", roomId, userId);
             wsErrorSender.send(principalName, WsError.limit("Daily usage limit reached"));
             return;
         }

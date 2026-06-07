@@ -75,7 +75,7 @@ public class RoomController {
 
     @PostMapping("/{roomId}/join")
     public ResponseEntity<RoomResponse> joinRoom(
-        @AuthenticationPrincipal CustomUserDetails user,
+        @AuthenticationPrincipal Object principal,
         @PathVariable UUID roomId
     ) {
         RoomResponse response = roomService.joinRoom(roomId, user.getId());
@@ -84,11 +84,11 @@ public class RoomController {
 
     @PostMapping("/{roomId}/consent/start")
     public ResponseEntity<RoomResponse> consentStart(
-        @AuthenticationPrincipal CustomUserDetails user,
+        @AuthenticationPrincipal Object principal,
         @PathVariable UUID roomId,
         HttpServletRequest httpRequest
     ) {
-        RoomResponse response = roomService.consentStart(roomId, user.getId());
+        RoomResponse response = roomService.consentStart(roomId, principal);
         // If this consent caused WAITING_CONSENT → ACTIVE, capture context snapshots
         if ("ACTIVE".equals(response.status())) {
             contextSnapshotService.captureForRoom(roomId, extractJwt(httpRequest));
@@ -98,29 +98,29 @@ public class RoomController {
 
     @PostMapping("/{roomId}/consent/revoke")
     public ResponseEntity<RoomResponse> consentRevoke(
-        @AuthenticationPrincipal CustomUserDetails user,
+        @AuthenticationPrincipal Object principal,
         @PathVariable UUID roomId
     ) {
-        RoomResponse response = roomService.consentRevoke(roomId, user.getId());
+        RoomResponse response = roomService.consentRevoke(roomId, principal);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{roomId}/end/propose")
     public ResponseEntity<RoomResponse> endPropose(
-        @AuthenticationPrincipal CustomUserDetails user,
+        @AuthenticationPrincipal Object principal,
         @PathVariable UUID roomId
     ) {
-        RoomResponse response = roomService.endPropose(roomId, user.getId());
+        RoomResponse response = roomService.endPropose(roomId, principal);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{roomId}/end/respond")
     public ResponseEntity<RoomResponse> endRespond(
-        @AuthenticationPrincipal CustomUserDetails user,
+        @AuthenticationPrincipal Object principal,
         @PathVariable UUID roomId,
         @Valid @RequestBody EndRespondRequest request
     ) {
-        RoomResponse response = roomService.endRespond(roomId, request, user.getId());
+        RoomResponse response = roomService.endRespond(roomId, request, principal);
         return ResponseEntity.ok(response);
     }
 
@@ -169,11 +169,11 @@ public class RoomController {
 
     @GetMapping("/{roomId}")
     public ResponseEntity<RoomResponse> getRoom(
-        @AuthenticationPrincipal CustomUserDetails user,
+        @AuthenticationPrincipal Object principal,
         @PathVariable UUID roomId,
         HttpServletRequest httpRequest
     ) {
-        RoomResponse base = roomService.getRoom(roomId, user.getId());
+        RoomResponse base = roomService.getRoom(roomId, principal);
         String jwt = extractJwt(httpRequest);
 
         // Enrich the participant list with display names
@@ -190,31 +190,31 @@ public class RoomController {
 
     @GetMapping("/{roomId}/turns")
     public ResponseEntity<TurnsPageResponse> getTurns(
-        @AuthenticationPrincipal CustomUserDetails user,
+        @AuthenticationPrincipal Object principal,
         @PathVariable UUID roomId,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "50") int size
     ) {
-        TurnsPageResponse response = roomService.getTurns(roomId, user.getId(), page, size);
+        TurnsPageResponse response = roomService.getTurns(roomId, principal, page, size);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{roomId}/turns")
     public ResponseEntity<SubmitTurnResponse> submitTurn(
-        @AuthenticationPrincipal CustomUserDetails user,
+        @AuthenticationPrincipal Object principal,
         @PathVariable UUID roomId,
         @Valid @RequestBody SubmitTurnRequest request
     ) {
-        SubmitTurnResponse response = turnOrchestrationService.submitTurn(roomId, user.getId(), request);
+        SubmitTurnResponse response = turnOrchestrationService.submitTurn(roomId, principal, request);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{roomId}/turns/retry")
     public ResponseEntity<SubmitTurnResponse> retryTurn(
-        @AuthenticationPrincipal CustomUserDetails user,
+        @AuthenticationPrincipal Object principal,
         @PathVariable UUID roomId
     ) {
-        SubmitTurnResponse response = turnOrchestrationService.retryTurn(roomId, user.getId());
+        SubmitTurnResponse response = turnOrchestrationService.retryTurn(roomId, principal);
         return ResponseEntity.ok(response);
     }
 

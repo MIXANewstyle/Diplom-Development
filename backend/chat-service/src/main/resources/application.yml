@@ -43,6 +43,14 @@ chat:
     turns-per-minute: 6
     daily-token-budget: 200000
     concurrent-active-rooms: 3
+  invite:
+    ttl: PT24H
+    public-base-url: "http://localhost:8080"
+  guest:
+    token-ttl: PT12H
+    gender-labels:
+      1: "мужской"
+      2: "женский"
   default-ai-model: gemini-2.5-flash-lite
   llm:
     provider: openai-compatible

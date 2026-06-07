@@ -161,4 +161,11 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = createBody(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage());
         return new ResponseEntity<>(body, HttpStatus.UNPROCESSABLE_ENTITY);
     }
+
+    @ExceptionHandler(InviteInvalidException.class)
+    public ResponseEntity<Object> handleInviteInvalidException(InviteInvalidException ex) {
+        log.warn("InviteInvalidException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.GONE, "Gone", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.GONE);
+    }
 }

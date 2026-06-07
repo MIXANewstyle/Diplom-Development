@@ -54,13 +54,16 @@ public class DraftController {
             @Payload DraftUpsertRequest request,
             Principal principal
     ) {
-        CustomUserDetails userDetails = extractUserDetails(principal);
-        String principalName = userDetails.getUsername();
+        Object authPrincipal = ((UsernamePasswordAuthenticationToken) principal).getPrincipal();
+        String principalName = "unknown";
+        if (authPrincipal instanceof CustomUserDetails user) {
+            principalName = user.getUsername();
+        } else if (authPrincipal instanceof com.diplom.chatservice.security.GuestPrincipal guest) {
+            principalName = "guest-" + guest.getParticipantId();
+        }
 
         // Look up participant
-        RoomParticipant participant = roomParticipantRepository
-                .findByRoomIdAndUserId(roomId, userDetails.getId())
-                .orElse(null);
+        RoomParticipant participant = com.diplom.chatservice.security.SecurityUtils.getParticipantOrNull(authPrincipal, roomId, roomParticipantRepository);
         if (participant == null) {
             wsErrorSender.send(principalName, WsError.error("You are not a participant of this room"));
             return;
@@ -101,13 +104,16 @@ public class DraftController {
             @Payload DraftDeleteRequest request,
             Principal principal
     ) {
-        CustomUserDetails userDetails = extractUserDetails(principal);
-        String principalName = userDetails.getUsername();
+        Object authPrincipal = ((UsernamePasswordAuthenticationToken) principal).getPrincipal();
+        String principalName = "unknown";
+        if (authPrincipal instanceof CustomUserDetails user) {
+            principalName = user.getUsername();
+        } else if (authPrincipal instanceof com.diplom.chatservice.security.GuestPrincipal guest) {
+            principalName = "guest-" + guest.getParticipantId();
+        }
 
         // Look up participant
-        RoomParticipant participant = roomParticipantRepository
-                .findByRoomIdAndUserId(roomId, userDetails.getId())
-                .orElse(null);
+        RoomParticipant participant = com.diplom.chatservice.security.SecurityUtils.getParticipantOrNull(authPrincipal, roomId, roomParticipantRepository);
         if (participant == null) {
             wsErrorSender.send(principalName, WsError.error("You are not a participant of this room"));
             return;
@@ -174,8 +180,5 @@ public class DraftController {
         return true;
     }
 
-    private CustomUserDetails extractUserDetails(Principal principal) {
-        UsernamePasswordAuthenticationToken auth = (UsernamePasswordAuthenticationToken) principal;
-        return (CustomUserDetails) auth.getPrincipal();
-    }
+
 }

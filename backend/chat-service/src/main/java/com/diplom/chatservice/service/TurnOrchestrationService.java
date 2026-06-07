@@ -41,11 +41,11 @@ public class TurnOrchestrationService {
     private final SummarizationService summarizationService;
     private final RateLimitService rateLimitService;
 
-    public SubmitTurnResponse submitTurn(UUID roomId, UUID currentUserId, SubmitTurnRequest request) {
+    public SubmitTurnResponse submitTurn(UUID roomId, Object principal, SubmitTurnRequest request) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
 
-        RoomParticipant callerParticipant = validateAndGetParticipant(roomId, currentUserId);
+        RoomParticipant callerParticipant = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
 
         validateSubmitPreconditions(room, callerParticipant);
         
@@ -53,7 +53,8 @@ public class TurnOrchestrationService {
         if (rateLimitService.checkTurnRate(callerParticipant.getId())) {
             throw new RateLimitExceededException("Slow down");
         }
-        if (rateLimitService.isOverDailyBudget(currentUserId)) {
+        UUID userId = com.diplom.chatservice.security.SecurityUtils.getUserIdOrNull(principal);
+        if (userId != null && rateLimitService.isOverDailyBudget(userId)) {
             throw new RateLimitExceededException("Daily usage limit reached");
         }
 
@@ -63,11 +64,11 @@ public class TurnOrchestrationService {
         return new SubmitTurnResponse(mapToResponse(userTurn), mapToResponse(executeAiStep(roomId)));
     }
 
-    public SubmitTurnResponse retryTurn(UUID roomId, UUID currentUserId) {
+    public SubmitTurnResponse retryTurn(UUID roomId, Object principal) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
 
-        RoomParticipant callerParticipant = validateAndGetParticipant(roomId, currentUserId);
+        RoomParticipant callerParticipant = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
         validateSubmitPreconditions(room, callerParticipant);
 
         List<Turn> allTurns = loadHistory(roomId);
@@ -79,7 +80,8 @@ public class TurnOrchestrationService {
         if (rateLimitService.checkTurnRate(callerParticipant.getId())) {
             throw new RateLimitExceededException("Slow down");
         }
-        if (rateLimitService.isOverDailyBudget(currentUserId)) {
+        UUID userId = com.diplom.chatservice.security.SecurityUtils.getUserIdOrNull(principal);
+        if (userId != null && rateLimitService.isOverDailyBudget(userId)) {
             throw new RateLimitExceededException("Daily usage limit reached");
         }
 

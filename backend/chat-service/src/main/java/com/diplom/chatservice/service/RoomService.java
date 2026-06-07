@@ -104,22 +104,21 @@ public class RoomService {
         checkPassiveGates(callerId, true);
         checkActiveRoomsLimit(callerId);
 
-        if (request.inviteMode() == InviteMode.LINK) {
-            throw new IllegalArgumentException("LINK invite mode is not supported in this phase");
-        }
-        if (request.friendUserId() == null) {
-            throw new IllegalArgumentException("friendUserId is required for FRIEND invite mode");
-        }
-        if (request.friendUserId().equals(callerId)) {
-            throw new IllegalArgumentException("Cannot invite yourself to a paired room");
-        }
+        if (request.inviteMode() == InviteMode.FRIEND) {
+            if (request.friendUserId() == null) {
+                throw new IllegalArgumentException("friendUserId is required for FRIEND invite mode");
+            }
+            if (request.friendUserId().equals(callerId)) {
+                throw new IllegalArgumentException("Cannot invite yourself to a paired room");
+            }
 
-        // Verify friendship by checking both permutations to avoid UUID sort discrepancies
-        boolean isFriend = friendLinkRepository.existsById(new FriendLinkId(callerId, request.friendUserId())) ||
-                           friendLinkRepository.existsById(new FriendLinkId(request.friendUserId(), callerId));
+            // Verify friendship by checking both permutations to avoid UUID sort discrepancies
+            boolean isFriend = friendLinkRepository.existsById(new FriendLinkId(callerId, request.friendUserId())) ||
+                               friendLinkRepository.existsById(new FriendLinkId(request.friendUserId(), callerId));
 
-        if (!isFriend) {
-            throw new NotFriendsException("You are not friends with the invited user");
+            if (!isFriend) {
+                throw new NotFriendsException("You are not friends with the invited user");
+            }
         }
 
         UUID seedContextRoomId = request.seedContextRoomId();
@@ -156,6 +155,11 @@ public class RoomService {
             .build();
         initiator = participantRepository.save(initiator);
 
+        if (request.inviteMode() == InviteMode.LINK) {
+            return roomMapper.toRoomResponse(room, List.of(initiator));
+        }
+
+        // --- FRIEND MODE ---
         // Pre-create invitee participant (joined_at is null until they actually join)
         RoomParticipant invitee = RoomParticipant.builder()
             .roomId(room.getId())
@@ -259,7 +263,7 @@ public class RoomService {
     // ==================== CONSENT START ====================
 
     @Transactional
-    public RoomResponse consentStart(UUID roomId, UUID callerId) {
+    public RoomResponse consentStart(UUID roomId, Object principal) {
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
 
@@ -269,8 +273,7 @@ public class RoomService {
             throw new InvalidRoomStateException("Room is not in WAITING_CONSENT state");
         }
 
-        RoomParticipant callerParticipant = participantRepository.findByRoomIdAndUserId(roomId, callerId)
-            .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
+        RoomParticipant callerParticipant = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
 
         // Set consent
         callerParticipant.setConsentStartAt(OffsetDateTime.now());
@@ -301,7 +304,7 @@ public class RoomService {
     // ==================== CONSENT REVOKE ====================
 
     @Transactional
-    public RoomResponse consentRevoke(UUID roomId, UUID callerId) {
+    public RoomResponse consentRevoke(UUID roomId, Object principal) {
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
 
@@ -311,8 +314,7 @@ public class RoomService {
             throw new InvalidRoomStateException("Room is not in WAITING_CONSENT state");
         }
 
-        RoomParticipant callerParticipant = participantRepository.findByRoomIdAndUserId(roomId, callerId)
-            .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
+        RoomParticipant callerParticipant = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
 
         callerParticipant.setConsentStartAt(null);
         participantRepository.save(callerParticipant);
@@ -323,7 +325,7 @@ public class RoomService {
     // ==================== END HANDSHAKE ====================
 
     @Transactional
-    public RoomResponse endPropose(UUID roomId, UUID callerId) {
+    public RoomResponse endPropose(UUID roomId, Object principal) {
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
 
@@ -333,8 +335,7 @@ public class RoomService {
             throw new InvalidRoomStateException("Room must be PAIRED and ACTIVE to propose end");
         }
 
-        RoomParticipant callerParticipant = participantRepository.findByRoomIdAndUserId(roomId, callerId)
-            .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
+        RoomParticipant callerParticipant = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
 
         room.setStatusId(STATUS_ENDING);
         room.setEndingProposedByParticipantId(callerParticipant.getId());
@@ -344,7 +345,7 @@ public class RoomService {
     }
 
     @Transactional
-    public RoomResponse endRespond(UUID roomId, EndRespondRequest request, UUID callerId) {
+    public RoomResponse endRespond(UUID roomId, EndRespondRequest request, Object principal) {
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
 
@@ -354,8 +355,7 @@ public class RoomService {
             throw new InvalidRoomStateException("Room is not in ENDING state");
         }
 
-        RoomParticipant callerParticipant = participantRepository.findByRoomIdAndUserId(roomId, callerId)
-            .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
+        RoomParticipant callerParticipant = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
 
         if (callerParticipant.getId().equals(room.getEndingProposedByParticipantId())) {
             throw new InvalidRoomStateException("The participant who proposed ending cannot respond to it");
@@ -517,14 +517,12 @@ public class RoomService {
     // ==================== GET ROOM ====================
 
     @Transactional(readOnly = true)
-    public RoomResponse getRoom(UUID roomId, UUID callerId) {
+    public RoomResponse getRoom(UUID roomId, Object principal) {
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
 
         // Verify caller is a participant — hide existence from non-participants
-        if (!participantRepository.existsByRoomIdAndUserId(roomId, callerId)) {
-            throw new RoomNotFoundException("Room not found: " + roomId);
-        }
+        com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
 
         List<RoomParticipant> participants = participantRepository.findByRoomId(roomId);
         return roomMapper.toRoomResponse(room, participants);
@@ -533,13 +531,11 @@ public class RoomService {
     // ==================== GET TURNS ====================
 
     @Transactional(readOnly = true)
-    public TurnsPageResponse getTurns(UUID roomId, UUID callerId, int page, int size) {
+    public TurnsPageResponse getTurns(UUID roomId, Object principal, int page, int size) {
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
 
-        if (!participantRepository.existsByRoomIdAndUserId(roomId, callerId)) {
-            throw new RoomNotFoundException("Room not found: " + roomId);
-        }
+        com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
 
         Pageable pageable = PageRequest.of(page, size);
         Page<Turn> turnPage = turnRepository.findByRoomIdOrderBySeqAsc(roomId, pageable);

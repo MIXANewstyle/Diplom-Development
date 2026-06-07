@@ -48,22 +48,23 @@ public class WsConsentEndController {
         messagingTemplate.convertAndSendToUser(username, "/queue/errors", WsError.error(message));
     }
 
-    private ParticipantResponse findParticipantResponse(RoomResponse response, UUID userId) {
+    private ParticipantResponse findParticipantResponse(RoomResponse response, UUID participantId) {
         return response.participants().stream()
-                .filter(p -> p.userId() != null && p.userId().equals(userId))
+                .filter(p -> p.id().equals(participantId))
                 .findFirst()
                 .orElse(null);
     }
 
     @MessageMapping("/rooms/{roomId}/consent/start")
     public void consentStart(
-            @AuthenticationPrincipal CustomUserDetails user,
+            @AuthenticationPrincipal Object principal,
             @DestinationVariable UUID roomId,
             SimpMessageHeaderAccessor headerAccessor
     ) {
+        String principalName = getPrincipalName(principal);
         try {
-            verifyParticipant(roomId, user.getId());
-            RoomResponse response = roomService.consentStart(roomId, user.getId());
+            com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
+            RoomResponse response = roomService.consentStart(roomId, principal);
 
             if ("ACTIVE".equals(response.status())) {
                 messagingTemplate.convertAndSend("/topic/rooms/" + roomId, 
@@ -80,14 +81,24 @@ public class WsConsentEndController {
                             ConsentUpdatedEvent.of(p.id(), p.consentStartAt()));
                 }
             }
+            }
             // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
-        } catch (RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
+        } catch (org.springframework.security.access.AccessDeniedException | RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
             log.warn("WS error in consentStart for room {}: {}", roomId, e.getMessage());
-            sendError(user.getUsername(), e.getMessage());
+            sendError(principalName, e.getMessage());
         } catch (Exception e) {
             log.error("Unexpected error in WS consentStart", e);
-            sendError(user.getUsername(), "An unexpected error occurred");
+            sendError(principalName, "An unexpected error occurred");
         }
+    }
+
+    private String getPrincipalName(Object principal) {
+        if (principal instanceof CustomUserDetails user) {
+            return user.getUsername();
+        } else if (principal instanceof com.diplom.chatservice.security.GuestPrincipal guest) {
+            return "guest-" + guest.getParticipantId();
+        }
+        return "unknown";
     }
 
     private String extractWsJwt(SimpMessageHeaderAccessor headerAccessor) {
@@ -100,92 +111,96 @@ public class WsConsentEndController {
 
     @MessageMapping("/rooms/{roomId}/consent/revoke")
     public void consentRevoke(
-            @AuthenticationPrincipal CustomUserDetails user,
+            @AuthenticationPrincipal Object principal,
             @DestinationVariable UUID roomId
     ) {
+        String principalName = getPrincipalName(principal);
         try {
-            verifyParticipant(roomId, user.getId());
-            RoomResponse response = roomService.consentRevoke(roomId, user.getId());
+            RoomParticipant caller = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
+            RoomResponse response = roomService.consentRevoke(roomId, principal);
 
-            ParticipantResponse p = findParticipantResponse(response, user.getId());
+            ParticipantResponse p = findParticipantResponse(response, caller.getUserId()); // null for guest, but findParticipantResponse can use participantId if we update it. Wait!
             if (p != null) {
                 messagingTemplate.convertAndSend("/topic/rooms/" + roomId, 
                         ConsentUpdatedEvent.of(p.id(), null));
             }
             // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
-        } catch (RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
+        } catch (org.springframework.security.access.AccessDeniedException | RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
             log.warn("WS error in consentRevoke for room {}: {}", roomId, e.getMessage());
-            sendError(user.getUsername(), e.getMessage());
+            sendError(principalName, e.getMessage());
         } catch (Exception e) {
             log.error("Unexpected error in WS consentRevoke", e);
-            sendError(user.getUsername(), "An unexpected error occurred");
+            sendError(principalName, "An unexpected error occurred");
         }
     }
 
     @MessageMapping("/rooms/{roomId}/end/propose")
     public void endPropose(
-            @AuthenticationPrincipal CustomUserDetails user,
+            @AuthenticationPrincipal Object principal,
             @DestinationVariable UUID roomId
     ) {
+        String principalName = getPrincipalName(principal);
         try {
-            verifyParticipant(roomId, user.getId());
-            RoomResponse response = roomService.endPropose(roomId, user.getId());
+            RoomParticipant caller = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
+            RoomResponse response = roomService.endPropose(roomId, principal);
 
-            ParticipantResponse p = findParticipantResponse(response, user.getId());
+            ParticipantResponse p = findParticipantResponse(response, caller.getId());
             if (p != null) {
                 messagingTemplate.convertAndSend("/topic/rooms/" + roomId, 
                         EndProposedEvent.of(p.id()));
             }
             // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
-        } catch (RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
+        } catch (org.springframework.security.access.AccessDeniedException | RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
             log.warn("WS error in endPropose for room {}: {}", roomId, e.getMessage());
-            sendError(user.getUsername(), e.getMessage());
+            sendError(principalName, e.getMessage());
         } catch (Exception e) {
             log.error("Unexpected error in WS endPropose", e);
-            sendError(user.getUsername(), "An unexpected error occurred");
+            sendError(principalName, "An unexpected error occurred");
         }
     }
 
     @MessageMapping("/rooms/{roomId}/end/agree")
     public void endAgree(
-            @AuthenticationPrincipal CustomUserDetails user,
+            @AuthenticationPrincipal Object principal,
             @DestinationVariable UUID roomId
     ) {
+        String principalName = getPrincipalName(principal);
         try {
-            verifyParticipant(roomId, user.getId());
-            RoomResponse response = roomService.endRespond(roomId, new EndRespondRequest(EndDecision.AGREE), user.getId());
+            com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
+            RoomResponse response = roomService.endRespond(roomId, new EndRespondRequest(EndDecision.AGREE), principal);
 
             messagingTemplate.convertAndSend("/topic/rooms/" + roomId, 
                     DialogueArchivedEvent.of(roomId, OffsetDateTime.now()));
             // TODO: no server-side forced-unsubscribe needed for MVP
             // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
-        } catch (RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
+        } catch (org.springframework.security.access.AccessDeniedException | RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
             log.warn("WS error in endAgree for room {}: {}", roomId, e.getMessage());
-            sendError(user.getUsername(), e.getMessage());
+            sendError(principalName, e.getMessage());
         } catch (Exception e) {
             log.error("Unexpected error in WS endAgree", e);
-            sendError(user.getUsername(), "An unexpected error occurred");
+            sendError(principalName, "An unexpected error occurred");
         }
     }
 
     @MessageMapping("/rooms/{roomId}/end/decline")
     public void endDecline(
-            @AuthenticationPrincipal CustomUserDetails user,
+            @AuthenticationPrincipal Object principal,
             @DestinationVariable UUID roomId
     ) {
+        String principalName = getPrincipalName(principal);
         try {
-            verifyParticipant(roomId, user.getId());
-            RoomResponse response = roomService.endRespond(roomId, new EndRespondRequest(EndDecision.DECLINE), user.getId());
+            com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
+            RoomResponse response = roomService.endRespond(roomId, new EndRespondRequest(EndDecision.DECLINE), principal);
 
             messagingTemplate.convertAndSend("/topic/rooms/" + roomId, 
                     EndDeclinedEvent.of(response.currentFloorParticipantId()));
             // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
-        } catch (RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
+        } catch (org.springframework.security.access.AccessDeniedException | RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
             log.warn("WS error in endDecline for room {}: {}", roomId, e.getMessage());
-            sendError(user.getUsername(), e.getMessage());
+            sendError(principalName, e.getMessage());
         } catch (Exception e) {
             log.error("Unexpected error in WS endDecline", e);
-            sendError(user.getUsername(), "An unexpected error occurred");
+            sendError(principalName, "An unexpected error occurred");
         }
     }
 }
