@@ -9,7 +9,6 @@ import com.diplom.chatservice.entity.RoomParticipant;
 import com.diplom.chatservice.entity.Turn;
 import com.diplom.chatservice.exception.InvalidRoomStateException;
 import com.diplom.chatservice.exception.LlmUnavailableException;
-import com.diplom.chatservice.exception.NotRoomParticipantException;
 import com.diplom.chatservice.exception.NotYourTurnException;
 import com.diplom.chatservice.exception.RateLimitExceededException;
 import com.diplom.chatservice.llm.ConversationAssembler;
@@ -136,11 +135,6 @@ public class TurnOrchestrationService {
 
         // Transaction 2s
         return turnPersistenceService.persistAssistantTurn(roomId, llmResponse.content(), llmResponse.promptTokens(), llmResponse.completionTokens());
-    }
-
-    private RoomParticipant validateAndGetParticipant(UUID roomId, UUID currentUserId) {
-        return participantRepository.findByRoomIdAndUserId(roomId, currentUserId)
-                .orElseThrow(() -> new NotRoomParticipantException("Caller is not a participant of this room"));
     }
 
     private void validateSubmitPreconditions(Room room, RoomParticipant callerParticipant) {

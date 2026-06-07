@@ -75,7 +75,7 @@ public class RoomController {
 
     @PostMapping("/{roomId}/join")
     public ResponseEntity<RoomResponse> joinRoom(
-        @AuthenticationPrincipal Object principal,
+        @AuthenticationPrincipal CustomUserDetails user,
         @PathVariable UUID roomId
     ) {
         RoomResponse response = roomService.joinRoom(roomId, user.getId());

@@ -65,7 +65,7 @@ public class WsConsentEndController {
         String principalName = getPrincipalName(principal);
         org.slf4j.MDC.put("roomId", roomId.toString());
         try {
-            com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
+            RoomParticipant caller = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
             RoomResponse response = roomService.consentStart(roomId, principal);
 
             if ("ACTIVE".equals(response.status())) {
@@ -77,12 +77,11 @@ public class WsConsentEndController {
                     contextSnapshotService.captureForRoom(roomId, jwt);
                 }
             } else {
-                ParticipantResponse p = findParticipantResponse(response, user.getId());
+                ParticipantResponse p = findParticipantResponse(response, caller.getId());
                 if (p != null) {
-                    messagingTemplate.convertAndSend("/topic/rooms/" + roomId, 
+                    roomBroadcaster.broadcast(roomId,
                             ConsentUpdatedEvent.of(p.id(), p.consentStartAt()));
                 }
-            }
             }
             // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
         } catch (org.springframework.security.access.AccessDeniedException | RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {

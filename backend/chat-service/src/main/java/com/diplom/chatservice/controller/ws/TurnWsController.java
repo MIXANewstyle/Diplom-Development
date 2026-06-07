@@ -22,7 +22,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Controller;
@@ -196,11 +195,6 @@ public class TurnWsController {
         } finally {
             MDC.remove("roomId");
         }
-    }
-
-    private CustomUserDetails extractUserDetails(Principal principal) {
-        UsernamePasswordAuthenticationToken auth = (UsernamePasswordAuthenticationToken) principal;
-        return (CustomUserDetails) auth.getPrincipal();
     }
 
     private void submitAiTask(UUID roomId, Integer roomTypeId, Timer.Sample timer) {
