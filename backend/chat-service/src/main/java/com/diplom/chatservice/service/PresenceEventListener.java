@@ -11,8 +11,11 @@ import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
+
+import java.time.OffsetDateTime;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -67,6 +70,7 @@ public class PresenceEventListener {
      * </ol>
      */
     @EventListener
+    @Transactional
     public void handleSubscribe(SessionSubscribeEvent event) {
         SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.wrap(event.getMessage());
         String destination = accessor.getDestination();
@@ -114,6 +118,9 @@ public class PresenceEventListener {
                 .computeIfAbsent(sessionId, k -> ConcurrentHashMap.newKeySet())
                 .add(new SessionRoomEntry(roomId, participantId));
 
+        // 2.5 Update lastSeenAt
+        roomParticipantRepository.updateLastSeenAt(roomId, participantId, OffsetDateTime.now());
+
         // 3. Broadcast ONLINE to the room topic
         roomBroadcaster.broadcast(
                 roomId,
@@ -137,6 +144,7 @@ public class PresenceEventListener {
      * from the presence set, clear the draft buffer, and broadcast OFFLINE.
      */
     @EventListener
+    @Transactional
     public void handleDisconnect(SessionDisconnectEvent event) {
         SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.wrap(event.getMessage());
         String sessionId = accessor.getSessionId();
@@ -157,6 +165,9 @@ public class PresenceEventListener {
 
             // Clear draft buffer (ephemeral, cleared on disconnect — §3.4)
             draftService.clearBuffer(roomId, participantId);
+
+            // Update lastSeenAt
+            roomParticipantRepository.updateLastSeenAt(roomId, participantId, OffsetDateTime.now());
 
             // Broadcast OFFLINE
             roomBroadcaster.broadcast(

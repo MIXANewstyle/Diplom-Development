@@ -2,6 +2,7 @@ package com.diplom.chatservice.service;
 
 import com.diplom.chatservice.config.ChatLimitsProperties;
 import com.diplom.chatservice.repository.RoomRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -22,6 +23,7 @@ public class RateLimitService {
     private final StringRedisTemplate redisTemplate;
     private final RoomRepository roomRepository;
     private final ChatLimitsProperties limits;
+    private final MeterRegistry meterRegistry;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
@@ -39,7 +41,11 @@ public class RateLimitService {
             redisTemplate.expire(key, 60, TimeUnit.SECONDS);
         }
         
-        return count != null && count > limits.turnsPerMinute();
+        boolean overLimit = count != null && count > limits.turnsPerMinute();
+        if (overLimit) {
+            meterRegistry.counter("chat.ratelimit.hits.total", "limit", "turns_per_minute").increment();
+        }
+        return overLimit;
     }
 
     /**
@@ -58,7 +64,11 @@ public class RateLimitService {
         
         try {
             long tokens = Long.parseLong(val);
-            return tokens >= limits.dailyTokenBudget();
+            boolean overLimit = tokens >= limits.dailyTokenBudget();
+            if (overLimit) {
+                meterRegistry.counter("chat.ratelimit.hits.total", "limit", "daily_tokens").increment();
+            }
+            return overLimit;
         } catch (NumberFormatException e) {
             return false; // Safely ignore malformed cache values
         }

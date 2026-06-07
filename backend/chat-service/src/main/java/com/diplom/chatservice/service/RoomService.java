@@ -35,6 +35,7 @@ import com.diplom.chatservice.repository.FriendLinkRepository;
 import com.diplom.chatservice.repository.RoomParticipantRepository;
 import com.diplom.chatservice.repository.RoomRepository;
 import com.diplom.chatservice.repository.TurnRepository;
+import com.diplom.chatservice.repository.InviteRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -85,6 +86,7 @@ public class RoomService {
     private final ApplicationEventPublisher applicationEventPublisher;
     private final RateLimitService rateLimitService;
     private final ChatLimitsProperties chatLimits;
+    private final InviteRepository inviteRepository;
 
 
     @Value("${chat.default-ai-model}")
@@ -588,5 +590,41 @@ public class RoomService {
         if (activeRooms >= chatLimits.concurrentActiveRooms()) {
             throw new RateLimitExceededException("Too many active rooms");
         }
+    }
+
+    @Transactional
+    public void abandonRoom(UUID roomId) {
+        Room room = roomRepository.findById(roomId)
+            .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
+        
+        room.setStatusId(STATUS_ABANDONED);
+        room.setEndedAt(OffsetDateTime.now());
+        room.setPhase(null);
+        roomRepository.save(room);
+
+        roomBroadcaster.broadcast(
+            roomId,
+            new DialogueAbandonedEvent(roomId, "PARTICIPANT_LEFT")
+        );
+        log.info("Abandoned room {} due to participant inactivity", roomId);
+    }
+
+    @Transactional
+    public void expireRoom(UUID roomId) {
+        Room room = roomRepository.findById(roomId)
+            .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
+        
+        room.setStatusId(STATUS_EXPIRED);
+        room.setEndedAt(OffsetDateTime.now());
+        room.setPhase(null);
+        roomRepository.save(room);
+
+        inviteRepository.updateStatusByRoomId(roomId, 1, 4); // 1 = ACTIVE, 4 = EXPIRED
+
+        roomBroadcaster.broadcast(
+            roomId,
+            new DialogueAbandonedEvent(roomId, "EXPIRED")
+        );
+        log.info("Expired room {} due to creation TTL", roomId);
     }
 }

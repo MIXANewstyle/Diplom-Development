@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Repository
@@ -47,4 +48,12 @@ public interface RoomRepository extends JpaRepository<Room, UUID> {
         )
         """)
     int countActiveOrEndingRoomsByParticipantUserId(@Param("userId") UUID userId);
+
+    int countByStatusId(Integer statusId);
+
+    @Query("SELECT r FROM Room r WHERE r.statusId IN (1, 2) AND r.createdAt < :threshold")
+    Page<Room> findExpiredCandidates(@Param("threshold") OffsetDateTime threshold, Pageable pageable);
+
+    @Query("SELECT r FROM Room r WHERE r.statusId IN (3, 4)")
+    Page<Room> findAbandonedCandidates(Pageable pageable);
 }

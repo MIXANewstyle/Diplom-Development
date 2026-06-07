@@ -43,6 +43,10 @@ chat:
     turns-per-minute: 6
     daily-token-budget: 200000
     concurrent-active-rooms: 3
+  sweeps:
+    interval: PT1M
+    abandonment-timeout: PT10M
+    creation-ttl: PT24H
   invite:
     ttl: PT24H
     public-base-url: "http://localhost:8080"

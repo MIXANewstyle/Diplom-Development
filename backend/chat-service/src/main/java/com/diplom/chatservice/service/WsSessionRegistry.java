@@ -66,4 +66,8 @@ public class WsSessionRegistry {
             }
         }
     }
+
+    public int getConnectionCount() {
+        return sessionIdToSession.size();
+    }
 }

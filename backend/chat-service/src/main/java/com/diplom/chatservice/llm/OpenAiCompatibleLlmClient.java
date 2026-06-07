@@ -17,6 +17,9 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +29,7 @@ import java.util.List;
 public class OpenAiCompatibleLlmClient implements LlmClient {
 
     private final RestTemplate restTemplate;
+    private final MeterRegistry meterRegistry;
     private String baseUrl;
     private final String model;
     private final String apiKey;
@@ -33,12 +37,14 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
 
     public OpenAiCompatibleLlmClient(
             RestTemplateBuilder restTemplateBuilder,
-            com.diplom.chatservice.config.ChatLlmProperties properties) {
+            com.diplom.chatservice.config.ChatLlmProperties properties,
+            MeterRegistry meterRegistry) {
 
         this.baseUrl = properties.baseUrl();
         this.model = properties.model();
         this.apiKey = properties.apiKey();
         this.maxRetries = properties.maxRetries();
+        this.meterRegistry = meterRegistry;
 
         this.restTemplate = restTemplateBuilder
                 .setConnectTimeout(Duration.ofMillis(properties.requestTimeoutMs()))
@@ -85,12 +91,53 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
             attempt++;
             try {
                 long startTime = System.currentTimeMillis();
-                ResponseEntity<OpenAiResponse> response = restTemplate.exchange(
-                        url,
-                        HttpMethod.POST,
-                        entity,
-                        OpenAiResponse.class
-                );
+                Timer.Sample sample = Timer.start(meterRegistry);
+                ResponseEntity<OpenAiResponse> response;
+                try {
+                    response = restTemplate.exchange(
+                            url,
+                            HttpMethod.POST,
+                            entity,
+                            OpenAiResponse.class
+                    );
+                } catch (HttpClientErrorException e) {
+                    sample.stop(meterRegistry.timer("chat.llm.call.latency", "outcome", "error"));
+                    meterRegistry.counter("chat.llm.errors.total", "status", String.valueOf(e.getStatusCode().value())).increment();
+                    // 4xx errors - NEVER retry, do not log body, do not leak API keys
+                    if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
+                        if (attempt > this.maxRetries) {
+                            log.error("LLM complete failed after {} attempts due to 429 Too Many Requests.", attempt);
+                            throw new LlmUnavailableException("LLM provider rate limit exceeded");
+                        }
+                        meterRegistry.counter("chat.llm.retries.total").increment();
+                        throw e; // Caught by outer catch
+                    } else {
+                        log.error("LLM complete failed with 4xx error: status={}, model={}", e.getStatusCode().value(), this.model);
+                        throw new LlmUnavailableException("LLM provider client error: " + e.getStatusCode().value());
+                    }
+                } catch (HttpServerErrorException e) {
+                    sample.stop(meterRegistry.timer("chat.llm.call.latency", "outcome", "error"));
+                    meterRegistry.counter("chat.llm.errors.total", "status", String.valueOf(e.getStatusCode().value())).increment();
+                    // 5xx errors
+                    if (attempt > this.maxRetries) {
+                        log.error("LLM complete failed after {} attempts due to 5xx error: status={}", attempt, e.getStatusCode().value());
+                        throw new LlmUnavailableException("LLM provider server error: " + e.getStatusCode().value());
+                    }
+                    meterRegistry.counter("chat.llm.retries.total").increment();
+                    throw e;
+                } catch (ResourceAccessException e) {
+                    sample.stop(meterRegistry.timer("chat.llm.call.latency", "outcome", "timeout"));
+                    meterRegistry.counter("chat.llm.errors.total", "status", "timeout").increment();
+                    // Timeouts and connection errors
+                    if (attempt > this.maxRetries) {
+                        log.error("LLM complete failed after {} attempts due to network error.", attempt);
+                        throw new LlmUnavailableException("LLM provider network error");
+                    }
+                    meterRegistry.counter("chat.llm.retries.total").increment();
+                    throw e;
+                }
+
+                sample.stop(meterRegistry.timer("chat.llm.call.latency", "outcome", "success"));
                 long latency = System.currentTimeMillis() - startTime;
 
                 OpenAiResponse body = response.getBody();
@@ -105,41 +152,25 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
                 Integer promptTokens = body.usage() != null ? body.usage().promptTokens() : null;
                 Integer completionTokens = body.usage() != null ? body.usage().completionTokens() : null;
 
+                if (promptTokens != null) {
+                    meterRegistry.counter("chat.llm.tokens.input").increment(promptTokens);
+                }
+                if (completionTokens != null) {
+                    meterRegistry.counter("chat.llm.tokens.output").increment(completionTokens);
+                }
+
                 log.info("LLM complete success: model={}, latencyMs={}, promptTokens={}, completionTokens={}, status={}",
                         this.model, latency, promptTokens, completionTokens, response.getStatusCode().value());
 
                 return new LlmResponse(content, promptTokens, completionTokens, finishReason);
 
-            } catch (HttpClientErrorException e) {
-                // 4xx errors - NEVER retry, do not log body, do not leak API keys
-                if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
-                    if (attempt > this.maxRetries) {
-                        log.error("LLM complete failed after {} attempts due to 429 Too Many Requests.", attempt);
-                        throw new LlmUnavailableException("LLM provider rate limit exceeded");
-                    }
-                    // Retry 429
-                } else {
-                    log.error("LLM complete failed with 4xx error: status={}, model={}", e.getStatusCode().value(), this.model);
-                    throw new LlmUnavailableException("LLM provider client error: " + e.getStatusCode().value());
-                }
-            } catch (HttpServerErrorException e) {
-                // 5xx errors
-                if (attempt > this.maxRetries) {
-                    log.error("LLM complete failed after {} attempts due to 5xx error: status={}", attempt, e.getStatusCode().value());
-                    throw new LlmUnavailableException("LLM provider server error: " + e.getStatusCode().value());
-                }
-                // Retry 5xx
-            } catch (ResourceAccessException e) {
-                // Timeouts and connection errors
-                if (attempt > this.maxRetries) {
-                    log.error("LLM complete failed after {} attempts due to network error.", attempt);
-                    throw new LlmUnavailableException("LLM provider network error");
-                }
-                // Retry timeouts
+            } catch (HttpClientErrorException | HttpServerErrorException | ResourceAccessException e) {
+                // Caught above to handle retries and metrics, fall through to backoff
             } catch (LlmUnavailableException e) {
                 throw e; // rethrow empty response
             } catch (Exception e) {
                 // Unknown exception
+                meterRegistry.counter("chat.llm.errors.total", "status", "unknown").increment();
                 log.error("LLM complete failed with unknown error."); // no stacktrace to prevent leak
                 throw new LlmUnavailableException("LLM provider unknown error");
             }

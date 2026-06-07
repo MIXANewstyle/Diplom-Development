@@ -19,4 +19,6 @@ public interface ChatOutboxEventRepository extends JpaRepository<ChatOutboxEvent
     @Modifying
     @Query("DELETE FROM ChatOutboxEvent e WHERE e.status = 'PROCESSED' AND e.createdAt < :threshold")
     int deleteProcessedOlderThan(@Param("threshold") ZonedDateTime threshold);
+
+    int countByStatus(String status);
 }
