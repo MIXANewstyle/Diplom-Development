@@ -63,6 +63,7 @@ public class WsConsentEndController {
             SimpMessageHeaderAccessor headerAccessor
     ) {
         String principalName = getPrincipalName(principal);
+        org.slf4j.MDC.put("roomId", roomId.toString());
         try {
             com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
             RoomResponse response = roomService.consentStart(roomId, principal);
@@ -90,6 +91,8 @@ public class WsConsentEndController {
         } catch (Exception e) {
             log.error("Unexpected error in WS consentStart", e);
             sendError(principalName, "An unexpected error occurred");
+        } finally {
+            org.slf4j.MDC.remove("roomId");
         }
     }
 
@@ -116,6 +119,7 @@ public class WsConsentEndController {
             @DestinationVariable UUID roomId
     ) {
         String principalName = getPrincipalName(principal);
+        org.slf4j.MDC.put("roomId", roomId.toString());
         try {
             RoomParticipant caller = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
             RoomResponse response = roomService.consentRevoke(roomId, principal);
@@ -132,6 +136,8 @@ public class WsConsentEndController {
         } catch (Exception e) {
             log.error("Unexpected error in WS consentRevoke", e);
             sendError(principalName, "An unexpected error occurred");
+        } finally {
+            org.slf4j.MDC.remove("roomId");
         }
     }
 
@@ -141,6 +147,7 @@ public class WsConsentEndController {
             @DestinationVariable UUID roomId
     ) {
         String principalName = getPrincipalName(principal);
+        org.slf4j.MDC.put("roomId", roomId.toString());
         try {
             RoomParticipant caller = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
             RoomResponse response = roomService.endPropose(roomId, principal);
@@ -157,6 +164,8 @@ public class WsConsentEndController {
         } catch (Exception e) {
             log.error("Unexpected error in WS endPropose", e);
             sendError(principalName, "An unexpected error occurred");
+        } finally {
+            org.slf4j.MDC.remove("roomId");
         }
     }
 
@@ -166,6 +175,7 @@ public class WsConsentEndController {
             @DestinationVariable UUID roomId
     ) {
         String principalName = getPrincipalName(principal);
+        org.slf4j.MDC.put("roomId", roomId.toString());
         try {
             com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
             RoomResponse response = roomService.endRespond(roomId, new EndRespondRequest(EndDecision.AGREE), principal);
@@ -180,6 +190,8 @@ public class WsConsentEndController {
         } catch (Exception e) {
             log.error("Unexpected error in WS endAgree", e);
             sendError(principalName, "An unexpected error occurred");
+        } finally {
+            org.slf4j.MDC.remove("roomId");
         }
     }
 
@@ -189,6 +201,7 @@ public class WsConsentEndController {
             @DestinationVariable UUID roomId
     ) {
         String principalName = getPrincipalName(principal);
+        org.slf4j.MDC.put("roomId", roomId.toString());
         try {
             com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
             RoomResponse response = roomService.endRespond(roomId, new EndRespondRequest(EndDecision.DECLINE), principal);
@@ -202,6 +215,8 @@ public class WsConsentEndController {
         } catch (Exception e) {
             log.error("Unexpected error in WS endDecline", e);
             sendError(principalName, "An unexpected error occurred");
+        } finally {
+            org.slf4j.MDC.remove("roomId");
         }
     }
 }

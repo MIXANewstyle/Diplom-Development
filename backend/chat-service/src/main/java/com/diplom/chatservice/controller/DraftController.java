@@ -54,13 +54,15 @@ public class DraftController {
             @Payload DraftUpsertRequest request,
             Principal principal
     ) {
-        Object authPrincipal = ((UsernamePasswordAuthenticationToken) principal).getPrincipal();
-        String principalName = "unknown";
-        if (authPrincipal instanceof CustomUserDetails user) {
-            principalName = user.getUsername();
-        } else if (authPrincipal instanceof com.diplom.chatservice.security.GuestPrincipal guest) {
-            principalName = "guest-" + guest.getParticipantId();
-        }
+        org.slf4j.MDC.put("roomId", roomId.toString());
+        try {
+            Object authPrincipal = ((UsernamePasswordAuthenticationToken) principal).getPrincipal();
+            String principalName = "unknown";
+            if (authPrincipal instanceof CustomUserDetails user) {
+                principalName = user.getUsername();
+            } else if (authPrincipal instanceof com.diplom.chatservice.security.GuestPrincipal guest) {
+                principalName = "guest-" + guest.getParticipantId();
+            }
 
         // Look up participant
         RoomParticipant participant = com.diplom.chatservice.security.SecurityUtils.getParticipantOrNull(authPrincipal, roomId, roomParticipantRepository);
@@ -96,6 +98,9 @@ public class DraftController {
 
         log.debug("Draft UPSERT: roomId={}, participantId={}, bubbleId={}",
                 roomId, participant.getId(), request.bubbleId());
+        } finally {
+            org.slf4j.MDC.remove("roomId");
+        }
     }
 
     @MessageMapping("/rooms/{roomId}/draft/delete")
@@ -104,13 +109,15 @@ public class DraftController {
             @Payload DraftDeleteRequest request,
             Principal principal
     ) {
-        Object authPrincipal = ((UsernamePasswordAuthenticationToken) principal).getPrincipal();
-        String principalName = "unknown";
-        if (authPrincipal instanceof CustomUserDetails user) {
-            principalName = user.getUsername();
-        } else if (authPrincipal instanceof com.diplom.chatservice.security.GuestPrincipal guest) {
-            principalName = "guest-" + guest.getParticipantId();
-        }
+        org.slf4j.MDC.put("roomId", roomId.toString());
+        try {
+            Object authPrincipal = ((UsernamePasswordAuthenticationToken) principal).getPrincipal();
+            String principalName = "unknown";
+            if (authPrincipal instanceof CustomUserDetails user) {
+                principalName = user.getUsername();
+            } else if (authPrincipal instanceof com.diplom.chatservice.security.GuestPrincipal guest) {
+                principalName = "guest-" + guest.getParticipantId();
+            }
 
         // Look up participant
         RoomParticipant participant = com.diplom.chatservice.security.SecurityUtils.getParticipantOrNull(authPrincipal, roomId, roomParticipantRepository);
@@ -145,6 +152,9 @@ public class DraftController {
 
         log.debug("Draft DELETE: roomId={}, participantId={}, bubbleId={}",
                 roomId, participant.getId(), request.bubbleId());
+        } finally {
+            org.slf4j.MDC.remove("roomId");
+        }
     }
 
     /**
