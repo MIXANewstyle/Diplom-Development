@@ -46,7 +46,7 @@ public class DraftController {
     private final RoomParticipantRepository roomParticipantRepository;
     private final DraftService draftService;
     private final WsErrorSender wsErrorSender;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final com.diplom.chatservice.service.RoomBroadcaster roomBroadcaster;
 
     @MessageMapping("/rooms/{roomId}/draft/upsert")
     public void handleDraftUpsert(
@@ -89,8 +89,8 @@ public class DraftController {
         }
 
         // Broadcast to the room
-        messagingTemplate.convertAndSend(
-                "/topic/rooms/" + roomId,
+        roomBroadcaster.broadcast(
+                roomId,
                 DraftBroadcast.upsert(participant.getId(), request.bubbleId(), request.text())
         );
 
@@ -138,8 +138,8 @@ public class DraftController {
         }
 
         // Broadcast to the room
-        messagingTemplate.convertAndSend(
-                "/topic/rooms/" + roomId,
+        roomBroadcaster.broadcast(
+                roomId,
                 DraftBroadcast.delete(participant.getId(), request.bubbleId())
         );
 

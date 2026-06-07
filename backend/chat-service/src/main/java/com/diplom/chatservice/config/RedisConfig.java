@@ -33,4 +33,29 @@ public class RedisConfig {
         template.afterPropertiesSet();
         return template;
     }
+
+    @Bean
+    public org.springframework.data.redis.listener.RedisMessageListenerContainer redisMessageListenerContainer(
+            RedisConnectionFactory connectionFactory,
+            com.diplom.chatservice.service.RoomEventsRelayListener roomEventsRelayListener,
+            com.diplom.chatservice.service.SessionTerminationListener sessionTerminationListener
+    ) {
+        org.springframework.data.redis.listener.RedisMessageListenerContainer container =
+                new org.springframework.data.redis.listener.RedisMessageListenerContainer();
+        container.setConnectionFactory(connectionFactory);
+
+        // PatternTopic for room.events.*
+        container.addMessageListener(
+                new org.springframework.data.redis.listener.adapter.MessageListenerAdapter(roomEventsRelayListener),
+                new org.springframework.data.redis.listener.PatternTopic("room.events.*")
+        );
+
+        // ChannelTopic for chat:control:terminate-user
+        container.addMessageListener(
+                new org.springframework.data.redis.listener.adapter.MessageListenerAdapter(sessionTerminationListener),
+                new org.springframework.data.redis.listener.ChannelTopic("chat:control:terminate-user")
+        );
+
+        return container;
+    }
 }

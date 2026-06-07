@@ -6,9 +6,10 @@ import java.util.UUID;
 public record DialogueArchivedEvent(
     String type,
     UUID roomId,
-    OffsetDateTime endedAt
+    OffsetDateTime endedAt,
+    String reason
 ) {
     public static DialogueArchivedEvent of(UUID roomId, OffsetDateTime endedAt) {
-        return new DialogueArchivedEvent("DIALOGUE_ARCHIVED", roomId, endedAt);
+        return new DialogueArchivedEvent("DIALOGUE_ARCHIVED", roomId, endedAt, null);
     }
 }

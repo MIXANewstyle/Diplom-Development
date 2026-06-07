@@ -42,8 +42,9 @@ public class PresenceEventListener {
     private final PresenceService presenceService;
     private final DraftService draftService;
     private final RoomParticipantRepository roomParticipantRepository;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final SimpMessagingTemplate messagingTemplate; // Kept for targeted queue messages
     private final WsSessionRegistry wsSessionRegistry;
+    private final RoomBroadcaster roomBroadcaster;
 
     /**
      * Maps STOMP sessionId → set of {roomId, participantId} pairs the session subscribed to.
@@ -114,8 +115,8 @@ public class PresenceEventListener {
                 .add(new SessionRoomEntry(roomId, participantId));
 
         // 3. Broadcast ONLINE to the room topic
-        messagingTemplate.convertAndSend(
-                "/topic/rooms/" + roomId,
+        roomBroadcaster.broadcast(
+                roomId,
                 PresenceUpdated.online(participantId)
         );
 
@@ -158,8 +159,8 @@ public class PresenceEventListener {
             draftService.clearBuffer(roomId, participantId);
 
             // Broadcast OFFLINE
-            messagingTemplate.convertAndSend(
-                    "/topic/rooms/" + roomId,
+            roomBroadcaster.broadcast(
+                    roomId,
                     PresenceUpdated.offline(participantId)
             );
 

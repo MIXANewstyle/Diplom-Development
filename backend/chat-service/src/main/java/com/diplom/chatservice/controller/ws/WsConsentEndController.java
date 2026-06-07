@@ -35,6 +35,7 @@ public class WsConsentEndController {
     private final SimpMessagingTemplate messagingTemplate;
     private final RoomParticipantRepository participantRepository;
     private final ContextSnapshotService contextSnapshotService;
+    private final com.diplom.chatservice.service.RoomBroadcaster roomBroadcaster;
 
     private RoomParticipant verifyParticipant(UUID roomId, UUID userId) {
         RoomParticipant p = participantRepository.findByRoomIdAndUserId(roomId, userId).orElse(null);
@@ -67,7 +68,7 @@ public class WsConsentEndController {
             RoomResponse response = roomService.consentStart(roomId, principal);
 
             if ("ACTIVE".equals(response.status())) {
-                messagingTemplate.convertAndSend("/topic/rooms/" + roomId, 
+                roomBroadcaster.broadcast(roomId, 
                         DialogueStartedEvent.of(response.currentFloorParticipantId()));
                 // Capture context snapshots outside the consent tx
                 String jwt = extractWsJwt(headerAccessor);
@@ -119,10 +120,10 @@ public class WsConsentEndController {
             RoomParticipant caller = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
             RoomResponse response = roomService.consentRevoke(roomId, principal);
 
-            ParticipantResponse p = findParticipantResponse(response, caller.getUserId()); // null for guest, but findParticipantResponse can use participantId if we update it. Wait!
-            if (p != null) {
-                messagingTemplate.convertAndSend("/topic/rooms/" + roomId, 
-                        ConsentUpdatedEvent.of(p.id(), null));
+            ParticipantResponse pResponse = findParticipantResponse(response, caller.getId());
+            if (pResponse != null) {
+                roomBroadcaster.broadcast(roomId, 
+                        ConsentUpdatedEvent.of(response.status(), pResponse));
             }
             // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
         } catch (org.springframework.security.access.AccessDeniedException | RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
@@ -144,10 +145,10 @@ public class WsConsentEndController {
             RoomParticipant caller = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
             RoomResponse response = roomService.endPropose(roomId, principal);
 
-            ParticipantResponse p = findParticipantResponse(response, caller.getId());
-            if (p != null) {
-                messagingTemplate.convertAndSend("/topic/rooms/" + roomId, 
-                        EndProposedEvent.of(p.id()));
+            ParticipantResponse pResponse = findParticipantResponse(response, caller.getId());
+            if (pResponse != null) {
+                roomBroadcaster.broadcast(roomId, 
+                        EndProposedEvent.of(pResponse));
             }
             // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
         } catch (org.springframework.security.access.AccessDeniedException | RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
@@ -169,7 +170,7 @@ public class WsConsentEndController {
             com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
             RoomResponse response = roomService.endRespond(roomId, new EndRespondRequest(EndDecision.AGREE), principal);
 
-            messagingTemplate.convertAndSend("/topic/rooms/" + roomId, 
+            roomBroadcaster.broadcast(roomId, 
                     DialogueArchivedEvent.of(roomId, OffsetDateTime.now()));
             // TODO: no server-side forced-unsubscribe needed for MVP
             // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
@@ -192,7 +193,7 @@ public class WsConsentEndController {
             com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
             RoomResponse response = roomService.endRespond(roomId, new EndRespondRequest(EndDecision.DECLINE), principal);
 
-            messagingTemplate.convertAndSend("/topic/rooms/" + roomId, 
+            roomBroadcaster.broadcast(roomId, 
                     EndDeclinedEvent.of(response.currentFloorParticipantId()));
             // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
         } catch (org.springframework.security.access.AccessDeniedException | RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {

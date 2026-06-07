@@ -14,6 +14,8 @@ public interface TurnRepository extends JpaRepository<Turn, UUID> {
 
     Page<Turn> findByRoomIdOrderBySeqAsc(UUID roomId, Pageable pageable);
 
+    List<Turn> findByRoomIdOrderBySeqAsc(UUID roomId);
+
     /**
      * Returns the 50 most recent turns for the given room, ordered by seq descending.
      * The caller should reverse the list to get ascending order.

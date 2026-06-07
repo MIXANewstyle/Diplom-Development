@@ -40,7 +40,7 @@ public class TurnWsController {
     private final DraftService draftService;
     private final TurnPersistenceService turnPersistenceService;
     private final TurnOrchestrationService turnOrchestrationService;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final com.diplom.chatservice.service.RoomBroadcaster roomBroadcaster;
     private final ThreadPoolTaskExecutor aiExecutor;
     private final WsErrorSender wsErrorSender;
     private final RateLimitService rateLimitService;
@@ -160,7 +160,7 @@ public class TurnWsController {
 
             UserTurnDto userTurnDto = new UserTurnDto(
                     userTurn.getId(), userTurn.getSeq(), userTurn.getParticipantId(), userTurn.getContent());
-            messagingTemplate.convertAndSend("/topic/rooms/" + roomId, AiThinkingEvent.of(userTurnDto));
+            roomBroadcaster.broadcast(roomId, AiThinkingEvent.of(userTurnDto));
             log.info("AI_THINKING broadcast roomId={}", roomId);
 
             submitAiTask(roomId, room.getTypeId());
@@ -174,7 +174,7 @@ public class TurnWsController {
             if (lastTurn.getRoleId() == 1 && caller.getId().equals(lastTurn.getParticipantId())) {
                 log.info("FINISH_THOUGHT branch=RETRY roomId={} lastUserTurnSeq={}", roomId, lastTurn.getSeq());
                 turnPersistenceService.setAiProcessing(roomId);
-                messagingTemplate.convertAndSend("/topic/rooms/" + roomId, AiThinkingEvent.of(null));
+                roomBroadcaster.broadcast(roomId, AiThinkingEvent.of(null));
                 log.info("AI_THINKING broadcast roomId={} (retry)", roomId);
                 submitAiTask(roomId, room.getTypeId());
                 return;
@@ -199,13 +199,13 @@ public class TurnWsController {
 
                     AssistantTurnDto assistantTurnDto = new AssistantTurnDto(
                             assistantTurn.getId(), assistantTurn.getSeq(), assistantTurn.getContent());
-                    messagingTemplate.convertAndSend("/topic/rooms/" + roomId, AiResponseEvent.of(assistantTurnDto));
+                    roomBroadcaster.broadcast(roomId, AiResponseEvent.of(assistantTurnDto));
                     log.info("AI_RESPONSE broadcast roomId={} seq={}", roomId, assistantTurn.getSeq());
 
                     if (roomTypeId == 1) { // PAIRED
                         Room updatedRoom = roomRepository.findById(roomId).orElseThrow();
-                        messagingTemplate.convertAndSend(
-                                "/topic/rooms/" + roomId,
+                        roomBroadcaster.broadcast(
+                                roomId,
                                 TurnChangedEvent.of(updatedRoom.getCurrentFloorParticipantId()));
                         log.info("TURN_CHANGED broadcast roomId={} floorHolder={}",
                                 roomId, updatedRoom.getCurrentFloorParticipantId());
@@ -213,8 +213,8 @@ public class TurnWsController {
                 } catch (Throwable t) {
                     log.error("AI task failed roomId={}", roomId, t);
                     turnPersistenceService.handleAiFailure(roomId);
-                    messagingTemplate.convertAndSend(
-                            "/topic/rooms/" + roomId,
+                    roomBroadcaster.broadcast(
+                            roomId,
                             AiErrorEvent.of(t.getMessage() != null ? t.getMessage() : "AI processing failed"));
                 } finally {
                     try {
@@ -222,8 +222,8 @@ public class TurnWsController {
                         if (room != null && "AI_PROCESSING".equals(room.getPhase())) {
                             log.error("room left in AI_PROCESSING — forced reset roomId={}", roomId);
                             turnPersistenceService.handleAiFailure(roomId);
-                            messagingTemplate.convertAndSend(
-                                    "/topic/rooms/" + roomId,
+                            roomBroadcaster.broadcast(
+                                    roomId,
                                     AiErrorEvent.of("Room left in AI_PROCESSING — forced reset"));
                         }
                     } catch (Throwable cleanupError) {
@@ -235,7 +235,7 @@ public class TurnWsController {
         } catch (RejectedExecutionException e) {
             log.warn("AI executor rejected task roomId={}", roomId, e);
             turnPersistenceService.handleAiFailure(roomId);
-            messagingTemplate.convertAndSend("/topic/rooms/" + roomId, LimitEvent.of("AI busy, retry shortly"));
+            roomBroadcaster.broadcast(roomId, LimitEvent.of("AI busy, retry shortly"));
         }
     }
 }

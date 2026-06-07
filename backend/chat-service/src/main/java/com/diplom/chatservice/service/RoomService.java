@@ -81,7 +81,7 @@ public class RoomService {
     private final RoomMapper roomMapper;
     private final ModerationBlocklistService moderationBlocklistService;
     private final RoleCacheService roleCacheService;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final com.diplom.chatservice.service.RoomBroadcaster roomBroadcaster;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final RateLimitService rateLimitService;
     private final ChatLimitsProperties chatLimits;
@@ -575,8 +575,8 @@ public class RoomService {
             roomRepository.save(room);
 
             // Broadcast DIALOGUE_ABANDONED to the room topic
-            messagingTemplate.convertAndSend(
-                "/topic/rooms/" + room.getId(),
+            roomBroadcaster.broadcast(
+                room.getId(),
                 new DialogueAbandonedEvent(room.getId(), "MODERATION")
             );
             log.info("Abandoned room {} due to user {} moderation", room.getId(), userId);

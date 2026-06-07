@@ -31,6 +31,7 @@ public class UserEventsConsumer {
     private final RoomService roomService;
     private final WsSessionRegistry wsSessionRegistry;
     private final ObjectMapper objectMapper;
+    private final org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
 
     @RabbitListener(queues = RabbitMQConfig.USER_EVENTS_QUEUE)
     public void onUserEvent(
@@ -74,7 +75,7 @@ public class UserEventsConsumer {
             case 2, 3 -> {
                 moderationBlocklistService.block(event.userId());
                 roomService.abandonRoomsForBannedUser(event.userId());
-                wsSessionRegistry.terminateUserSessions(event.userId());
+                stringRedisTemplate.convertAndSend("chat:control:terminate-user", event.userId().toString());
             }
             case 1 -> moderationBlocklistService.unblock(event.userId());
             default -> log.warn("Unknown statusId {} in ACCOUNT_MODERATED for {}", event.statusId(), event.userId());
