@@ -9,6 +9,7 @@ import com.diplom.chatservice.dto.RoomResponse;
 import com.diplom.chatservice.dto.RoomSummaryResponse;
 import com.diplom.chatservice.dto.TurnResponse;
 import com.diplom.chatservice.dto.TurnsPageResponse;
+import com.diplom.chatservice.config.ChatLimitsProperties;
 import com.diplom.chatservice.entity.ChatOutboxEvent;
 import com.diplom.chatservice.entity.FriendLinkId;
 import com.diplom.chatservice.entity.Room;

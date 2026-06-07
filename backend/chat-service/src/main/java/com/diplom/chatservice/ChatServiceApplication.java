@@ -5,6 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import com.diplom.chatservice.config.ChatLlmProperties;
+import com.diplom.chatservice.config.ChatLimitsProperties;
 
 import com.diplom.chatservice.config.ChatInviteProperties;
 import com.diplom.chatservice.config.ChatGuestProperties;

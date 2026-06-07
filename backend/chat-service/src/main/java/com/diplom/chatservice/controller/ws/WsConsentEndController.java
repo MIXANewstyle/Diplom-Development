@@ -37,14 +37,6 @@ public class WsConsentEndController {
     private final ContextSnapshotService contextSnapshotService;
     private final com.diplom.chatservice.service.RoomBroadcaster roomBroadcaster;
 
-    private RoomParticipant verifyParticipant(UUID roomId, UUID userId) {
-        RoomParticipant p = participantRepository.findByRoomIdAndUserId(roomId, userId).orElse(null);
-        if (p == null) {
-            throw new NotRoomParticipantException("Caller is not a participant of this room");
-        }
-        return p;
-    }
-
     private void sendError(String username, String message) {
         messagingTemplate.convertAndSendToUser(username, "/queue/errors", WsError.error(message));
     }
@@ -126,7 +118,7 @@ public class WsConsentEndController {
             ParticipantResponse pResponse = findParticipantResponse(response, caller.getId());
             if (pResponse != null) {
                 roomBroadcaster.broadcast(roomId, 
-                        ConsentUpdatedEvent.of(response.status(), pResponse));
+                        ConsentUpdatedEvent.of(pResponse.id(), pResponse.consentStartAt()));
             }
             // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
         } catch (org.springframework.security.access.AccessDeniedException | RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
@@ -154,7 +146,7 @@ public class WsConsentEndController {
             ParticipantResponse pResponse = findParticipantResponse(response, caller.getId());
             if (pResponse != null) {
                 roomBroadcaster.broadcast(roomId, 
-                        EndProposedEvent.of(pResponse));
+                        EndProposedEvent.of(pResponse.id()));
             }
             // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
         } catch (org.springframework.security.access.AccessDeniedException | RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
@@ -177,7 +169,7 @@ public class WsConsentEndController {
         org.slf4j.MDC.put("roomId", roomId.toString());
         try {
             com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
-            RoomResponse response = roomService.endRespond(roomId, new EndRespondRequest(EndDecision.AGREE), principal);
+            roomService.endRespond(roomId, new EndRespondRequest(EndDecision.AGREE), principal);
 
             roomBroadcaster.broadcast(roomId, 
                     DialogueArchivedEvent.of(roomId, OffsetDateTime.now()));
