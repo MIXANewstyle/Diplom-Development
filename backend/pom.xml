@@ -24,6 +24,7 @@
         <module>user-service</module>
         <module>content-service</module>
         <module>chat-service</module>
+        <module>billing-service</module>
     </modules>
 
     <properties>
