@@ -2,7 +2,38 @@ import { useAuthStore } from '../../../shared/stores/authStore'
 import { canEngage } from '../../../shared/lib/roles'
 import { formatDate } from '../../../shared/lib/format'
 import { useUpvote } from '../../feed/hooks/useUpvote'
-import type { Post } from '../../feed/types'
+import type { Post, EditorBlock } from '../../feed/types'
+
+function renderBlock(block: EditorBlock, index: number) {
+  switch (block.type) {
+    case 'paragraph':
+      return (
+        <p key={index} className="mb-4">
+          {block.data.text}
+        </p>
+      )
+    case 'header': {
+      const Tag = `h${block.data.level || 2}` as keyof JSX.IntrinsicElements
+      return (
+        <Tag key={index} className="font-bold my-4">
+          {block.data.text}
+        </Tag>
+      )
+    }
+    case 'list': {
+      const ListTag = block.data.style === 'ordered' ? 'ol' : 'ul'
+      return (
+        <ListTag key={index} className={`mb-4 pl-6 ${block.data.style === 'ordered' ? 'list-decimal' : 'list-disc'}`}>
+          {block.data.items.map((item, i) => (
+            <li key={i}>{item}</li>
+          ))}
+        </ListTag>
+      )
+    }
+    default:
+      return null
+  }
+}
 
 export function PostView({ post }: { post: Post }) {
   const user = useAuthStore((s) => s.user)
@@ -41,7 +72,11 @@ export function PostView({ post }: { post: Post }) {
 
       {post.content && (
         <div className="whitespace-pre-wrap leading-relaxed text-gray-800">
-          {post.content}
+          {typeof post.content === 'string' ? (
+            post.content
+          ) : (
+            post.content.blocks.map((block, i) => renderBlock(block, i))
+          )}
         </div>
       )}
 

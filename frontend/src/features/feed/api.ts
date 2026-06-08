@@ -17,6 +17,21 @@ export async function getFeed(params: {
   }
 
   const response = await apiClient.get<FeedResponse>(`/api/v1/feed?${usp.toString()}`)
+  
+  // Intercept and parse the content if it's an Editor.js JSON string
+  if (response.data?.items) {
+    response.data.items = response.data.items.map(post => {
+      if (typeof post.content === 'string' && post.content.startsWith('{')) {
+        try {
+          post.content = JSON.parse(post.content)
+        } catch (e) {
+          // Keep as string if parsing fails
+        }
+      }
+      return post
+    })
+  }
+  
   return response.data
 }
 

@@ -5,13 +5,24 @@ export type Tag = {
 
 export type PostStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'MODERATED'
 
+export type EditorBlock = 
+  | { type: 'paragraph'; data: { text: string } }
+  | { type: 'header'; data: { text: string; level: number } }
+  | { type: 'list'; data: { style: 'ordered' | 'unordered'; items: string[] } }
+
+export type EditorContent = {
+  time?: number
+  blocks: EditorBlock[]
+  version?: string
+}
+
 export type Post = {
   id: string
   authorId: string
   authorUsername: string | null
   authorAvatarUrl: string | null
   title: string
-  content: string | null
+  content: EditorContent | string | null
   coverImageUrl: string | null
   status: PostStatus
   publishedAt: string | null

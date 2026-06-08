@@ -9,6 +9,15 @@ import type {
 
 export async function getPost(id: string): Promise<Post> {
   const response = await apiClient.get<Post>(`/api/v1/posts/${id}`)
+  
+  if (response.data && typeof response.data.content === 'string' && response.data.content.startsWith('{')) {
+    try {
+      response.data.content = JSON.parse(response.data.content)
+    } catch (e) {
+      // Keep as string if parsing fails
+    }
+  }
+
   return response.data
 }
 
