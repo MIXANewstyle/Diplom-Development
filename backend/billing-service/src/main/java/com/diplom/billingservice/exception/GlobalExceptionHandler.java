@@ -64,6 +64,16 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, "Conflict", "Operation conflicts with existing data");
     }
 
+    @ExceptionHandler(TrialAlreadyUsedException.class)
+    public ResponseEntity<Map<String, Object>> handleTrialAlreadyUsed(TrialAlreadyUsedException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+    }
+
+    @ExceptionHandler(ActiveSubscriptionExistsException.class)
+    public ResponseEntity<Map<String, Object>> handleActiveSubscriptionExists(ActiveSubscriptionExistsException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(AccessDeniedException ex) {
         log.warn("Access denied: {}", ex.getMessage());

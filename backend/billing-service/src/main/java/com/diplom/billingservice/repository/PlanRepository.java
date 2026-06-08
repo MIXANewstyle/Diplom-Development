@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface PlanRepository extends JpaRepository<Plan, Integer> {
     List<Plan> findAllByIsActiveTrueAndIsPublicTrue();
+    Optional<Plan> findByCode(String code);
 }
