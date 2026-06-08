@@ -44,8 +44,8 @@ public class Plan {
     private String currency;
 
     @Column(name = "is_active", nullable = false)
-    private Boolean isActive;
+    private boolean isActive;
 
     @Column(name = "is_public", nullable = false)
-    private Boolean isPublic;
+    private boolean isPublic;
 }
