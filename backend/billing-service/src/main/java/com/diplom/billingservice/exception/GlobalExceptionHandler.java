@@ -20,13 +20,13 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(PlanNotFoundException.class)
+    @ExceptionHandler({PlanNotFoundException.class, TransactionNotFoundException.class})
     public ResponseEntity<Map<String, Object>> handleNotFound(RuntimeException ex) {
         log.warn("Not found: {}", ex.getMessage());
         return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage());
     }
 
-    @ExceptionHandler(PlanInactiveException.class)
+    @ExceptionHandler({PlanInactiveException.class, WebhookSignatureInvalidException.class})
     public ResponseEntity<Map<String, Object>> handleBadRequestDomainExceptions(RuntimeException ex) {
         log.warn("Bad request: {}", ex.getMessage());
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
@@ -84,6 +84,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
         log.warn("Illegal argument: {}", ex.getMessage());
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
+    }
+
+    @ExceptionHandler(PaymentProviderException.class)
+    public ResponseEntity<Map<String, Object>> handlePaymentProvider(PaymentProviderException ex) {
+        log.error("Payment provider error: {}", ex.getMessage());
+        return buildResponse(HttpStatus.BAD_GATEWAY, "Bad Gateway", "Payment provider error");
     }
 
     @ExceptionHandler(Exception.class)
