@@ -75,7 +75,7 @@ public class CheckoutService {
         Plan plan = planRepository.findById(request.planId())
                 .orElseThrow(() -> new PlanNotFoundException("Plan not found: " + request.planId()));
 
-        if (!plan.getIsActive() || !plan.getIsPublic()) {
+        if (!plan.isActive() || !plan.isPublic()) {
             throw new PlanInactiveException("Plan is not available for purchase");
         }
 
