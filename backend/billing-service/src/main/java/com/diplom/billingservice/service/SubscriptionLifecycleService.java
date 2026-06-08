@@ -1,12 +1,13 @@
 package com.diplom.billingservice.service;
 
-import com.diplom.billingservice.entity.EventType;
 import com.diplom.billingservice.entity.PromoRedemptionId;
 import com.diplom.billingservice.entity.SubStatus;
 import com.diplom.billingservice.entity.Subscription;
 import com.diplom.billingservice.entity.Transaction;
 import com.diplom.billingservice.entity.TxnStatus;
+import com.diplom.billingservice.event.EventType;
 import com.diplom.billingservice.event.SubscriptionChangedEvent;
+import com.diplom.billingservice.outbox.OutboxEventFactory;
 import com.diplom.billingservice.repository.BillingOutboxEventRepository;
 import com.diplom.billingservice.repository.PromoCodeRepository;
 import com.diplom.billingservice.repository.PromoRedemptionRepository;
