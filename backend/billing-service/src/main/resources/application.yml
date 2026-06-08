@@ -61,6 +61,10 @@ jwt:
 billing:
   payment:
     provider: stub
+    intent-ttl-minutes: 60
     stub:
       confirm-base-url: http://localhost:8084
       webhook-secret: stub-secret
+  jobs:
+    expire-subscriptions-cron: "0 0 * * * *"
+    expire-stale-transactions-cron: "0 */15 * * * *"
