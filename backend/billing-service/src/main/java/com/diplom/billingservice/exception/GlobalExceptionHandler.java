@@ -20,13 +20,13 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler({PlanNotFoundException.class, TransactionNotFoundException.class})
+    @ExceptionHandler({PlanNotFoundException.class, TransactionNotFoundException.class, PromoCodeNotFoundException.class})
     public ResponseEntity<Map<String, Object>> handleNotFound(RuntimeException ex) {
         log.warn("Not found: {}", ex.getMessage());
         return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage());
     }
 
-    @ExceptionHandler({PlanInactiveException.class, WebhookSignatureInvalidException.class})
+    @ExceptionHandler({PlanInactiveException.class, WebhookSignatureInvalidException.class, PromoCodeInactiveException.class, PromoCodeExpiredException.class})
     public ResponseEntity<Map<String, Object>> handleBadRequestDomainExceptions(RuntimeException ex) {
         log.warn("Bad request: {}", ex.getMessage());
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
@@ -66,6 +66,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(TrialAlreadyUsedException.class)
     public ResponseEntity<Map<String, Object>> handleTrialAlreadyUsed(TrialAlreadyUsedException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+    }
+
+    @ExceptionHandler({PromoCodeExhaustedException.class, PromoAlreadyRedeemedException.class, PromoCodeAlreadyExistsException.class})
+    public ResponseEntity<Map<String, Object>> handlePromoConflict(PromoException ex) {
+        log.warn("Promo conflict: {}", ex.getMessage());
         return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
     }
 

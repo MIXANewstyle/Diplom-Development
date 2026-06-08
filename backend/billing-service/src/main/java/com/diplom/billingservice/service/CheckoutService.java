@@ -14,6 +14,13 @@ import com.diplom.billingservice.repository.SubscriptionRepository;
 import com.diplom.billingservice.repository.TransactionRepository;
 import com.diplom.billingservice.repository.TxnStatusRepository;
 import com.diplom.billingservice.repository.TxnTypeRepository;
+import com.diplom.billingservice.entity.PromoRedemption;
+import com.diplom.billingservice.entity.PromoRedemptionId;
+import com.diplom.billingservice.exception.PromoAlreadyRedeemedException;
+import com.diplom.billingservice.exception.PromoCodeExhaustedException;
+import com.diplom.billingservice.repository.PromoCodeRepository;
+import com.diplom.billingservice.repository.PromoRedemptionRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,6 +43,9 @@ public class CheckoutService {
     private final TxnStatusRepository txnStatusRepository;
     private final ActivationService activationService;
     private final PaymentProvider paymentProvider;
+    private final PromoService promoService;
+    private final PromoCodeRepository promoCodeRepository;
+    private final PromoRedemptionRepository promoRedemptionRepository;
 
     @Value("${billing.payment.provider}")
     private String providerName;
@@ -65,13 +75,38 @@ public class CheckoutService {
         Plan plan = planRepository.findById(request.planId())
                 .orElseThrow(() -> new PlanNotFoundException("Plan not found: " + request.planId()));
 
-        if (!plan.isActive() || !plan.isPublic()) {
+        if (!plan.getIsActive() || !plan.getIsPublic()) {
             throw new PlanInactiveException("Plan is not available for purchase");
         }
 
         BigDecimal baseAmount = plan.getPriceAmount();
         BigDecimal discountAmount = BigDecimal.ZERO;
-        // TODO Step 5: apply & reserve promo here
+        UUID appliedPromoId = null;
+
+        if (request.promoCode() != null && !request.promoCode().isBlank()) {
+            PromoService.PromoCalc calc = promoService.validate(plan, request.promoCode(), userId);
+            UUID promoId = calc.promoCode().getId();
+
+            // Atomic reservation (§5.1.3) — conditional UPDATE, no table lock
+            int reserved = promoCodeRepository.reserveOne(promoId);
+            if (reserved == 0) {
+                throw new PromoCodeExhaustedException("Promo code is fully redeemed");
+            }
+
+            // Single-use-per-user guard — real INSERT (Persistable), catch the PK conflict
+            try {
+                PromoRedemption redemption = PromoRedemption.builder()
+                        .id(new PromoRedemptionId(promoId, userId))
+                        .build();
+                promoRedemptionRepository.saveAndFlush(redemption);   // saveAndFlush forces the INSERT to execute now
+            } catch (DataIntegrityViolationException dup) {
+                throw new PromoAlreadyRedeemedException("Promo code already redeemed by this user");
+            }
+
+            discountAmount = calc.discountAmount();
+            appliedPromoId = promoId;
+        }
+
         BigDecimal finalAmount = baseAmount.subtract(discountAmount).max(BigDecimal.ZERO);
 
         boolean hasActive = subscriptionRepository.findByUserId(userId)
@@ -88,6 +123,7 @@ public class CheckoutService {
                 .discountAmount(discountAmount)
                 .amount(finalAmount)
                 .currency("RUB")
+                .promoCodeId(appliedPromoId)
                 .provider(providerName)
                 .idempotencyKey(idempotencyKey)
                 .build();

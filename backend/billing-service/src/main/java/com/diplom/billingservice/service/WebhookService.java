@@ -4,6 +4,9 @@ import com.diplom.billingservice.entity.Transaction;
 import com.diplom.billingservice.exception.TransactionNotFoundException;
 import com.diplom.billingservice.payment.PaymentProvider;
 import com.diplom.billingservice.payment.WebhookEvent;
+import com.diplom.billingservice.entity.PromoRedemptionId;
+import com.diplom.billingservice.repository.PromoCodeRepository;
+import com.diplom.billingservice.repository.PromoRedemptionRepository;
 import com.diplom.billingservice.repository.TransactionRepository;
 import com.diplom.billingservice.repository.TxnStatusRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +27,8 @@ public class WebhookService {
     private final ActivationService activationService;
     private final PaymentProvider paymentProvider;
     private final TxnStatusRepository txnStatusRepository;
+    private final PromoCodeRepository promoCodeRepository;
+    private final PromoRedemptionRepository promoRedemptionRepository;
 
     private static final int TXN_STATUS_FAILED_ID = 3;
 
@@ -48,7 +53,11 @@ public class WebhookService {
             case CANCELED -> {
                 txn.setStatus(txnStatusRepository.findById(TXN_STATUS_FAILED_ID)
                         .orElseThrow(() -> new IllegalStateException("TxnStatus FAILED not found")));
-                // TODO Step 5: promo compensation (used_count--, delete promo_redemptions)
+                // §8.3 — local promo compensation: free the reserved use so the user can retry
+                if (txn.getPromoCodeId() != null) {
+                    promoCodeRepository.releaseOne(txn.getPromoCodeId());
+                    promoRedemptionRepository.deleteById(new PromoRedemptionId(txn.getPromoCodeId(), txn.getUserId()));
+                }
             }
         }
     }

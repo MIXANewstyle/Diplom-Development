@@ -10,7 +10,9 @@ import com.diplom.billingservice.entity.TxnStatus;
 import com.diplom.billingservice.event.EventType;
 import com.diplom.billingservice.event.SubscriptionChangedEvent;
 import com.diplom.billingservice.outbox.OutboxEventFactory;
+import com.diplom.billingservice.entity.PromoRedemptionId;
 import com.diplom.billingservice.repository.BillingOutboxEventRepository;
+import com.diplom.billingservice.repository.PromoRedemptionRepository;
 import com.diplom.billingservice.repository.SubStatusRepository;
 import com.diplom.billingservice.repository.SubTierRepository;
 import com.diplom.billingservice.repository.SubscriptionRepository;
@@ -38,6 +40,7 @@ public class ActivationService {
     private final TxnStatusRepository txnStatusRepository;
     private final BillingOutboxEventRepository billingOutboxEventRepository;
     private final OutboxEventFactory outboxEventFactory;
+    private final PromoRedemptionRepository promoRedemptionRepository;
 
     @Transactional
     public Subscription activate(UUID userId, Plan plan, Transaction transaction) {
@@ -86,7 +89,11 @@ public class ActivationService {
         transaction.setStatus(loadTxnStatusSuccess());
         // No explicit save needed: the Transaction entity is managed within this @Transactional boundary.
 
-        // TODO Step 5: link promo_redemptions.transaction_id here (paid path with promo)
+        // §8.1 step 3 — link the promo redemption to this transaction (paid path with promo)
+        if (transaction.getPromoCodeId() != null) {
+            promoRedemptionRepository.findById(new PromoRedemptionId(transaction.getPromoCodeId(), userId))
+                    .ifPresent(r -> r.setTransactionId(transaction.getId()));
+        }
 
         // Write SUBSCRIPTION_CHANGED to the outbox (§7.1)
         SubscriptionChangedEvent payload = new SubscriptionChangedEvent(
