@@ -1,8 +1,8 @@
 package com.diplom.chatservice.service;
 
 import com.diplom.chatservice.dto.ws.SessionTerminatedEvent;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -14,11 +14,14 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class WsSessionRegistry {
 
     private final SimpMessagingTemplate messagingTemplate;
+
+    public WsSessionRegistry(@Lazy SimpMessagingTemplate messagingTemplate) {
+        this.messagingTemplate = messagingTemplate;
+    }
 
     // TODO: move to Redis + a "terminate userId" pub/sub for multi-instance in Phase 4f
     private final Map<UUID, Set<String>> userIdToSessions = new ConcurrentHashMap<>();
