@@ -40,6 +40,23 @@ public class SubscriptionLifecycleService {
 
     private static final int SUB_STATUS_EXPIRED_ID = 3;
     private static final int TXN_STATUS_FAILED_ID = 3;
+    private static final int SUB_STATUS_CANCELED_ID = 2;  // sub_statuses: CANCELED
+
+    @Transactional
+    public void cancelSubscription(UUID userId) {
+        Subscription sub = subscriptionRepository.findByUserId(userId).orElse(null);
+        if (sub == null || !"ACTIVE".equals(sub.getStatus().getName())) {
+            return;  // nothing active to cancel — already downgraded
+        }
+        SubStatus canceled = subStatusRepository.findById(SUB_STATUS_CANCELED_ID)
+                .orElseThrow(() -> new IllegalStateException("SubStatus CANCELED not found"));
+        sub.setStatus(canceled);
+        subscriptionRepository.save(sub);
+
+        SubscriptionChangedEvent payload = new SubscriptionChangedEvent(
+                userId, "FREE", sub.getExpiresAt().toOffsetDateTime(), OffsetDateTime.now());
+        billingOutboxEventRepository.save(outboxEventFactory.create(EventType.SUBSCRIPTION_CHANGED, payload));
+    }
 
     @Transactional
     public void expireSubscription(UUID subscriptionId) {

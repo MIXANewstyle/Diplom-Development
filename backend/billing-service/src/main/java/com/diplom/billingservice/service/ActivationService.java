@@ -44,6 +44,11 @@ public class ActivationService {
 
     @Transactional
     public Subscription activate(UUID userId, Plan plan, Transaction transaction) {
+        return activateForDays(userId, transaction, plan.getDurationDays());
+    }
+
+    @Transactional
+    public Subscription activateForDays(UUID userId, Transaction transaction, int durationDays) {
         ZonedDateTime now = ZonedDateTime.now();
         ZonedDateTime newExpiresAt;
 
@@ -57,7 +62,7 @@ public class ActivationService {
             SubStatus activeStatus = subStatusRepository.findById(STATUS_ACTIVE_ID)
                     .orElseThrow(() -> new IllegalStateException("SubStatus ACTIVE not found"));
 
-            newExpiresAt = now.plusDays(plan.getDurationDays());
+            newExpiresAt = now.plusDays(durationDays);
             sub = Subscription.builder()
                     .userId(userId)
                     .tier(basicTier)
@@ -71,13 +76,13 @@ public class ActivationService {
 
             if ("ACTIVE".equals(currentStatus.getName()) && !sub.getExpiresAt().isBefore(now)) {
                 // Renewal — stack expires_at (§3.2, §0.1.4)
-                newExpiresAt = sub.getExpiresAt().plusDays(plan.getDurationDays());
+                newExpiresAt = sub.getExpiresAt().plusDays(durationDays);
                 sub.setExpiresAt(newExpiresAt);
             } else {
                 // EXPIRED or CANCELED — restart
                 SubStatus activeStatus = subStatusRepository.findById(STATUS_ACTIVE_ID)
                         .orElseThrow(() -> new IllegalStateException("SubStatus ACTIVE not found"));
-                newExpiresAt = now.plusDays(plan.getDurationDays());
+                newExpiresAt = now.plusDays(durationDays);
                 sub.setStatus(activeStatus);
                 sub.setStartedAt(now);
                 sub.setExpiresAt(newExpiresAt);

@@ -92,6 +92,12 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
     }
 
+    @ExceptionHandler(TransactionNotRefundableException.class)
+    public ResponseEntity<Map<String, Object>> handleNotRefundable(TransactionNotRefundableException ex) {
+        log.warn("Transaction not refundable: {}", ex.getMessage());
+        return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+    }
+
     @ExceptionHandler(PaymentProviderException.class)
     public ResponseEntity<Map<String, Object>> handlePaymentProvider(PaymentProviderException ex) {
         log.error("Payment provider error: {}", ex.getMessage());

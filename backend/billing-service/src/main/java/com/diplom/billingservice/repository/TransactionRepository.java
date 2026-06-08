@@ -20,4 +20,26 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
 
     @Query("SELECT t.id FROM Transaction t WHERE t.status.id = :statusId AND t.createdAt < :threshold")
     List<UUID> findStalePendingIds(@Param("statusId") int statusId, @Param("threshold") ZonedDateTime threshold);
+
+    @Query(value = """
+        SELECT t FROM Transaction t
+        WHERE (:userId IS NULL OR t.userId = :userId)
+          AND (:statusId IS NULL OR t.status.id = :statusId)
+          AND (:from IS NULL OR t.createdAt >= :from)
+          AND (:to IS NULL OR t.createdAt <= :to)
+        ORDER BY t.createdAt DESC
+        """,
+        countQuery = """
+        SELECT COUNT(t) FROM Transaction t
+        WHERE (:userId IS NULL OR t.userId = :userId)
+          AND (:statusId IS NULL OR t.status.id = :statusId)
+          AND (:from IS NULL OR t.createdAt >= :from)
+          AND (:to IS NULL OR t.createdAt <= :to)
+        """)
+    org.springframework.data.domain.Page<Transaction> searchTransactions(
+            @Param("userId") UUID userId,
+            @Param("statusId") Integer statusId,
+            @Param("from") ZonedDateTime from,
+            @Param("to") ZonedDateTime to,
+            org.springframework.data.domain.Pageable pageable);
 }
