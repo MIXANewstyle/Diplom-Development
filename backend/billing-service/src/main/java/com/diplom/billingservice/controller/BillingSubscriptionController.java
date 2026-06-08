@@ -2,7 +2,7 @@ package com.diplom.billingservice.controller;
 
 import com.diplom.billingservice.dto.SubscriptionResponse;
 import com.diplom.billingservice.service.TrialService;
-import com.diplom.common.security.CustomUserDetails;
+import com.diplom.billingservice.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

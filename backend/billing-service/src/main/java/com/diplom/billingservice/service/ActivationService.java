@@ -6,6 +6,7 @@ import com.diplom.billingservice.entity.SubStatus;
 import com.diplom.billingservice.entity.SubTier;
 import com.diplom.billingservice.entity.Subscription;
 import com.diplom.billingservice.entity.Transaction;
+import com.diplom.billingservice.entity.TxnStatus;
 import com.diplom.billingservice.event.EventType;
 import com.diplom.billingservice.event.SubscriptionChangedEvent;
 import com.diplom.billingservice.outbox.OutboxEventFactory;
@@ -13,6 +14,7 @@ import com.diplom.billingservice.repository.BillingOutboxEventRepository;
 import com.diplom.billingservice.repository.SubStatusRepository;
 import com.diplom.billingservice.repository.SubTierRepository;
 import com.diplom.billingservice.repository.SubscriptionRepository;
+import com.diplom.billingservice.repository.TxnStatusRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,10 +30,12 @@ public class ActivationService {
 
     private static final int TIER_BASIC_ID = 1;  // sub_tiers: BASIC
     private static final int STATUS_ACTIVE_ID = 1;  // sub_statuses: ACTIVE
+    private static final int TXN_STATUS_SUCCESS_ID = 2;  // txn_statuses: SUCCESS
 
     private final SubscriptionRepository subscriptionRepository;
     private final SubTierRepository subTierRepository;
     private final SubStatusRepository subStatusRepository;
+    private final TxnStatusRepository txnStatusRepository;
     private final BillingOutboxEventRepository billingOutboxEventRepository;
     private final OutboxEventFactory outboxEventFactory;
 
@@ -79,7 +83,7 @@ public class ActivationService {
         sub = subscriptionRepository.save(sub);
 
         // Finalize the ledger (§8.1 step 2): set the transaction's status to SUCCESS.
-        transaction.setStatus("SUCCESS");
+        transaction.setStatus(loadTxnStatusSuccess());
         // No explicit save needed: the Transaction entity is managed within this @Transactional boundary.
 
         // TODO Step 5: link promo_redemptions.transaction_id here (paid path with promo)
@@ -95,5 +99,10 @@ public class ActivationService {
         billingOutboxEventRepository.save(outboxEvent);
 
         return sub;
+    }
+
+    private TxnStatus loadTxnStatusSuccess() {
+        return txnStatusRepository.findById(TXN_STATUS_SUCCESS_ID)
+                .orElseThrow(() -> new IllegalStateException("TxnStatus SUCCESS not found"));
     }
 }
