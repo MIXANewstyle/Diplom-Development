@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -96,6 +97,10 @@ public class UserService {
         if (request.avatarUrl() != null && !request.avatarUrl().equals(profile.getAvatarUrl())) {
             profile.setAvatarUrl(request.avatarUrl());
             isProfileChanged = true;
+        }
+
+        if (!Objects.equals(request.bio(), profile.getBio())) {
+            profile.setBio(request.bio());
         }
 
         if (request.psychProfile() != null && !request.psychProfile().equals(profile.getPsychProfile())) {
