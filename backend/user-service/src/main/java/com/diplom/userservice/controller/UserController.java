@@ -2,6 +2,7 @@ package com.diplom.userservice.controller;
 
 import com.diplom.userservice.dto.JwtResponse;
 import com.diplom.userservice.dto.LoginRequest;
+import com.diplom.userservice.dto.MyProfileResponse;
 import com.diplom.userservice.dto.ProfileUpdateRequest;
 import com.diplom.userservice.dto.UserRegistrationRequest;
 import com.diplom.userservice.dto.UserResponse;
@@ -67,6 +68,12 @@ public class UserController {
             @Valid @RequestBody ProfileUpdateRequest request) {
         userService.updateProfile(userDetails.getId(), request);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/me/profile")
+    public ResponseEntity<MyProfileResponse> getMyProfile(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(userService.getMyProfile(userDetails.getId()));
     }
 
     @PostMapping("/batch")

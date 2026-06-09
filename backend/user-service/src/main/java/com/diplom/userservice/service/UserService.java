@@ -1,9 +1,11 @@
 package com.diplom.userservice.service;
 
 import com.diplom.userservice.dto.UserRegistrationRequest;
+import com.diplom.userservice.dto.MyProfileResponse;
 import com.diplom.userservice.dto.UserResponse;
 import com.diplom.userservice.dto.UserBatchResponse;
 import com.diplom.userservice.entity.User;
+import com.diplom.userservice.entity.UserRole;
 import com.diplom.userservice.entity.UserOutboxEvent;
 import com.diplom.userservice.entity.UserProfile;
 import com.diplom.userservice.dto.ProfileUpdateRequest;
@@ -152,5 +154,29 @@ public class UserService {
         return profiles.stream()
                 .map(p -> new UserBatchResponse(p.getUser().getId(), p.getUsername(), p.getAvatarUrl()))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public MyProfileResponse getMyProfile(UUID userId) {
+        UserProfile profile = userProfileRepository.findById(userId)
+                .orElseThrow(() -> new UserProfileNotFoundException("Profile for user " + userId + " not found"));
+        User user = profile.getUser();
+
+        String roleName = UserRole.fromId(user.getRoleId()).getName();
+
+        return new MyProfileResponse(
+                profile.getId(),
+                user.getEmail(),
+                roleName,
+                profile.getUsername(),
+                profile.getFullName(),
+                profile.getBio(),
+                profile.getAvatarUrl(),
+                profile.getContactInfo(),
+                profile.getBirthDate(),
+                profile.getGenderId(),
+                profile.getPsychProfile(),
+                profile.getUpdatedAt()
+        );
     }
 }
