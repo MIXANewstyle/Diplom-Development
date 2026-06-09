@@ -51,7 +51,7 @@ public class Subscription {
     private ZonedDateTime expiresAt;
 
     @CreationTimestamp
-    @Column(name = "created_at")
+    @Column(name = "created_at", updatable = false)
     private ZonedDateTime createdAt;
 
     @UpdateTimestamp

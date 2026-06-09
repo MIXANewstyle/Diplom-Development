@@ -32,7 +32,7 @@ public class BillingAccount {
     private boolean trialUsed;
 
     @CreationTimestamp
-    @Column(name = "created_at")
+    @Column(name = "created_at", updatable = false)
     private ZonedDateTime createdAt;
 
     @Version

@@ -9,6 +9,8 @@ logging:
 spring:
   application:
     name: billing-service
+  profiles:
+    active: local
 
   jackson:
     serialization:

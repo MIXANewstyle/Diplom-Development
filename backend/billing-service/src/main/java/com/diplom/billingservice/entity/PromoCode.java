@@ -59,7 +59,7 @@ public class PromoCode {
     private Boolean isActive;
 
     @CreationTimestamp
-    @Column(name = "created_at")
+    @Column(name = "created_at", updatable = false)
     private ZonedDateTime createdAt;
 
     @Version

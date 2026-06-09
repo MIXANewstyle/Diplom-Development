@@ -31,7 +31,7 @@ public class PromoRedemption implements Persistable<PromoRedemptionId> {
     private UUID transactionId;
 
     @CreationTimestamp
-    @Column(name = "redeemed_at")
+    @Column(name = "redeemed_at", updatable = false)
     private ZonedDateTime redeemedAt;
 
     @Override
