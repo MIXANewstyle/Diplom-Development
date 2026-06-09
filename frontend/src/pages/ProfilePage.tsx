@@ -1,32 +1,50 @@
-import { useAuthStore } from '../shared/stores/authStore'
+import { useState } from 'react';
+import axios from 'axios';
+import { useAuthStore } from '../shared/stores/authStore';
+import { useMyProfile } from '../features/profile/hooks/useMyProfile';
+import { ProfileView } from '../features/profile/components/ProfileView';
+import { ProfileEditForm } from '../features/profile/components/ProfileEditForm';
+import { OnboardingSection } from '../features/profile/components/OnboardingSection';
 
 export function ProfilePage() {
-  const { user } = useAuthStore()
+  const { user } = useAuthStore();
+  const { data: profile, isLoading, error } = useMyProfile();
+  const [isEditing, setIsEditing] = useState(false);
 
-  if (!user) return null
+  if (!user) return null;
+
+  if (isLoading) {
+    return <div className="p-4 text-gray-500">Загрузка профиля...</div>;
+  }
+
+  if (error || !profile) {
+    let errorMsg = 'Ошибка загрузки профиля';
+    if (axios.isAxiosError(error) && error.response?.data?.message) {
+      errorMsg = error.response.data.message;
+    } else if (error instanceof Error) {
+      errorMsg = error.message;
+    }
+    return <div className="p-4 text-red-600">{errorMsg}</div>;
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-3xl">
       <h1 className="text-2xl font-bold">Мой профиль</h1>
       
-      <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
-        <div>
-          <div className="text-sm text-gray-500">Email</div>
-          <div>{user.email}</div>
-        </div>
-        <div>
-          <div className="text-sm text-gray-500">Роль</div>
-          <div>{user.role}</div>
-        </div>
-        <div>
-          <div className="text-sm text-gray-500">ID</div>
-          <div className="font-mono text-sm">{user.id}</div>
-        </div>
-      </div>
+      {isEditing ? (
+        <ProfileEditForm 
+          profile={profile} 
+          onCancel={() => setIsEditing(false)} 
+          onSaved={() => setIsEditing(false)} 
+        />
+      ) : (
+        <ProfileView 
+          profile={profile} 
+          onEdit={() => setIsEditing(true)} 
+        />
+      )}
 
-      <div className="bg-gray-100 text-gray-600 p-4 rounded-lg text-sm">
-        Редактирование профиля — следующий этап разработки
-      </div>
+      <OnboardingSection profile={profile} />
     </div>
-  )
+  );
 }
