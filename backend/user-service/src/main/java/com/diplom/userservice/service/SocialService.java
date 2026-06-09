@@ -25,8 +25,17 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
 
 import com.diplom.userservice.dto.FollowedAuthorResponse;
+import com.diplom.userservice.dto.MyFriendsResponse;
+import com.diplom.userservice.dto.UserBatchResponse;
+import com.diplom.userservice.entity.UserProfile;
+import com.diplom.userservice.repository.UserProfileRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +46,7 @@ public class SocialService {
     private final UserRepository userRepository;
     private final OutboxEventFactory outboxEventFactory;
     private final UserOutboxEventRepository outboxEventRepository;
+    private final UserProfileRepository userProfileRepository;
 
     @Transactional
     public void followAuthor(UUID followerId, UUID authorId) {
@@ -158,5 +168,51 @@ public class SocialService {
         return follows.stream()
                 .map(f -> new FollowedAuthorResponse(f.getAuthorId(), f.getCreatedAt()))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public MyFriendsResponse getMyFriends(UUID userId) {
+        List<Friendship> friendships = friendshipRepository.findAllByRequesterIdOrAddresseeId(userId, userId);
+        
+        List<UUID> friendsIds = new ArrayList<>();
+        List<UUID> incomingIds = new ArrayList<>();
+        List<UUID> outgoingIds = new ArrayList<>();
+        
+        for (Friendship f : friendships) {
+            if (f.getStatusId() == FriendshipStatus.ACCEPTED.getId()) {
+                friendsIds.add(f.getRequesterId().equals(userId) ? f.getAddresseeId() : f.getRequesterId());
+            } else if (f.getStatusId() == FriendshipStatus.PENDING.getId()) {
+                if (f.getAddresseeId().equals(userId)) {
+                    incomingIds.add(f.getRequesterId());
+                } else {
+                    outgoingIds.add(f.getAddresseeId());
+                }
+            }
+        }
+        
+        Set<UUID> allIds = new HashSet<>();
+        allIds.addAll(friendsIds);
+        allIds.addAll(incomingIds);
+        allIds.addAll(outgoingIds);
+        
+        Map<UUID, UserProfile> profiles = userProfileRepository.findAllByUserIdIn(allIds).stream()
+                .collect(Collectors.toMap(UserProfile::getId, p -> p));
+                
+        List<UserBatchResponse> friends = friendsIds.stream()
+                .filter(profiles::containsKey)
+                .map(id -> new UserBatchResponse(id, profiles.get(id).getUsername(), profiles.get(id).getAvatarUrl()))
+                .toList();
+                
+        List<UserBatchResponse> incoming = incomingIds.stream()
+                .filter(profiles::containsKey)
+                .map(id -> new UserBatchResponse(id, profiles.get(id).getUsername(), profiles.get(id).getAvatarUrl()))
+                .toList();
+                
+        List<UserBatchResponse> outgoing = outgoingIds.stream()
+                .filter(profiles::containsKey)
+                .map(id -> new UserBatchResponse(id, profiles.get(id).getUsername(), profiles.get(id).getAvatarUrl()))
+                .toList();
+                
+        return new MyFriendsResponse(friends, incoming, outgoing);
     }
 }

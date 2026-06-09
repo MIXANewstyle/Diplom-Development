@@ -11,4 +11,5 @@ import java.util.UUID;
 @Repository
 public interface UserProfileRepository extends JpaRepository<UserProfile, UUID> {
     List<UserProfile> findAllByUserIdIn(Collection<UUID> userIds);
+    List<UserProfile> findTop20ByUsernameContainingIgnoreCaseOrderByUsernameAsc(String username);
 }

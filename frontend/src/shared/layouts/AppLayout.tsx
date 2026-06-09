@@ -32,6 +32,12 @@ export function AppLayout() {
               Поиск
             </NavLink>
             <NavLink 
+              to="/friends" 
+              className={({ isActive }) => isActive ? 'underline' : ''}
+            >
+              Друзья
+            </NavLink>
+            <NavLink 
               to="/me" 
               className={({ isActive }) => isActive ? 'underline' : ''}
             >

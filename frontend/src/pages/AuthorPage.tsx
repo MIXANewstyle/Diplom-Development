@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom'
 import { useAuthStore } from '../shared/stores/authStore'
 import { useAuthorPosts } from '../features/authors/hooks/useAuthorPosts'
 import { PostCard } from '../features/feed/components/PostCard'
+import { FollowButton } from '../features/social/components/FollowButton'
 import type { AxiosError } from 'axios'
 
 export function AuthorPage() {
@@ -33,7 +34,10 @@ export function AuthorPage() {
             {authorName.charAt(0).toUpperCase()}
           </div>
         )}
-        <h1 className="text-2xl font-bold">{authorName}</h1>
+        <div className="flex-1 flex items-center justify-between">
+          <h1 className="text-2xl font-bold">{authorName}</h1>
+          <FollowButton authorId={authorId || ''} />
+        </div>
       </div>
 
       {isPending && <p className="text-gray-500">Загрузка...</p>}

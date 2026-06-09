@@ -15,4 +15,6 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Friendsh
 
     @Modifying
     void deleteByRequesterIdAndAddresseeId(UUID requesterId, UUID addresseeId);
+
+    List<Friendship> findAllByRequesterIdOrAddresseeId(UUID requesterId, UUID addresseeId);
 }

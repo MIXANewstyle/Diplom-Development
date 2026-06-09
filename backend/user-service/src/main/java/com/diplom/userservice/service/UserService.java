@@ -184,4 +184,18 @@ public class UserService {
                 profile.getUpdatedAt()
         );
     }
+
+    @Transactional(readOnly = true)
+    public List<UserBatchResponse> searchByUsername(String username, UUID currentUserId) {
+        if (username == null || username.trim().length() < 2) {
+            return List.of();
+        }
+        
+        List<UserProfile> profiles = userProfileRepository.findTop20ByUsernameContainingIgnoreCaseOrderByUsernameAsc(username);
+        
+        return profiles.stream()
+                .filter(p -> !p.getId().equals(currentUserId))
+                .map(p -> new UserBatchResponse(p.getId(), p.getUsername(), p.getAvatarUrl()))
+                .toList();
+    }
 }

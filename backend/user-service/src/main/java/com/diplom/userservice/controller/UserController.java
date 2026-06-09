@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.diplom.userservice.security.CustomUserDetails;
@@ -86,5 +87,12 @@ public class UserController {
     public ResponseEntity<List<FollowedAuthorResponse>> getFollowedAuthors(@PathVariable UUID userId) {
         List<FollowedAuthorResponse> response = socialService.getFollowedAuthors(userId);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<UserBatchResponse>> searchUsers(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam String username) {
+        return ResponseEntity.ok(userService.searchByUsername(username, userDetails.getId()));
     }
 }
