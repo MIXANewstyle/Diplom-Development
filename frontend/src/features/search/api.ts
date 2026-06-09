@@ -1,5 +1,5 @@
-import { apiClient } from '../../../shared/api/client'
-import type { FeedResponse } from '../../feed/types'
+import { apiClient } from '../../shared/api/client'
+import type { FeedResponse } from '../feed/types'
 
 export async function searchPosts(params: {
   q: string
