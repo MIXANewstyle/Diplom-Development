@@ -37,6 +37,12 @@ export function AppLayout() {
             >
               Профиль
             </NavLink>
+            <NavLink 
+              to="/subscription" 
+              className={({ isActive }) => isActive ? 'underline' : ''}
+            >
+              Подписка
+            </NavLink>
             {user && (user.role === 'AUTHOR' || user.role === 'ADMIN') && (
               <NavLink 
                 to="/authoring" 

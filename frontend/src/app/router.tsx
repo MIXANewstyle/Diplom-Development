@@ -6,6 +6,7 @@ import { RoleGate } from '../shared/components/RoleGate'
 import { FeedPage } from '../pages/FeedPage'
 import { SearchPage } from '../pages/SearchPage'
 import { ProfilePage } from '../pages/ProfilePage'
+import { BillingPage } from '../pages/BillingPage'
 import { AuthoringPage } from '../pages/AuthoringPage'
 import { PostDetailPage } from '../pages/PostDetailPage'
 import LoginPage from '../pages/LoginPage'
@@ -36,6 +37,10 @@ export const router = createBrowserRouter([
       {
         path: 'me',
         element: <ProfilePage />,
+      },
+      {
+        path: 'subscription',
+        element: <BillingPage />,
       },
       {
         path: 'authoring',
