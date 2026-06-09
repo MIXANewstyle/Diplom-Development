@@ -19,7 +19,7 @@ export function PostCard({ post }: { post: Post }) {
             </Link>
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            Автор: {post.authorUsername ?? 'Без имени'} ·{' '}
+            Автор: <Link to={`/authors/${post.authorId}`} className="hover:underline">{post.authorUsername ?? 'Без имени'}</Link> ·{' '}
             {post.publishedAt ? formatDate(post.publishedAt) : 'Дата неизвестна'}
           </p>
         </div>

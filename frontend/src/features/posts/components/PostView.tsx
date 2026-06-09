@@ -1,6 +1,7 @@
 import { useAuthStore } from '../../../shared/stores/authStore'
 import { canEngage } from '../../../shared/lib/roles'
 import { formatDate } from '../../../shared/lib/format'
+import { Link } from 'react-router-dom'
 import { useUpvote } from '../../feed/hooks/useUpvote'
 import type { Post, EditorBlock } from '../../feed/types'
 
@@ -53,7 +54,7 @@ export function PostView({ post }: { post: Post }) {
       <header className="space-y-2">
         <h1 className="text-3xl font-bold text-gray-900">{post.title}</h1>
         <p className="text-sm text-gray-500">
-          Автор: {post.authorUsername ?? 'Без имени'} ·{' '}
+          Автор: <Link to={`/authors/${post.authorId}`} className="hover:underline">{post.authorUsername ?? 'Без имени'}</Link> ·{' '}
           {post.publishedAt ? formatDate(post.publishedAt) : 'Черновик'}
         </p>
         {post.tags.length > 0 && (

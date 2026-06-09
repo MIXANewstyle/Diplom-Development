@@ -8,6 +8,7 @@ import { SearchPage } from '../pages/SearchPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { BillingPage } from '../pages/BillingPage'
 import { AuthoringPage } from '../pages/AuthoringPage'
+import { AuthorPage } from '../pages/AuthorPage'
 import { PostDetailPage } from '../pages/PostDetailPage'
 import LoginPage from '../pages/LoginPage'
 import RegisterPage from '../pages/RegisterPage'
@@ -41,6 +42,10 @@ export const router = createBrowserRouter([
       {
         path: 'subscription',
         element: <BillingPage />,
+      },
+      {
+        path: 'authors/:authorId',
+        element: <AuthorPage />,
       },
       {
         path: 'authoring',
