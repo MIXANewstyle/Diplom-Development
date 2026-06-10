@@ -1,5 +1,5 @@
 export type RoomType = 'SOLO' | 'PAIRED'
-export type RoomStatus = 'ACTIVE' | 'ARCHIVED' | 'ABANDONED' | 'EXPIRED'
+export type RoomStatus = 'CREATED' | 'WAITING_CONSENT' | 'ACTIVE' | 'ARCHIVED' | 'ABANDONED' | 'EXPIRED'
 export type TurnRole = 'USER' | 'ASSISTANT' | 'SYSTEM'
 
 export interface ParticipantResponse {
@@ -8,7 +8,11 @@ export interface ParticipantResponse {
   role: string
   displayName: string
   avatarUrl: string | null
-  joinedAt: string
+  consentStartAt: string | null
+  joinedAt: string | null
+  guestDisplayName?: string | null
+  guestGenderId?: string | null
+  guestAge?: string | null
 }
 
 export interface RoomResponse {

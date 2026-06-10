@@ -20,6 +20,13 @@ export const useRoomSocket = (roomId: string) => {
   const [lastEvent, setLastEvent] = useState<unknown>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const [consentByParticipant, setConsentByParticipant] = useState<Record<string, string | null>>({})
+  const [dialogueStarted, setDialogueStarted] = useState(false)
+  const [currentFloorParticipantId, setCurrentFloorParticipantId] = useState<string | null>(null)
+
+  const sendConsentStart = () => stompClient.publish(`/app/rooms/${roomId}/consent/start`, {})
+  const sendConsentRevoke = () => stompClient.publish(`/app/rooms/${roomId}/consent/revoke`, {})
+
   useEffect(() => {
     if (!roomId) return
 
@@ -35,9 +42,17 @@ export const useRoomSocket = (roomId: string) => {
         setStatus('connected')
 
         // 1. Subscribe to room broadcasts
-        stompClient.subscribe(`/topic/rooms/${roomId}`, (msg) => {
+        stompClient.subscribe(`/topic/rooms/${roomId}`, (msg: any) => {
           setLastEvent(msg)
-          // For now just logging it to prove reception
+          if (msg?.type === 'CONSENT_UPDATED') {
+            setConsentByParticipant((prev) => ({
+              ...prev,
+              [msg.participantId]: msg.consentStartAt,
+            }))
+          } else if (msg?.type === 'DIALOGUE_STARTED') {
+            setDialogueStarted(true)
+            setCurrentFloorParticipantId(msg.currentFloorParticipantId)
+          }
           console.log('[Room Event]', msg)
         })
 
@@ -50,7 +65,21 @@ export const useRoomSocket = (roomId: string) => {
         // 3. Subscribe to state snapshot
         stompClient.subscribe(`/app/rooms/${roomId}/state`, (msg) => {
           console.log('[Room Snapshot]', msg)
-          setSnapshot(msg as RoomStateSnapshot)
+          const snap = msg as RoomStateSnapshot
+          setSnapshot(snap)
+
+          // Seed local state from snapshot
+          if (snap.participants) {
+            const consentMap: Record<string, string | null> = {}
+            snap.participants.forEach((p: any) => {
+              consentMap[p.id] = p.consentStartAt
+            })
+            setConsentByParticipant(consentMap)
+          }
+          if (snap.status === 'ACTIVE' || snap.phase === 'DIALOGUE') {
+            setDialogueStarted(true)
+          }
+          setCurrentFloorParticipantId(snap.currentFloorParticipantId)
         })
 
       } catch (err) {
@@ -70,5 +99,15 @@ export const useRoomSocket = (roomId: string) => {
     }
   }, [roomId])
 
-  return { status, snapshot, lastEvent, error }
+  return { 
+    status, 
+    snapshot, 
+    lastEvent, 
+    error,
+    consentByParticipant,
+    dialogueStarted,
+    currentFloorParticipantId,
+    sendConsentStart,
+    sendConsentRevoke
+  }
 }

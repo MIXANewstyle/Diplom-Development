@@ -5,30 +5,16 @@ import { useSubmitTurn } from '../features/chat/hooks/useSubmitTurn'
 import { useEndSoloRoom } from '../features/chat/hooks/useEndSoloRoom'
 import { Transcript } from '../features/chat/components/Transcript'
 import { Composer } from '../features/chat/components/Composer'
+import { PairedRoomView } from '../features/chat/components/PairedRoomView'
 import { useEffect, useRef } from 'react'
 import { useRoomSocket } from '../shared/ws/useRoomSocket'
 
-export const SoloRoomPage = () => {
+export const RoomPage = () => {
   const { roomId } = useParams<{ roomId: string }>()
   const id = roomId || ''
 
   const { data: room, isLoading: isRoomLoading, isError: isRoomError } = useRoom(id)
-  const { data: turnsPage, isLoading: isTurnsLoading } = useTurns(id)
   
-  const submitTurnMutation = useSubmitTurn(id)
-  const endRoomMutation = useEndSoloRoom(id)
-
-  const transcriptContainerRef = useRef<HTMLDivElement>(null)
-
-  const { status: wsStatus, snapshot, error: wsError } = useRoomSocket(id)
-
-  useEffect(() => {
-    // Scroll to bottom when turns change
-    if (transcriptContainerRef.current) {
-      transcriptContainerRef.current.scrollTop = transcriptContainerRef.current.scrollHeight
-    }
-  }, [turnsPage?.items])
-
   if (isRoomError) {
     return (
       <div className="max-w-4xl mx-auto py-8 px-4 text-center">
@@ -38,12 +24,38 @@ export const SoloRoomPage = () => {
     )
   }
 
-  if (isRoomLoading || isTurnsLoading || !room) {
+  if (isRoomLoading || !room) {
     return (
       <div className="max-w-4xl mx-auto py-8 px-4 text-center text-gray-500">
         Загрузка сессии...
       </div>
     )
+  }
+
+  if (room.type === 'PAIRED') {
+    return <PairedRoomView roomId={id} />
+  }
+
+  return <SoloRoomView id={id} room={room} />
+}
+
+const SoloRoomView = ({ id, room }: { id: string, room: any }) => {
+  const { data: turnsPage, isLoading: isTurnsLoading } = useTurns(id)
+  
+  const submitTurnMutation = useSubmitTurn(id)
+  const endRoomMutation = useEndSoloRoom(id)
+
+  const transcriptContainerRef = useRef<HTMLDivElement>(null)
+  const { status: wsStatus, snapshot, error: wsError } = useRoomSocket(id)
+
+  useEffect(() => {
+    if (transcriptContainerRef.current) {
+      transcriptContainerRef.current.scrollTop = transcriptContainerRef.current.scrollHeight
+    }
+  }, [turnsPage?.items])
+
+  if (isTurnsLoading) {
+    return <div className="text-center py-4 text-gray-500">Загрузка сообщений...</div>
   }
 
   const isActive = room.status === 'ACTIVE'
@@ -60,15 +72,13 @@ export const SoloRoomPage = () => {
       {/* Header */}
       <div className="flex justify-between items-center pb-4 border-b shrink-0">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">
-            {room.type === 'SOLO' ? 'Соло сессия' : 'Парная сессия'}
-          </h1>
+          <h1 className="text-xl font-bold text-gray-900">Соло сессия</h1>
           <div className="text-sm text-gray-500">Статус: {room.status}</div>
         </div>
         <div className="flex flex-col items-end text-xs text-gray-500 mr-4">
           <div>WS: {wsStatus}</div>
           {wsError && <div className="text-red-500">WS Error: {wsError}</div>}
-          {snapshot && <div>Snapshot received: {snapshot.recentTurns.length} turns</div>}
+          {snapshot && <div>Snapshot received: {snapshot.recentTurns?.length || 0} turns</div>}
         </div>
         {isActive && (
           <button

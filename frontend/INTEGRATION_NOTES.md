@@ -124,3 +124,7 @@ Based on inspection of the actual backend service code (Spring REST controllers 
 - **Dependencies**: Added `@stomp/stompjs` and `sockjs-client` (with `@types/sockjs-client`) specifically to support the backend's Spring STOMP over SockJS endpoint. This combination ensures compatibility with the Spring WebSocket broker. No other generic WS clients are used.
 - **Vite Polyfill**: `sockjs-client` references a global `global` variable which Vite does not polyfill by default. A workaround was applied in `vite.config.ts` (`define: { global: 'globalThis' }`) to prevent "global is not defined" errors at runtime.
 - **Connection Fallback**: The STOMP client attempts to connect through the gateway URL (`/ws`). If the API gateway is not configured to proxy the WebSocket/SockJS upgrade properly, you can bypass the gateway by setting `VITE_WS_BASE_URL=http://localhost:8083` (or the respective port of the `chat-service`).
+- **Room Statuses**: The room `status` can be `CREATED`, `WAITING_CONSENT`, or `ACTIVE`. For Paired rooms in FRIEND mode:
+  - Invitee sees the `CREATED` room in their list immediately because they are pre-added as a participant with `joinedAt = null`.
+  - Calling `/join` sets `joinedAt` and moves status to `WAITING_CONSENT`.
+  - When both send `consent/start` over WS, `CONSENT_UPDATED` events are broadcasted, and once mutual, `DIALOGUE_STARTED` is emitted, pushing status to `ACTIVE`.

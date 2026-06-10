@@ -52,3 +52,16 @@ export const endSoloRoom = async (roomId: string): Promise<RoomResponse> => {
   const { data } = await apiClient.post<RoomResponse>(`/api/v1/rooms/${roomId}/end`)
   return data
 }
+
+export const createPairedRoom = async (friendUserId: string): Promise<RoomResponse> => {
+  const { data } = await apiClient.post<RoomResponse>('/api/v1/rooms/paired', {
+    inviteMode: 'FRIEND',
+    friendUserId,
+  })
+  return data
+}
+
+export const joinRoom = async (roomId: string): Promise<RoomResponse> => {
+  const { data } = await apiClient.post<RoomResponse>(`/api/v1/rooms/${roomId}/join`)
+  return data
+}

@@ -1,0 +1,24 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import { createPairedRoom } from '../api'
+import { isAxiosError } from 'axios'
+
+export const useCreatePairedRoom = () => {
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+
+  return useMutation({
+    mutationFn: (friendUserId: string) => createPairedRoom(friendUserId),
+    onSuccess: (room) => {
+      queryClient.invalidateQueries({ queryKey: ['chat', 'rooms'] })
+      navigate(`/chat/${room.id}`)
+    },
+    onError: (error) => {
+      if (isAxiosError(error) && error.response?.status === 403) {
+        alert('Для создания комнаты нужна подписка BASIC (или выше).')
+      } else {
+        alert('Ошибка при создании парной комнаты: ' + (error as Error).message)
+      }
+    },
+  })
+}
