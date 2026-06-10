@@ -28,10 +28,10 @@ spring:
     password: guest
 
 jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
 
 user-service:
-  base-url: http://localhost:8081
+  base-url: ${USER_SERVICE_URL:http://localhost:8081}
 
 logging:
   level:

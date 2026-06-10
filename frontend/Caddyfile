@@ -1,0 +1,18 @@
+{$DOMAIN} {
+    encode gzip
+
+    handle /api/* {
+        reverse_proxy api-gateway:8080
+    }
+    handle /internal/* {
+        reverse_proxy api-gateway:8080
+    }
+    handle /ws* {
+        reverse_proxy chat-service:8083
+    }
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+}

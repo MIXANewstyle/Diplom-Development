@@ -1,0 +1,210 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: diplom-postgres-prod
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: diplom_db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d diplom_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: diplom-redis-prod
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: diplom-rabbitmq-prod
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: backend/api-gateway/Dockerfile
+    container_name: diplom-gateway-prod
+    restart: unless-stopped
+    environment:
+      - JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:-"-Xmx384m"}
+      - USER_SERVICE_URL=http://user-service:8081
+      - CONTENT_SERVICE_URL=http://content-service:8082
+      - CHAT_SERVICE_URL=http://chat-service:8083
+      - BILLING_SERVICE_URL=http://billing-service:8084
+    depends_on:
+      user-service:
+        condition: service_healthy
+      content-service:
+        condition: service_healthy
+      chat-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  user-service:
+    build:
+      context: .
+      dockerfile: backend/user-service/Dockerfile
+    container_name: diplom-user-prod
+    restart: unless-stopped
+    environment:
+      - JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:-"-Xmx384m"}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/diplom_db
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - JWT_SECRET=${JWT_SECRET}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  content-service:
+    build:
+      context: .
+      dockerfile: backend/content-service/Dockerfile
+    container_name: diplom-content-prod
+    restart: unless-stopped
+    environment:
+      - JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:-"-Xmx384m"}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/diplom_db
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_DATA_REDIS_HOST=redis
+      - JWT_SECRET=${JWT_SECRET}
+      - USER_SERVICE_URL=http://user-service:8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  chat-service:
+    build:
+      context: .
+      dockerfile: backend/chat-service/Dockerfile
+    container_name: diplom-chat-prod
+    restart: unless-stopped
+    environment:
+      - JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:-"-Xmx384m"}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/diplom_db
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_DATA_REDIS_HOST=redis
+      - JWT_SECRET=${JWT_SECRET}
+      - USER_SERVICE_URL=http://user-service:8081
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - PUBLIC_BASE_URL=http://${DOMAIN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8083/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  billing-service:
+    build:
+      context: .
+      dockerfile: backend/billing-service/Dockerfile
+    container_name: diplom-billing-prod
+    restart: unless-stopped
+    environment:
+      # Use dev profile in production to enable the stub payment (MVP requirement)
+      - SPRING_PROFILES_ACTIVE=dev
+      - JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:-"-Xmx384m"}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/diplom_db
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8084/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_WS_BASE_URL: ""
+    container_name: diplom-web-prod
+    restart: unless-stopped
+    environment:
+      - DOMAIN=${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:
+  caddy_data:
+  caddy_config:
