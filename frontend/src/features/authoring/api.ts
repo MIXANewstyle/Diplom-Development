@@ -1,5 +1,5 @@
 import { apiClient } from '../../shared/api/client'
-import { MyPost, PostFormValues } from './types'
+import type { MyPost, PostFormValues } from './types'
 
 export async function getMyPosts(status?: string): Promise<MyPost[]> {
   const url = status ? `/api/v1/posts/mine?status=${status}` : '/api/v1/posts/mine'

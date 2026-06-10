@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { MyPostsList } from '../features/authoring/components/MyPostsList'
 import { PostEditorForm } from '../features/authoring/components/PostEditorForm'
 import { useMyPosts } from '../features/authoring/hooks'
-import { MyPost } from '../features/authoring/types'
+import type { MyPost } from '../features/authoring/types'
 
 export function AuthoringPage() {
   const { data: posts, isLoading } = useMyPosts()

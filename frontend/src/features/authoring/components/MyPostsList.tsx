@@ -1,4 +1,5 @@
-import { MyPost, POST_STATUS_MAP } from '../types'
+import type { MyPost } from '../types'
+import { POST_STATUS_MAP } from '../types'
 import { usePublishPost, useArchivePost, useDeletePost } from '../hooks'
 import { formatDate } from '../../../shared/lib/format'
 import axios from 'axios'
