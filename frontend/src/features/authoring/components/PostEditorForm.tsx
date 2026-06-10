@@ -123,7 +123,7 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium">Теги (до 5)</label>
         <div className="flex flex-wrap gap-2 border border-gray-300 p-3 rounded max-h-40 overflow-y-auto bg-gray-50">
-          {allTags?.content?.map(tag => (
+          {allTags.map(tag => (
             <button
               type="button"
               key={tag.id}
@@ -134,7 +134,7 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
               {tag.name}
             </button>
           ))}
-          {(!allTags?.content || allTags.content.length === 0) && <span className="text-gray-500 text-sm">Нет доступных тегов</span>}
+          {allTags.length === 0 && <span className="text-gray-500 text-sm">Нет доступных тегов</span>}
         </div>
       </div>
 
