@@ -63,6 +63,14 @@ export function AppLayout() {
             >
               Чат
             </NavLink>
+            {user && user.role === 'ADMIN' && (
+              <NavLink 
+                to="/admin" 
+                className={({ isActive }) => isActive ? 'underline' : ''}
+              >
+                Админка
+              </NavLink>
+            )}
           </nav>
 
           <div className="flex items-center gap-4">

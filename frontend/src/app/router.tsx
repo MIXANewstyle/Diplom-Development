@@ -13,6 +13,9 @@ import { FriendsPage } from '../pages/FriendsPage'
 import { PostDetailPage } from '../pages/PostDetailPage'
 import { ChatPage } from '../pages/ChatPage'
 import { RoomPage } from '../pages/RoomPage'
+import { AdminLayout } from '../pages/admin/AdminLayout'
+import { AdminUsersPage } from '../pages/admin/AdminUsersPage'
+import { AdminTagsPage } from '../pages/admin/AdminTagsPage'
 import LoginPage from '../pages/LoginPage'
 import RegisterPage from '../pages/RegisterPage'
 import NotFoundPage from '../pages/NotFoundPage'
@@ -73,6 +76,19 @@ export const router = createBrowserRouter([
       {
         path: 'chat/:roomId',
         element: <RoomPage />,
+      },
+      {
+        path: 'admin',
+        element: (
+          <RoleGate allowed={['ADMIN']}>
+            <AdminLayout />
+          </RoleGate>
+        ),
+        children: [
+          { index: true, element: <Navigate to="users" replace /> },
+          { path: 'users', element: <AdminUsersPage /> },
+          { path: 'tags', element: <AdminTagsPage /> },
+        ],
       },
     ],
   },
