@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -40,6 +41,14 @@ public class PostController {
     ) {
         PostResponse response = postService.createDraft(request, user.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/mine")
+    @PreAuthorize("hasRole('AUTHOR')")
+    public ResponseEntity<List<PostResponse>> getMyPosts(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @RequestParam(required = false) Integer status) {
+        return ResponseEntity.ok(postService.getMyPosts(user.getId(), status));
     }
 
     @GetMapping("/{postId}")

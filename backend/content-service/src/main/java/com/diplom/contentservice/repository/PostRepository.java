@@ -14,6 +14,10 @@ import java.util.UUID;
 @Repository
 public interface PostRepository extends JpaRepository<Post, UUID> {
 
+    List<Post> findAllByAuthorIdOrderByUpdatedAtDesc(UUID authorId);
+
+    List<Post> findAllByAuthorIdAndStatusIdOrderByUpdatedAtDesc(UUID authorId, Integer statusId);
+
     @Modifying
     @Query("UPDATE Post p SET p.upvotesCount = p.upvotesCount + :delta WHERE p.id = :postId")
     int applyUpvotesDelta(@Param("postId") UUID postId, @Param("delta") long delta);

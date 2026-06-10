@@ -272,4 +272,24 @@ public class PostService {
     private boolean isSubscribedRole(String role) {
         return "BASIC".equals(role) || "AUTHOR".equals(role) || "ADMIN".equals(role);
     }
+
+    @Transactional(readOnly = true)
+    public List<PostResponse> getMyPosts(UUID authorId, Integer statusId) {
+        List<Post> posts;
+        if (statusId == null) {
+            posts = postRepository.findAllByAuthorIdOrderByUpdatedAtDesc(authorId);
+        } else {
+            posts = postRepository.findAllByAuthorIdAndStatusIdOrderByUpdatedAtDesc(authorId, statusId);
+        }
+
+        Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(Set.of(authorId));
+        UserBatchResponse profile = profiles.get(authorId);
+
+        return posts.stream()
+                .map(post -> {
+                    CounterDeltas deltas = counterService.getDeltas(post.getId());
+                    return postMapper.toResponse(post, profile, deltas);
+                })
+                .toList();
+    }
 }
