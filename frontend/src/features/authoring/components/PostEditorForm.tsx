@@ -18,7 +18,8 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
   const [keywordsStr, setKeywordsStr] = useState(initialPost?.keywords.join(', ') || '')
   const [errorMsg, setErrorMsg] = useState('')
 
-  const { data: allTags } = useTags()
+  const { data: tagsPage } = useTags()
+  const allTags = tagsPage?.content ?? []
   const createPost = useCreatePost()
   const updatePost = useUpdatePost()
 
@@ -76,7 +77,7 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
   }
 
   const toggleTag = (tagId: string) => {
-    setSelectedTagIds(prev => 
+    setSelectedTagIds(prev =>
       prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
     )
   }
@@ -127,9 +128,8 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
               type="button"
               key={tag.id}
               onClick={() => toggleTag(tag.id)}
-              className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
-                selectedTagIds.includes(tag.id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300'
-              }`}
+              className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${selectedTagIds.includes(tag.id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300'
+                }`}
             >
               {tag.name}
             </button>
