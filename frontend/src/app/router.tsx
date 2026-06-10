@@ -11,6 +11,8 @@ import { AuthoringPage } from '../pages/AuthoringPage'
 import { AuthorPage } from '../pages/AuthorPage'
 import { FriendsPage } from '../pages/FriendsPage'
 import { PostDetailPage } from '../pages/PostDetailPage'
+import { ChatPage } from '../pages/ChatPage'
+import { SoloRoomPage } from '../pages/SoloRoomPage'
 import LoginPage from '../pages/LoginPage'
 import RegisterPage from '../pages/RegisterPage'
 import NotFoundPage from '../pages/NotFoundPage'
@@ -63,6 +65,14 @@ export const router = createBrowserRouter([
       {
         path: 'posts/:id',
         element: <PostDetailPage />,
+      },
+      {
+        path: 'chat',
+        element: <ChatPage />,
+      },
+      {
+        path: 'chat/:roomId',
+        element: <SoloRoomPage />,
       },
     ],
   },

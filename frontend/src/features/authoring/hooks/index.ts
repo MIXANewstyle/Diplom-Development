@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import * as api from '../api'
-import { PostFormValues } from '../types'
+import type { PostFormValues } from '../types'
 
 export function useMyPosts(status?: string) {
   return useQuery({

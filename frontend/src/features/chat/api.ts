@@ -1,0 +1,54 @@
+import { apiClient } from '../../shared/api/client'
+import type {
+  RoomResponse,
+  RoomSummaryResponse,
+  SubmitTurnResponse,
+  TurnsPageResponse,
+} from './types'
+
+export const createSoloRoom = async (): Promise<RoomResponse> => {
+  const { data } = await apiClient.post<RoomResponse>('/api/v1/rooms/solo', {
+    mode: 'PROBLEM_SOLVING',
+  })
+  return data
+}
+
+export const listRooms = async (page = 0, size = 20): Promise<RoomSummaryResponse[]> => {
+  const { data } = await apiClient.get<RoomSummaryResponse[]>('/api/v1/rooms', {
+    params: { page, size },
+  })
+  return data
+}
+
+export const getRoom = async (roomId: string): Promise<RoomResponse> => {
+  const { data } = await apiClient.get<RoomResponse>(`/api/v1/rooms/${roomId}`)
+  return data
+}
+
+export const getTurns = async (
+  roomId: string,
+  page = 0,
+  size = 50
+): Promise<TurnsPageResponse> => {
+  const { data } = await apiClient.get<TurnsPageResponse>(
+    `/api/v1/rooms/${roomId}/turns`,
+    { params: { page, size } }
+  )
+  return data
+}
+
+export const submitTurn = async (
+  roomId: string,
+  text: string
+): Promise<SubmitTurnResponse> => {
+  const { data } = await apiClient.post<SubmitTurnResponse>(
+    `/api/v1/rooms/${roomId}/turns`,
+    { text }
+  )
+  return data
+}
+
+export const endSoloRoom = async (roomId: string): Promise<RoomResponse> => {
+  const { data } = await apiClient.post<RoomResponse>(`/api/v1/rooms/${roomId}/end`)
+  return data
+}

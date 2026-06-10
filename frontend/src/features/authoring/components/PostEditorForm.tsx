@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MyPost, PostFormValues } from '../types'
+import type { MyPost, PostFormValues } from '../types'
 import { useCreatePost, useUpdatePost } from '../hooks'
 import { editorContentToTextarea, textareaToEditorContentStr } from '../lib/content'
 import { useTags } from '../../feed/hooks/useTags'
@@ -122,7 +122,7 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium">Теги (до 5)</label>
         <div className="flex flex-wrap gap-2 border border-gray-300 p-3 rounded max-h-40 overflow-y-auto bg-gray-50">
-          {allTags?.map(tag => (
+          {allTags?.content?.map(tag => (
             <button
               type="button"
               key={tag.id}
@@ -134,7 +134,7 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
               {tag.name}
             </button>
           ))}
-          {(!allTags || allTags.length === 0) && <span className="text-gray-500 text-sm">Нет доступных тегов</span>}
+          {(!allTags?.content || allTags.content.length === 0) && <span className="text-gray-500 text-sm">Нет доступных тегов</span>}
         </div>
       </div>
 

@@ -5,7 +5,7 @@ import { queryClient } from '../../../shared/api/queryClient';
 import { useNavigate } from 'react-router-dom';
 
 export function SubscriptionStatusCard() {
-  const { data: subscription, error, isLoading } = useMySubscription();
+  const { data: subscription, isLoading } = useMySubscription();
   const { clearAuth } = useAuthStore();
   const navigate = useNavigate();
 

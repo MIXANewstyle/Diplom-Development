@@ -1,4 +1,4 @@
-import { Post, PostStatus } from '../feed/types'
+import type { Post, PostStatus } from '../feed/types'
 
 export type MyPost = Post
 

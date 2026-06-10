@@ -1,4 +1,4 @@
-import { EditorContent, EditorBlock } from '../../feed/types'
+import type { EditorContent, EditorBlock } from '../../feed/types'
 
 export function editorContentToTextarea(content: EditorContent | string | null): string {
   if (!content) return ''
