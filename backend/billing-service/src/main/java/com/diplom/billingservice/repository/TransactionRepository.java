@@ -25,16 +25,16 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
         SELECT t FROM Transaction t
         WHERE (:userId IS NULL OR t.userId = :userId)
           AND (:statusId IS NULL OR t.status.id = :statusId)
-          AND (:from IS NULL OR t.createdAt >= :from)
-          AND (:to IS NULL OR t.createdAt <= :to)
+          AND t.createdAt >= COALESCE(:from, t.createdAt)
+          AND t.createdAt <= COALESCE(:to, t.createdAt)
         ORDER BY t.createdAt DESC
         """,
         countQuery = """
         SELECT COUNT(t) FROM Transaction t
         WHERE (:userId IS NULL OR t.userId = :userId)
           AND (:statusId IS NULL OR t.status.id = :statusId)
-          AND (:from IS NULL OR t.createdAt >= :from)
-          AND (:to IS NULL OR t.createdAt <= :to)
+          AND t.createdAt >= COALESCE(:from, t.createdAt)
+          AND t.createdAt <= COALESCE(:to, t.createdAt)
         """)
     org.springframework.data.domain.Page<Transaction> searchTransactions(
             @Param("userId") UUID userId,
