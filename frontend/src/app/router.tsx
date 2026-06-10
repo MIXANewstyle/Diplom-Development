@@ -16,6 +16,7 @@ import { RoomPage } from '../pages/RoomPage'
 import { AdminLayout } from '../pages/admin/AdminLayout'
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage'
 import { AdminTagsPage } from '../pages/admin/AdminTagsPage'
+import { AdminBillingPage } from '../pages/admin/AdminBillingPage'
 import LoginPage from '../pages/LoginPage'
 import RegisterPage from '../pages/RegisterPage'
 import NotFoundPage from '../pages/NotFoundPage'
@@ -88,6 +89,7 @@ export const router = createBrowserRouter([
           { index: true, element: <Navigate to="users" replace /> },
           { path: 'users', element: <AdminUsersPage /> },
           { path: 'tags', element: <AdminTagsPage /> },
+          { path: 'billing', element: <AdminBillingPage /> },
         ],
       },
     ],

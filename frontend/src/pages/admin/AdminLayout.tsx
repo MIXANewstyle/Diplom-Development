@@ -17,6 +17,12 @@ export function AdminLayout() {
         >
           Теги
         </NavLink>
+        <NavLink 
+          to="/admin/billing" 
+          className={({ isActive }) => isActive ? 'font-bold text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-900'}
+        >
+          Биллинг
+        </NavLink>
       </nav>
       <main>
         <Outlet />

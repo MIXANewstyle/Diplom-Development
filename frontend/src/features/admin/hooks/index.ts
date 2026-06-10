@@ -1,5 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { searchUsers, getTags, updateUserRole, updateUserStatus, createTag, deleteTag } from '../api'
+import { searchUsers, getTags, updateUserRole, updateUserStatus, createTag, deleteTag, listPromos, createPromo, updatePromo, listTransactions, getTransaction, refundTransaction, grantSubscription } from '../api'
+import type { PromoCreateRequest, PromoUpdateRequest, AdminTransactionFilters, GrantRequest } from '../types'
+
+export function useTransaction(id: string) {
+  return useQuery({
+    queryKey: ['admin', 'transaction', id],
+    queryFn: () => getTransaction(id),
+    enabled: !!id,
+  })
+}
 
 export function useUserSearch(username: string) {
   return useQuery({
@@ -45,5 +54,55 @@ export function useDeleteTag() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tags'] })
     },
+  })
+}
+
+export function usePromos() {
+  return useQuery({
+    queryKey: ['admin', 'promos'],
+    queryFn: listPromos,
+  })
+}
+
+export function useCreatePromo() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (data: PromoCreateRequest) => createPromo(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'promos'] })
+    },
+  })
+}
+
+export function useUpdatePromo() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: PromoUpdateRequest }) => updatePromo(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'promos'] })
+    },
+  })
+}
+
+export function useTransactions(filters: AdminTransactionFilters) {
+  return useQuery({
+    queryKey: ['admin', 'transactions', filters],
+    queryFn: () => listTransactions(filters),
+  })
+}
+
+export function useRefundTransaction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: refundTransaction,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'transactions'] })
+    },
+  })
+}
+
+export function useGrantSubscription() {
+  return useMutation({
+    mutationFn: ({ userId, data }: { userId: string; data: GrantRequest }) => grantSubscription(userId, data),
   })
 }
