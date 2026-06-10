@@ -1,6 +1,7 @@
 package com.diplom.chatservice.dto;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -15,5 +16,6 @@ public record RoomStateSnapshot(
     String phase,
     UUID currentFloorParticipantId,
     List<ParticipantResponse> participants,
-    List<TurnResponse> recentTurns
+    List<TurnResponse> recentTurns,
+    Set<UUID> onlineParticipantIds
 ) {}

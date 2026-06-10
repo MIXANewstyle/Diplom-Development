@@ -1,5 +1,5 @@
 import type { TurnResponse } from '../types'
-import { formatDate } from '../../../shared/lib/format'
+import { formatDateTime } from '../../../shared/lib/format'
 
 interface TurnBubbleProps {
   turn: TurnResponse
@@ -27,7 +27,7 @@ export const TurnBubble = ({ turn, isMine, displayName }: TurnBubbleProps) => {
             isMineEffective ? 'text-blue-200 text-right' : 'text-gray-400 text-left'
           }`}
         >
-          {formatDate(turn.createdAt)}
+          {formatDateTime(turn.createdAt)}
         </div>
       </div>
       <div className={`text-xs text-gray-500 mt-1 px-1 ${isMineEffective ? 'text-right' : 'text-left'}`}>

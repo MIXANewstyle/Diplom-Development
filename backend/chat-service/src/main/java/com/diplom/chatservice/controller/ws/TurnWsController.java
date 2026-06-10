@@ -166,7 +166,7 @@ public class TurnWsController {
             draftService.clearBuffer(roomId, caller.getId());
 
             UserTurnDto userTurnDto = new UserTurnDto(
-                    userTurn.getId(), userTurn.getSeq(), userTurn.getParticipantId(), userTurn.getContent());
+                    userTurn.getId(), userTurn.getSeq(), userTurn.getParticipantId(), userTurn.getContent(), userTurn.getCreatedAt());
             roomBroadcaster.broadcast(roomId, AiThinkingEvent.of(userTurnDto));
             log.info("AI_THINKING broadcast roomId={}", roomId);
 
@@ -208,7 +208,7 @@ public class TurnWsController {
                         log.info("ASSISTANT turn persisted roomId={} seq={}", roomId, assistantTurn.getSeq());
 
                         AssistantTurnDto assistantTurnDto = new AssistantTurnDto(
-                                assistantTurn.getId(), assistantTurn.getSeq(), assistantTurn.getContent());
+                                assistantTurn.getId(), assistantTurn.getSeq(), assistantTurn.getContent(), assistantTurn.getCreatedAt());
                         roomBroadcaster.broadcast(roomId, AiResponseEvent.of(assistantTurnDto));
                         log.info("AI_RESPONSE broadcast roomId={} seq={}", roomId, assistantTurn.getSeq());
 

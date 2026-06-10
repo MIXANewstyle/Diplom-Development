@@ -14,17 +14,35 @@ const getWsBaseUrl = () => {
 export class StompClientWrapper {
   private client: Client | null = null
   private connectionPromise: Promise<void> | null = null
+  private onConnectCallbacks: Array<() => void> = []
+
+  /** Register a callback that runs on every connect/reconnect. Returns an unsubscribe function. */
+  onReconnect(callback: () => void): () => void {
+    this.onConnectCallbacks.push(callback)
+    if (this.client?.connected) {
+      callback()
+    }
+    return () => {
+      this.onConnectCallbacks = this.onConnectCallbacks.filter((cb) => cb !== callback)
+    }
+  }
 
   connect(): Promise<void> {
+    if (this.client?.connected) {
+      return Promise.resolve()
+    }
     if (this.connectionPromise) return this.connectionPromise
 
     this.connectionPromise = new Promise((resolve, reject) => {
       const token = useAuthStore.getState().token
 
       if (!token) {
+        this.connectionPromise = null
         reject(new Error('No auth token available for STOMP connection'))
         return
       }
+
+      let resolved = false
 
       this.client = new Client({
         webSocketFactory: () => new SockJS(`${getWsBaseUrl()}/ws`),
@@ -34,12 +52,25 @@ export class StompClientWrapper {
         reconnectDelay: 3000,
         // debug: (msg) => console.log('[STOMP]', msg),
         onConnect: () => {
-          resolve()
+          if (!resolved) {
+            resolved = true
+            resolve()
+          }
+          this.onConnectCallbacks.forEach((cb) => cb())
         },
         onStompError: (frame) => {
           console.error('Broker reported error: ' + frame.headers['message'])
           console.error('Additional details: ' + frame.body)
-          reject(new Error(frame.headers['message']))
+          if (!resolved) {
+            this.connectionPromise = null
+            reject(new Error(frame.headers['message']))
+          }
+        },
+        onWebSocketClose: () => {
+          this.connectionPromise = null
+        },
+        onDisconnect: () => {
+          this.connectionPromise = null
         },
         onWebSocketError: (event) => {
           console.error('WebSocket error:', event)

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import type { StompSubscription } from '@stomp/stompjs'
 import { stompClient } from './stompClient'
+import { wsAssistantTurnToResponse, wsUserTurnToResponse } from './normalizeTurn'
 import type { RoomResponse, TurnResponse } from '../../features/chat/types'
 
 export interface RoomStateSnapshot {
@@ -8,11 +10,14 @@ export interface RoomStateSnapshot {
   status: RoomResponse['status']
   phase: string | null
   currentFloorParticipantId: string | null
-  participants: any[] // Simplified for now
+  participants: any[]
   recentTurns: TurnResponse[]
+  onlineParticipantIds?: string[]
 }
 
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
+
+const OFFLINE_DEBOUNCE_MS = 2000
 
 export const useRoomSocket = (roomId: string) => {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected')
@@ -21,10 +26,10 @@ export const useRoomSocket = (roomId: string) => {
   const [error, setError] = useState<string | null>(null)
 
   const [consentByParticipant, setConsentByParticipant] = useState<Record<string, string | null>>({})
+  const [onlineParticipants, setOnlineParticipants] = useState<Set<string>>(new Set())
   const [dialogueStarted, setDialogueStarted] = useState(false)
   const [currentFloorParticipantId, setCurrentFloorParticipantId] = useState<string | null>(null)
 
-  // Sub-step 08c specific states
   const [maxSeq, setMaxSeq] = useState<number>(0)
   const [liveTurns, setLiveTurns] = useState<TurnResponse[]>([])
   const [aiThinking, setAiThinking] = useState(false)
@@ -35,8 +40,6 @@ export const useRoomSocket = (roomId: string) => {
 
   const sendConsentStart = () => stompClient.publish(`/app/rooms/${roomId}/consent/start`, {})
   const sendConsentRevoke = () => stompClient.publish(`/app/rooms/${roomId}/consent/revoke`, {})
-
-  // Dialogue publishers
   const upsertDraft = (bubbleId: string, text: string) => stompClient.publish(`/app/rooms/${roomId}/draft/upsert`, { bubbleId, text })
   const deleteDraft = (bubbleId: string) => stompClient.publish(`/app/rooms/${roomId}/draft/delete`, { bubbleId })
   const finishThought = (turnSeq: number) => stompClient.publish(`/app/rooms/${roomId}/finish`, { turnSeq })
@@ -48,103 +51,168 @@ export const useRoomSocket = (roomId: string) => {
     if (!roomId) return
 
     let isMounted = true
+    const subscriptions: StompSubscription[] = []
+    const offlineTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
     setStatus('connecting')
     setError(null)
+    setOnlineParticipants(new Set())
+    setConsentByParticipant({})
+    setDialogueStarted(false)
+    setLiveTurns([])
+    setOtherDrafts({})
+    setAiThinking(false)
 
-    const connectAndSubscribe = async () => {
+    const markOnline = (participantId: string) => {
+      const timer = offlineTimers.get(participantId)
+      if (timer) {
+        clearTimeout(timer)
+        offlineTimers.delete(participantId)
+      }
+      setOnlineParticipants((prev) => new Set([...prev, participantId]))
+    }
+
+    const markOffline = (participantId: string) => {
+      if (offlineTimers.has(participantId)) return
+      const timer = setTimeout(() => {
+        offlineTimers.delete(participantId)
+        setOnlineParticipants((prev) => {
+          const next = new Set(prev)
+          next.delete(participantId)
+          return next
+        })
+      }, OFFLINE_DEBOUNCE_MS)
+      offlineTimers.set(participantId, timer)
+    }
+
+    const clearSubscriptions = () => {
+      subscriptions.forEach((sub) => sub.unsubscribe())
+      subscriptions.length = 0
+    }
+
+    const applyPresenceSnapshot = (ids: string[]) => {
+      offlineTimers.forEach((timer) => clearTimeout(timer))
+      offlineTimers.clear()
+      setOnlineParticipants(new Set(ids.map(String)))
+    }
+
+    const setupSubscriptions = () => {
+      clearSubscriptions()
+
+      // Presence queue MUST be subscribed before the room topic.
+      // Subscribing to the topic triggers a PRESENCE_SNAPSHOT to /user/queue/presence.
+      const presenceSub = stompClient.subscribe('/user/queue/presence', (msg) => {
+        if (msg?.type === 'PRESENCE_SNAPSHOT' && String(msg.roomId) === roomId && Array.isArray(msg.onlineParticipantIds)) {
+          applyPresenceSnapshot(msg.onlineParticipantIds.map(String))
+        }
+      })
+      if (presenceSub) subscriptions.push(presenceSub)
+
+      const errorsSub = stompClient.subscribe('/user/queue/errors', (msg) => {
+        console.error('[WS Error]', msg)
+        setError(msg?.message || 'Unknown WebSocket error')
+      })
+      if (errorsSub) subscriptions.push(errorsSub)
+
+      const topicSub = stompClient.subscribe(`/topic/rooms/${roomId}`, (msg: any) => {
+        setLastEvent(msg)
+        if (msg?.type === 'CONSENT_UPDATED') {
+          setConsentByParticipant((prev) => ({
+            ...prev,
+            [String(msg.participantId)]: msg.consentStartAt,
+          }))
+        } else if (msg?.type === 'PRESENCE_UPDATED') {
+          const participantId = String(msg.participantId)
+          if (msg.status === 'ONLINE') {
+            markOnline(participantId)
+          } else {
+            markOffline(participantId)
+          }
+        } else if (msg?.type === 'DIALOGUE_STARTED') {
+          setDialogueStarted(true)
+          setCurrentFloorParticipantId(String(msg.currentFloorParticipantId))
+        } else if (msg?.type === 'DRAFT_BROADCAST') {
+          setOtherDrafts((prev) => {
+            const next = { ...prev }
+            if (msg.op === 'UPSERT') {
+              next[msg.bubbleId] = msg.text
+            } else if (msg.op === 'DELETE') {
+              delete next[msg.bubbleId]
+            }
+            return next
+          })
+        } else if (msg?.type === 'AI_THINKING') {
+          setAiThinking(true)
+          if (msg.userTurn) {
+            const turn = wsUserTurnToResponse(msg.userTurn, roomId)
+            setMaxSeq(turn.seq)
+            setLiveTurns((prev) => [...prev, turn])
+            setOtherDrafts({})
+          }
+        } else if (msg?.type === 'AI_RESPONSE') {
+          setAiThinking(false)
+          if (msg.assistantTurn) {
+            const turn = wsAssistantTurnToResponse(msg.assistantTurn, roomId)
+            setMaxSeq(turn.seq)
+            setLiveTurns((prev) => [...prev, turn])
+          }
+        } else if (msg?.type === 'TURN_CHANGED') {
+          setCurrentFloorParticipantId(String(msg.currentFloorParticipantId))
+        } else if (msg?.type === 'END_PROPOSED') {
+          setEndProposerParticipantId(String(msg.proposerParticipantId))
+        } else if (msg?.type === 'END_DECLINED') {
+          setEndProposerParticipantId(null)
+          if (msg.currentFloorParticipantId) {
+            setCurrentFloorParticipantId(String(msg.currentFloorParticipantId))
+          }
+        } else if (msg?.type === 'DIALOGUE_ARCHIVED') {
+          setArchived(true)
+          setEndedAt(msg.endedAt)
+          setEndProposerParticipantId(null)
+        } else if (msg?.type === 'AI_ERROR' || msg?.type === 'LIMIT') {
+          setAiThinking(false)
+          setError(msg.message)
+        }
+      })
+      if (topicSub) subscriptions.push(topicSub)
+
+      const stateSub = stompClient.subscribe(`/app/rooms/${roomId}/state`, (msg) => {
+        const snap = msg as RoomStateSnapshot
+        setSnapshot(snap)
+
+        if (snap.onlineParticipantIds?.length) {
+          applyPresenceSnapshot(snap.onlineParticipantIds.map(String))
+        }
+
+        if (snap.participants) {
+          const consentMap: Record<string, string | null> = {}
+          snap.participants.forEach((p: any) => {
+            consentMap[p.id] = p.consentStartAt
+          })
+          setConsentByParticipant(consentMap)
+        }
+        if (snap.status === 'ACTIVE' || snap.phase === 'DIALOGUE') {
+          setDialogueStarted(true)
+        }
+        if (snap.status === 'ARCHIVED') {
+          setArchived(true)
+        }
+        setCurrentFloorParticipantId(snap.currentFloorParticipantId)
+      })
+      if (stateSub) subscriptions.push(stateSub)
+    }
+
+    const unsubscribeReconnect = stompClient.onReconnect(() => {
+      if (isMounted) {
+        setupSubscriptions()
+      }
+    })
+
+    const connect = async () => {
       try {
         await stompClient.connect()
         if (!isMounted) return
-
         setStatus('connected')
-
-        // 1. Subscribe to room broadcasts
-        stompClient.subscribe(`/topic/rooms/${roomId}`, (msg: any) => {
-          setLastEvent(msg)
-          if (msg?.type === 'CONSENT_UPDATED') {
-            setConsentByParticipant((prev) => ({
-              ...prev,
-              [msg.participantId]: msg.consentStartAt,
-            }))
-          } else if (msg?.type === 'DIALOGUE_STARTED') {
-            setDialogueStarted(true)
-            setCurrentFloorParticipantId(msg.currentFloorParticipantId)
-          } else if (msg?.type === 'DRAFT_BROADCAST') {
-            setOtherDrafts((prev) => {
-              const next = { ...prev }
-              if (msg.op === 'UPSERT') {
-                next[msg.bubbleId] = msg.text
-              } else if (msg.op === 'DELETE') {
-                delete next[msg.bubbleId]
-              }
-              return next
-            })
-          } else if (msg?.type === 'AI_THINKING') {
-            setAiThinking(true)
-            if (msg.userTurn) {
-              setMaxSeq(msg.userTurn.seq)
-              setLiveTurns((prev) => [...prev, msg.userTurn])
-              // Clear drafts for this participant
-              // Since we don't know whose drafts they are easily here, 
-              // we just clear all drafts on submit.
-              setOtherDrafts({})
-            }
-          } else if (msg?.type === 'AI_RESPONSE') {
-            setAiThinking(false)
-            if (msg.assistantTurn) {
-              setMaxSeq(msg.assistantTurn.seq)
-              setLiveTurns((prev) => [...prev, msg.assistantTurn])
-            }
-          } else if (msg?.type === 'TURN_CHANGED') {
-            setCurrentFloorParticipantId(msg.currentFloorParticipantId)
-          } else if (msg?.type === 'END_PROPOSED') {
-            setEndProposerParticipantId(msg.proposerParticipantId)
-          } else if (msg?.type === 'END_DECLINED') {
-            setEndProposerParticipantId(null)
-            if (msg.currentFloorParticipantId) {
-              setCurrentFloorParticipantId(msg.currentFloorParticipantId)
-            }
-          } else if (msg?.type === 'DIALOGUE_ARCHIVED') {
-            setArchived(true)
-            setEndedAt(msg.endedAt)
-            setEndProposerParticipantId(null)
-          } else if (msg?.type === 'AI_ERROR' || msg?.type === 'LIMIT') {
-            setAiThinking(false)
-            setError(msg.message)
-          }
-
-          console.log('[Room Event]', msg)
-        })
-
-        // 2. Subscribe to user errors
-        stompClient.subscribe('/user/queue/errors', (msg) => {
-          console.error('[WS Error]', msg)
-          setError(msg?.message || 'Unknown WebSocket error')
-        })
-
-        // 3. Subscribe to state snapshot
-        stompClient.subscribe(`/app/rooms/${roomId}/state`, (msg) => {
-          console.log('[Room Snapshot]', msg)
-          const snap = msg as RoomStateSnapshot
-          setSnapshot(snap)
-
-          // Seed local state from snapshot
-          if (snap.participants) {
-            const consentMap: Record<string, string | null> = {}
-            snap.participants.forEach((p: any) => {
-              consentMap[p.id] = p.consentStartAt
-            })
-            setConsentByParticipant(consentMap)
-          }
-          if (snap.status === 'ACTIVE' || snap.phase === 'DIALOGUE') {
-            setDialogueStarted(true)
-          }
-          if (snap.status === 'ARCHIVED') {
-            setArchived(true)
-          }
-          setCurrentFloorParticipantId(snap.currentFloorParticipantId)
-        })
-
       } catch (err) {
         if (isMounted) {
           setStatus('disconnected')
@@ -153,25 +221,30 @@ export const useRoomSocket = (roomId: string) => {
       }
     }
 
-    connectAndSubscribe()
+    connect()
 
     return () => {
       isMounted = false
+      unsubscribeReconnect()
+      clearSubscriptions()
+      offlineTimers.forEach((timer) => clearTimeout(timer))
+      offlineTimers.clear()
       stompClient.disconnect()
       setStatus('disconnected')
     }
   }, [roomId])
 
-  return { 
-    status, 
-    snapshot, 
-    lastEvent, 
+  return {
+    status,
+    snapshot,
+    lastEvent,
     error,
     consentByParticipant,
+    onlineParticipants,
     dialogueStarted,
     currentFloorParticipantId,
     maxSeq,
-    setMaxSeq, // Let the view seed it from history
+    setMaxSeq,
     liveTurns,
     aiThinking,
     otherDrafts,
@@ -185,6 +258,6 @@ export const useRoomSocket = (roomId: string) => {
     finishThought,
     proposeEnd,
     agreeEnd,
-    declineEnd
+    declineEnd,
   }
 }

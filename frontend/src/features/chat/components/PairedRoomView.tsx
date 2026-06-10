@@ -24,6 +24,7 @@ export const PairedRoomView = ({ roomId }: Props) => {
     error: wsError,
     lastEvent,
     consentByParticipant,
+    onlineParticipants,
     dialogueStarted,
     currentFloorParticipantId,
     maxSeq,
@@ -54,10 +55,18 @@ export const PairedRoomView = ({ roomId }: Props) => {
 
   const queryClient = useQueryClient()
 
-  // Fallback: sync REST state on important WS events
+  // Sync REST state when room membership, consent, or messages change over WS
   useEffect(() => {
-    if ((lastEvent as any)?.type === 'CONSENT_UPDATED' || (lastEvent as any)?.type === 'DIALOGUE_STARTED') {
+    const eventType = (lastEvent as { type?: string } | null)?.type
+    if (
+      eventType === 'PARTICIPANT_JOINED' ||
+      eventType === 'CONSENT_UPDATED' ||
+      eventType === 'DIALOGUE_STARTED'
+    ) {
       queryClient.invalidateQueries({ queryKey: ['chat', 'room', roomId] })
+    }
+    if (eventType === 'AI_THINKING' || eventType === 'AI_RESPONSE' || eventType === 'DIALOGUE_STARTED') {
+      queryClient.invalidateQueries({ queryKey: ['chat', 'turns', roomId] })
     }
   }, [lastEvent, queryClient, roomId])
 
@@ -114,6 +123,10 @@ export const PairedRoomView = ({ roomId }: Props) => {
           const isMe = p.userId === myId
           const hasConsented = !!consentByParticipant[p.id] || !!p.consentStartAt
           const isFloorHolder = currentFloorParticipantId === p.id
+          const hasJoined = p.joinedAt !== null
+          const isOnline = hasJoined && (
+            (isMe && wsStatus === 'connected') || onlineParticipants.has(p.id)
+          )
 
           return (
             <div key={p.id} className="flex-1 bg-white border border-gray-200 rounded-lg p-4 shadow-sm flex items-center gap-4 relative">
@@ -133,7 +146,9 @@ export const PairedRoomView = ({ roomId }: Props) => {
               <div className="flex flex-col items-end gap-1">
                 {hasConsented && <span className="text-green-600 text-sm font-medium">✓ готов(а)</span>}
                 {isFloorHolder && <span className="text-blue-600 text-xs font-bold bg-blue-50 px-2 py-0.5 rounded">Говорит</span>}
-                {p.joinedAt === null && <span className="text-gray-400 text-sm">Не в сети</span>}
+                {!hasJoined && <span className="text-gray-400 text-sm">Не присоединился</span>}
+                {hasJoined && isOnline && <span className="text-green-600 text-sm">В сети</span>}
+                {hasJoined && !isOnline && <span className="text-gray-400 text-sm">Не в сети</span>}
               </div>
             </div>
           )
@@ -165,17 +180,22 @@ export const PairedRoomView = ({ roomId }: Props) => {
         {room.status === 'WAITING_CONSENT' && !dialogueStarted && (
           <div className="space-y-4">
             <p className="text-gray-700">Для начала диалога оба участника должны подтвердить готовность.</p>
+            {wsStatus !== 'connected' && (
+              <p className="text-sm text-amber-700">Подключение к серверу... Кнопка станет доступна после установки соединения.</p>
+            )}
             {!haveIConsented ? (
               <button
                 onClick={sendConsentStart}
-                className="px-6 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700"
+                disabled={wsStatus !== 'connected'}
+                className="px-6 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Я готов(а) начать
               </button>
             ) : (
               <button
                 onClick={sendConsentRevoke}
-                className="px-6 py-2 bg-gray-200 text-gray-800 rounded font-medium hover:bg-gray-300"
+                disabled={wsStatus !== 'connected'}
+                className="px-6 py-2 bg-gray-200 text-gray-800 rounded font-medium hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Отменить готовность
               </button>

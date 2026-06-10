@@ -19,9 +19,10 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Controller;
 
+import java.security.Principal;
 import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
@@ -48,22 +49,29 @@ public class WsConsentEndController {
                 .orElse(null);
     }
 
+    private Object extractAuthPrincipal(Principal principal) {
+        if (principal == null) {
+            return null;
+        }
+        return ((UsernamePasswordAuthenticationToken) principal).getPrincipal();
+    }
+
     @MessageMapping("/rooms/{roomId}/consent/start")
     public void consentStart(
-            @AuthenticationPrincipal Object principal,
             @DestinationVariable UUID roomId,
+            Principal principal,
             SimpMessageHeaderAccessor headerAccessor
     ) {
-        String principalName = getPrincipalName(principal);
+        Object authPrincipal = extractAuthPrincipal(principal);
+        String principalName = getPrincipalName(authPrincipal);
         org.slf4j.MDC.put("roomId", roomId.toString());
         try {
-            RoomParticipant caller = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
-            RoomResponse response = roomService.consentStart(roomId, principal);
+            RoomParticipant caller = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(authPrincipal, roomId, participantRepository);
+            RoomResponse response = roomService.consentStart(roomId, authPrincipal);
 
             if ("ACTIVE".equals(response.status())) {
-                roomBroadcaster.broadcast(roomId, 
+                roomBroadcaster.broadcast(roomId,
                         DialogueStartedEvent.of(response.currentFloorParticipantId()));
-                // Capture context snapshots outside the consent tx
                 String jwt = extractWsJwt(headerAccessor);
                 if (jwt != null) {
                     contextSnapshotService.captureForRoom(roomId, jwt);
@@ -75,7 +83,6 @@ public class WsConsentEndController {
                             ConsentUpdatedEvent.of(p.id(), p.consentStartAt()));
                 }
             }
-            // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
         } catch (org.springframework.security.access.AccessDeniedException | RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
             log.warn("WS error in consentStart for room {}: {}", roomId, e.getMessage());
             sendError(principalName, e.getMessage());
@@ -106,21 +113,21 @@ public class WsConsentEndController {
 
     @MessageMapping("/rooms/{roomId}/consent/revoke")
     public void consentRevoke(
-            @AuthenticationPrincipal Object principal,
-            @DestinationVariable UUID roomId
+            @DestinationVariable UUID roomId,
+            Principal principal
     ) {
-        String principalName = getPrincipalName(principal);
+        Object authPrincipal = extractAuthPrincipal(principal);
+        String principalName = getPrincipalName(authPrincipal);
         org.slf4j.MDC.put("roomId", roomId.toString());
         try {
-            RoomParticipant caller = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
-            RoomResponse response = roomService.consentRevoke(roomId, principal);
+            RoomParticipant caller = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(authPrincipal, roomId, participantRepository);
+            RoomResponse response = roomService.consentRevoke(roomId, authPrincipal);
 
             ParticipantResponse pResponse = findParticipantResponse(response, caller.getId());
             if (pResponse != null) {
-                roomBroadcaster.broadcast(roomId, 
+                roomBroadcaster.broadcast(roomId,
                         ConsentUpdatedEvent.of(pResponse.id(), pResponse.consentStartAt()));
             }
-            // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
         } catch (org.springframework.security.access.AccessDeniedException | RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
             log.warn("WS error in consentRevoke for room {}: {}", roomId, e.getMessage());
             sendError(principalName, e.getMessage());
@@ -134,21 +141,21 @@ public class WsConsentEndController {
 
     @MessageMapping("/rooms/{roomId}/end/propose")
     public void endPropose(
-            @AuthenticationPrincipal Object principal,
-            @DestinationVariable UUID roomId
+            @DestinationVariable UUID roomId,
+            Principal principal
     ) {
-        String principalName = getPrincipalName(principal);
+        Object authPrincipal = extractAuthPrincipal(principal);
+        String principalName = getPrincipalName(authPrincipal);
         org.slf4j.MDC.put("roomId", roomId.toString());
         try {
-            RoomParticipant caller = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
-            RoomResponse response = roomService.endPropose(roomId, principal);
+            RoomParticipant caller = com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(authPrincipal, roomId, participantRepository);
+            RoomResponse response = roomService.endPropose(roomId, authPrincipal);
 
             ParticipantResponse pResponse = findParticipantResponse(response, caller.getId());
             if (pResponse != null) {
-                roomBroadcaster.broadcast(roomId, 
+                roomBroadcaster.broadcast(roomId,
                         EndProposedEvent.of(pResponse.id()));
             }
-            // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
         } catch (org.springframework.security.access.AccessDeniedException | RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
             log.warn("WS error in endPropose for room {}: {}", roomId, e.getMessage());
             sendError(principalName, e.getMessage());
@@ -162,19 +169,18 @@ public class WsConsentEndController {
 
     @MessageMapping("/rooms/{roomId}/end/agree")
     public void endAgree(
-            @AuthenticationPrincipal Object principal,
-            @DestinationVariable UUID roomId
+            @DestinationVariable UUID roomId,
+            Principal principal
     ) {
-        String principalName = getPrincipalName(principal);
+        Object authPrincipal = extractAuthPrincipal(principal);
+        String principalName = getPrincipalName(authPrincipal);
         org.slf4j.MDC.put("roomId", roomId.toString());
         try {
-            com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
-            roomService.endRespond(roomId, new EndRespondRequest(EndDecision.AGREE), principal);
+            com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(authPrincipal, roomId, participantRepository);
+            roomService.endRespond(roomId, new EndRespondRequest(EndDecision.AGREE), authPrincipal);
 
-            roomBroadcaster.broadcast(roomId, 
+            roomBroadcaster.broadcast(roomId,
                     DialogueArchivedEvent.of(roomId, OffsetDateTime.now()));
-            // TODO: no server-side forced-unsubscribe needed for MVP
-            // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
         } catch (org.springframework.security.access.AccessDeniedException | RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
             log.warn("WS error in endAgree for room {}: {}", roomId, e.getMessage());
             sendError(principalName, e.getMessage());
@@ -188,18 +194,18 @@ public class WsConsentEndController {
 
     @MessageMapping("/rooms/{roomId}/end/decline")
     public void endDecline(
-            @AuthenticationPrincipal Object principal,
-            @DestinationVariable UUID roomId
+            @DestinationVariable UUID roomId,
+            Principal principal
     ) {
-        String principalName = getPrincipalName(principal);
+        Object authPrincipal = extractAuthPrincipal(principal);
+        String principalName = getPrincipalName(authPrincipal);
         org.slf4j.MDC.put("roomId", roomId.toString());
         try {
-            com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
-            RoomResponse response = roomService.endRespond(roomId, new EndRespondRequest(EndDecision.DECLINE), principal);
+            com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(authPrincipal, roomId, participantRepository);
+            RoomResponse response = roomService.endRespond(roomId, new EndRespondRequest(EndDecision.DECLINE), authPrincipal);
 
-            roomBroadcaster.broadcast(roomId, 
+            roomBroadcaster.broadcast(roomId,
                     EndDeclinedEvent.of(response.currentFloorParticipantId()));
-            // TODO: have the REST controller broadcast too (so REST-triggered state changes also notify WS subscribers)
         } catch (org.springframework.security.access.AccessDeniedException | RoomNotFoundException | NotRoomParticipantException | InvalidRoomStateException | IllegalArgumentException e) {
             log.warn("WS error in endDecline for room {}: {}", roomId, e.getMessage());
             sendError(principalName, e.getMessage());

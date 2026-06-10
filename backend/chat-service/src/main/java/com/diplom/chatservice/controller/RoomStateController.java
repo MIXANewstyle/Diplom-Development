@@ -12,6 +12,7 @@ import com.diplom.chatservice.repository.RoomRepository;
 import com.diplom.chatservice.repository.TurnRepository;
 import com.diplom.chatservice.security.CustomUserDetails;
 import com.diplom.chatservice.service.ParticipantEnrichmentService;
+import com.diplom.chatservice.service.PresenceService;
 import com.diplom.chatservice.service.RoomMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,7 @@ public class RoomStateController {
     private final TurnRepository turnRepository;
     private final RoomMapper roomMapper;
     private final ParticipantEnrichmentService participantEnrichmentService;
+    private final PresenceService presenceService;
 
     /**
      * Returns a one-shot {@link RoomStateSnapshot} to the subscribing client.
@@ -97,7 +99,8 @@ public class RoomStateController {
                 room.getPhase(),
                 room.getCurrentFloorParticipantId(),
                 participantResponses,
-                turnResponses
+                turnResponses,
+                presenceService.getOnlineParticipants(roomId)
         );
     }
 }

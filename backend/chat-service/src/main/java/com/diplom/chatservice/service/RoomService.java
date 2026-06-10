@@ -30,6 +30,7 @@ import com.diplom.chatservice.exception.RateLimitExceededException;
 import com.diplom.chatservice.outbox.OutboxEventFactory;
 import com.diplom.chatservice.event.RoomArchivedInternalEvent;
 import com.diplom.chatservice.dto.ws.DialogueAbandonedEvent;
+import com.diplom.chatservice.dto.ws.ParticipantJoinedEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import com.diplom.chatservice.repository.ChatOutboxEventRepository;
 import com.diplom.chatservice.repository.FriendLinkRepository;
@@ -259,6 +260,11 @@ public class RoomService {
 
         room.setStatusId(STATUS_WAITING_CONSENT);
         room = roomRepository.save(room);
+
+        roomBroadcaster.broadcast(
+            roomId,
+            ParticipantJoinedEvent.of(inviteeSlot.getId(), inviteeSlot.getJoinedAt(), "WAITING_CONSENT")
+        );
 
         return roomMapper.toRoomResponse(room, participantRepository.findByRoomId(roomId));
     }
