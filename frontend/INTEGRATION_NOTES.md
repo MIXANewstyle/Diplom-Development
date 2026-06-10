@@ -119,3 +119,8 @@ Based on inspection of the actual backend service code (Spring REST controllers 
 ## Chat Service Integration
 - **LLM API Key Requirement**: The `POST /api/v1/rooms/{roomId}/turns` endpoint (which submits a user turn and synchronously returns both the user's turn and the assistant's reply for solo rooms) requires a valid LLM API key configured on the backend (`chat-service`). Specifically, the `LLM_API_KEY` environment variable must be set. If it is missing or invalid, the request will fail at the AI step (often with a 5xx or "LLM unavailable" error), although room creation and persistence will still work.
 - **Turn Roles**: The actual `role` string values returned in `TurnResponse` are `"USER"` and `"ASSISTANT"`. There may also be a `"SYSTEM"` role used internally, but the UI currently distinguishes primarily between `"USER"` and everything else.
+
+## Real-time Chat / WebSocket Integration
+- **Dependencies**: Added `@stomp/stompjs` and `sockjs-client` (with `@types/sockjs-client`) specifically to support the backend's Spring STOMP over SockJS endpoint. This combination ensures compatibility with the Spring WebSocket broker. No other generic WS clients are used.
+- **Vite Polyfill**: `sockjs-client` references a global `global` variable which Vite does not polyfill by default. A workaround was applied in `vite.config.ts` (`define: { global: 'globalThis' }`) to prevent "global is not defined" errors at runtime.
+- **Connection Fallback**: The STOMP client attempts to connect through the gateway URL (`/ws`). If the API gateway is not configured to proxy the WebSocket/SockJS upgrade properly, you can bypass the gateway by setting `VITE_WS_BASE_URL=http://localhost:8083` (or the respective port of the `chat-service`).

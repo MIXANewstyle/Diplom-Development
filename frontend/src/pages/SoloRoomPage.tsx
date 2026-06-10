@@ -6,6 +6,7 @@ import { useEndSoloRoom } from '../features/chat/hooks/useEndSoloRoom'
 import { Transcript } from '../features/chat/components/Transcript'
 import { Composer } from '../features/chat/components/Composer'
 import { useEffect, useRef } from 'react'
+import { useRoomSocket } from '../shared/ws/useRoomSocket'
 
 export const SoloRoomPage = () => {
   const { roomId } = useParams<{ roomId: string }>()
@@ -18,6 +19,8 @@ export const SoloRoomPage = () => {
   const endRoomMutation = useEndSoloRoom(id)
 
   const transcriptContainerRef = useRef<HTMLDivElement>(null)
+
+  const { status: wsStatus, snapshot, error: wsError } = useRoomSocket(id)
 
   useEffect(() => {
     // Scroll to bottom when turns change
@@ -61,6 +64,11 @@ export const SoloRoomPage = () => {
             {room.type === 'SOLO' ? 'Соло сессия' : 'Парная сессия'}
           </h1>
           <div className="text-sm text-gray-500">Статус: {room.status}</div>
+        </div>
+        <div className="flex flex-col items-end text-xs text-gray-500 mr-4">
+          <div>WS: {wsStatus}</div>
+          {wsError && <div className="text-red-500">WS Error: {wsError}</div>}
+          {snapshot && <div>Snapshot received: {snapshot.recentTurns.length} turns</div>}
         </div>
         {isActive && (
           <button
