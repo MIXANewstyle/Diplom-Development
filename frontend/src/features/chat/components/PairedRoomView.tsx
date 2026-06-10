@@ -4,6 +4,9 @@ import { useJoinRoom } from '../hooks/useJoinRoom'
 import { useRoomSocket } from '../../../shared/ws/useRoomSocket'
 import { useAuthStore } from '../../../shared/stores/authStore'
 import { useQueryClient } from '@tanstack/react-query'
+import { useTurns } from '../hooks/useTurns'
+import { DialogueTranscript } from './DialogueTranscript'
+import { PairedComposer } from './PairedComposer'
 
 interface Props {
   roomId: string
@@ -23,9 +26,31 @@ export const PairedRoomView = ({ roomId }: Props) => {
     consentByParticipant,
     dialogueStarted,
     currentFloorParticipantId,
+    maxSeq,
+    setMaxSeq,
+    liveTurns,
+    aiThinking,
+    otherDrafts,
+    endProposerParticipantId,
+    archived,
     sendConsentStart,
     sendConsentRevoke,
+    upsertDraft,
+    proposeEnd,
+    agreeEnd,
+    declineEnd,
+    finishThought,
   } = useRoomSocket(roomId)
+
+  const { data: turnsPage } = useTurns(roomId)
+
+  // Seed maxSeq from history if not set
+  useEffect(() => {
+    if (turnsPage?.items && maxSeq === 0) {
+      const highest = turnsPage.items.reduce((max, t) => Math.max(max, t.seq), 0)
+      if (highest > 0) setMaxSeq(highest)
+    }
+  }, [turnsPage?.items, maxSeq, setMaxSeq])
 
   const queryClient = useQueryClient()
 
@@ -159,9 +184,53 @@ export const PairedRoomView = ({ roomId }: Props) => {
         )}
 
         {(room.status === 'ACTIVE' || dialogueStarted) && (
-          <div className="space-y-2">
-            <h2 className="text-xl font-bold text-gray-800">Диалог начался</h2>
-            <p className="text-gray-600">Идёт диалог (ввод сообщений — следующий шаг)</p>
+          <div className="w-full h-full flex flex-col items-stretch text-left">
+            <DialogueTranscript
+              historyTurns={turnsPage?.items || []}
+              liveTurns={liveTurns}
+              otherDrafts={otherDrafts}
+              aiThinking={aiThinking}
+              myParticipantId={myParticipantId}
+              participants={participants}
+            />
+
+            {!archived && !endProposerParticipantId && (
+              <div className="flex justify-end pt-2 pb-4 shrink-0 px-4">
+                <button
+                  onClick={proposeEnd}
+                  className="text-xs text-red-600 hover:text-red-800 underline"
+                >
+                  Завершить диалог
+                </button>
+              </div>
+            )}
+
+            {!archived && endProposerParticipantId && (
+              <div className="bg-yellow-50 border border-yellow-200 p-4 shrink-0 rounded-lg mx-4 mb-4 flex items-center justify-between">
+                {endProposerParticipantId !== myParticipantId ? (
+                  <>
+                    <span className="text-sm text-yellow-800 font-medium">Собеседник предлагает завершить диалог</span>
+                    <div className="flex gap-2">
+                      <button onClick={declineEnd} className="px-3 py-1.5 bg-white border border-gray-300 rounded text-sm hover:bg-gray-50">Продолжить</button>
+                      <button onClick={agreeEnd} className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700">Согласиться</button>
+                    </div>
+                  </>
+                ) : (
+                  <span className="text-sm text-yellow-800 font-medium w-full text-center">Ожидаем ответа собеседника на предложение завершить диалог...</span>
+                )}
+              </div>
+            )}
+
+            <div className="shrink-0 pt-2 border-t border-gray-200 px-4 pb-4 bg-white rounded-b-lg">
+              <PairedComposer
+                isActive={room.status === 'ACTIVE' || dialogueStarted}
+                archived={archived}
+                hasFloor={currentFloorParticipantId === myParticipantId}
+                aiThinking={aiThinking}
+                onDraftUpsert={upsertDraft}
+                onSubmit={() => finishThought(maxSeq + 1)}
+              />
+            </div>
           </div>
         )}
       </div>
