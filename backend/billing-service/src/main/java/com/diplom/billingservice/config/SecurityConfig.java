@@ -57,6 +57,7 @@ public class SecurityConfig {
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
                 .requestMatchers("/api/v1/billing/payments/webhook", "/error").permitAll()
                 .requestMatchers("/api/v1/admin/billing/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
