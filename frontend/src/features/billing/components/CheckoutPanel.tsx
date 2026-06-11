@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useCheckout, useConfirmStubPayment, useValidatePromo } from '../hooks';
+import { useCheckout, useValidatePromo } from '../hooks';
 import type { Plan } from '../types';
+import { useNavigate } from 'react-router-dom';
 import { getErrorMessage } from '../../../shared/lib/errors';
 import { ErrorText } from '../../../shared/components/ErrorText';
-import { useQueryClient } from '@tanstack/react-query';
 
 interface CheckoutPanelProps {
   plan: Plan;
@@ -18,8 +18,7 @@ export function CheckoutPanel({ plan, onCancel }: CheckoutPanelProps) {
   
   const { mutateAsync: validatePromo, isPending: validating } = useValidatePromo();
   const { mutateAsync: checkout, isPending: checkingOut } = useCheckout();
-  const { mutateAsync: confirmStub, isPending: confirming } = useConfirmStubPayment();
-  const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const handleValidatePromo = async () => {
     if (!promoCode.trim()) return;
@@ -43,21 +42,17 @@ export function CheckoutPanel({ plan, onCancel }: CheckoutPanelProps) {
         planId: plan.id, 
         promoCode: promoCode.trim() || undefined 
       });
-      
-      // Execute the dev/local stub confirmation directly
-      await confirmStub(res.transactionId);
-
-      // Force a refetch of the subscription
-      await queryClient.refetchQueries({ queryKey: ['billing', 'subscription'] });
-      
-      onCancel(); // Close panel on success
+      onCancel(); // Close panel
+      navigate(`/billing/payment/${res.transactionId}`, {
+        state: { planCode: plan.code, amount: displayAmount !== null ? displayAmount : plan.price, currency: plan.currency }
+      });
     } catch (err: unknown) {
       setCheckoutError(getErrorMessage(err));
     }
   };
 
   const displayAmount = finalAmount !== null ? finalAmount : plan.price;
-  const isBusy = validating || checkingOut || confirming;
+  const isBusy = validating || checkingOut;
 
   return (
     <div className="bg-white border border-blue-300 shadow-sm rounded-lg p-6">
@@ -116,7 +111,7 @@ export function CheckoutPanel({ plan, onCancel }: CheckoutPanelProps) {
           disabled={isBusy}
           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
         >
-          {confirming ? 'Оплата...' : `Оплатить ${displayAmount} ${plan.currency}`}
+          {checkingOut ? 'Обработка...' : `Оплатить ${displayAmount} ${plan.currency}`}
         </button>
       </div>
     </div>

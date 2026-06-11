@@ -7,6 +7,7 @@ import { FeedPage } from '../pages/FeedPage'
 import { SearchPage } from '../pages/SearchPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { BillingPage } from '../pages/BillingPage'
+import { BillingPaymentPage } from '../pages/BillingPaymentPage'
 import { AuthoringPage } from '../pages/AuthoringPage'
 import { AuthorPage } from '../pages/AuthorPage'
 import { FriendsPage } from '../pages/FriendsPage'
@@ -49,6 +50,10 @@ export const router = createBrowserRouter([
       {
         path: 'subscription',
         element: <BillingPage />,
+      },
+      {
+        path: 'billing/payment/:transactionId',
+        element: <BillingPaymentPage />,
       },
       {
         path: 'friends',
