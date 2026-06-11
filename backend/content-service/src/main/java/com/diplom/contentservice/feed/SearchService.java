@@ -83,8 +83,13 @@ public class SearchService {
             authorCount = authorIds.size();
         }
 
+        String tsq = buildPrefixTsQuery(q);
+        if (tsq == null) {
+            return new FeedPageResponse(List.of(), null);
+        }
+
         List<PostSearchHit> hits = postRepository.searchPostIds(
-            q.trim(), keywordsArr, keywordCount,
+            tsq, keywordsArr, keywordCount,
             c == null ? null : c.score(),
             c == null ? null : c.publishedAt(),
             c == null ? null : c.id(),
@@ -176,5 +181,32 @@ public class SearchService {
             .map(String::toLowerCase)
             .distinct()
             .toList();
+    }
+
+    // Note: Typo tolerance (e.g. pg_trgm trigram similarity) is a possible future upgrade
+    // and is intentionally out of scope for now.
+    private String buildPrefixTsQuery(String q) {
+        if (q == null || q.isBlank()) {
+            return null;
+        }
+        
+        String[] parts = q.split("\\s+");
+        java.util.List<String> terms = new java.util.ArrayList<>();
+        
+        for (String part : parts) {
+            String cleanTerm = part.replaceAll("[^\\p{L}\\p{N}]", "").toLowerCase();
+            if (!cleanTerm.isEmpty()) {
+                terms.add(cleanTerm + ":*");
+            }
+            if (terms.size() >= 8) {
+                break;
+            }
+        }
+        
+        if (terms.isEmpty()) {
+            return null;
+        }
+        
+        return String.join(" & ", terms);
     }
 }

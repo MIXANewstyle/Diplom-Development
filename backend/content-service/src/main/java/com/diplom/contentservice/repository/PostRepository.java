@@ -161,7 +161,7 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
                 + CASE WHEN :keywordCount > 0 AND p.keywords && CAST(:keywordsArr AS text[])
                        THEN 0.3 ELSE 0 END) AS score
         FROM content_schema.posts p,
-             websearch_to_tsquery('russian', :q) AS query(q)
+             to_tsquery('russian', :tsq) AS query(q)
         WHERE p.status_id = 2
           AND ( p.search_vector @@ query.q
                 OR (:keywordCount > 0 AND p.keywords && CAST(:keywordsArr AS text[])) )
@@ -192,7 +192,7 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
         LIMIT :limit
         """, nativeQuery = true)
     List<PostSearchHit> searchPostIds(
-        @Param("q") String q,
+        @Param("tsq") String tsq,
         @Param("keywordsArr") String[] keywordsArr,
         @Param("keywordCount") int keywordCount,
         @Param("cursorScore") Double cursorScore,
