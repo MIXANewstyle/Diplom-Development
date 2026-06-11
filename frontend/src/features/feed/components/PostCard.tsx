@@ -41,15 +41,19 @@ export function PostCard({ post }: { post: Post }) {
       <div className="flex items-center gap-4 mt-3 text-sm text-gray-600">
         <span>👁 {post.viewsCount}</span>
         <span>💬 {post.commentsCount}</span>
-        <button
-          type="button"
-          onClick={() => upvote.mutate(post.id)}
-          disabled={upvote.isPending || !canEngage(user?.role)}
-          title={!canEngage(user?.role) ? 'Доступно с подпиской BASIC' : undefined}
-          className="hover:text-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          ♥ {post.upvotesCount}
-        </button>
+        {user?.id === post.authorId ? (
+          <span title="Нельзя оценивать свой пост">♥ {post.upvotesCount}</span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => upvote.mutate(post.id)}
+            disabled={upvote.isPending || !canEngage(user?.role)}
+            title={!canEngage(user?.role) ? 'Доступно с подпиской BASIC' : undefined}
+            className="hover:text-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            ♥ {post.upvotesCount}
+          </button>
+        )}
       </div>
     </article>
   )

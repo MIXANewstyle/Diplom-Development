@@ -3,6 +3,7 @@ import { canEngage } from '../../../shared/lib/roles'
 import { formatDate } from '../../../shared/lib/format'
 import { Link } from 'react-router-dom'
 import { useUpvote } from '../../feed/hooks/useUpvote'
+import { FollowButton } from '../../social/components/FollowButton'
 import type { Post, EditorBlock } from '../../feed/types'
 
 function renderBlock(block: EditorBlock, index: number) {
@@ -53,9 +54,10 @@ export function PostView({ post }: { post: Post }) {
 
       <header className="space-y-2">
         <h1 className="text-3xl font-bold text-gray-900">{post.title}</h1>
-        <p className="text-sm text-gray-500">
-          Автор: <Link to={`/authors/${post.authorId}`} className="hover:underline">{post.authorUsername ?? 'Без имени'}</Link> ·{' '}
-          {post.publishedAt ? formatDate(post.publishedAt) : 'Черновик'}
+        <p className="text-sm text-gray-500 flex items-center gap-2">
+          <span>Автор: <Link to={`/authors/${post.authorId}`} className="hover:underline font-medium text-gray-800">{post.authorUsername ?? 'Без имени'}</Link></span>
+          <FollowButton authorId={post.authorId} />
+          <span>· {post.publishedAt ? formatDate(post.publishedAt) : 'Черновик'}</span>
         </p>
         {post.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
@@ -84,15 +86,19 @@ export function PostView({ post }: { post: Post }) {
       <div className="flex items-center gap-4 text-sm text-gray-600 border-t pt-3">
         <span>👁 {post.viewsCount}</span>
         <span>💬 {post.commentsCount}</span>
-        <button
-          type="button"
-          onClick={() => upvote.mutate(post.id)}
-          disabled={upvote.isPending || !engaged}
-          title={!engaged ? 'Доступно с подпиской BASIC' : undefined}
-          className="hover:text-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          ♥ {post.upvotesCount}
-        </button>
+        {user?.id === post.authorId ? (
+          <span title="Нельзя оценивать свой пост">♥ {post.upvotesCount}</span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => upvote.mutate(post.id)}
+            disabled={upvote.isPending || !engaged}
+            title={!engaged ? 'Доступно с подпиской BASIC' : undefined}
+            className="hover:text-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            ♥ {post.upvotesCount}
+          </button>
+        )}
       </div>
     </article>
   )

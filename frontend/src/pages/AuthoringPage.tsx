@@ -5,7 +5,8 @@ import { useMyPosts } from '../features/authoring/hooks'
 import type { MyPost } from '../features/authoring/types'
 
 export function AuthoringPage() {
-  const { data: posts, isLoading } = useMyPosts()
+  const [statusFilter, setStatusFilter] = useState<string | undefined>()
+  const { data: posts, isLoading } = useMyPosts(statusFilter)
   const [editingPost, setEditingPost] = useState<MyPost | null>(null)
   const [isCreating, setIsCreating] = useState(false)
 
@@ -34,6 +35,33 @@ export function AuthoringPage() {
           className="px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700"
         >
           Создать пост
+        </button>
+      </div>
+
+      <div className="flex gap-2 border-b pb-2">
+        <button
+          onClick={() => setStatusFilter(undefined)}
+          className={`px-3 py-1 rounded-t border-b-2 ${!statusFilter ? 'border-blue-600 font-bold text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+        >
+          Все
+        </button>
+        <button
+          onClick={() => setStatusFilter('1')}
+          className={`px-3 py-1 rounded-t border-b-2 ${statusFilter === '1' ? 'border-blue-600 font-bold text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+        >
+          Черновики
+        </button>
+        <button
+          onClick={() => setStatusFilter('2')}
+          className={`px-3 py-1 rounded-t border-b-2 ${statusFilter === '2' ? 'border-blue-600 font-bold text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+        >
+          Опубликованные
+        </button>
+        <button
+          onClick={() => setStatusFilter('3')}
+          className={`px-3 py-1 rounded-t border-b-2 ${statusFilter === '3' ? 'border-blue-600 font-bold text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+        >
+          Архив
         </button>
       </div>
       

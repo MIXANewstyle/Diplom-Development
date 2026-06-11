@@ -10,6 +10,8 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
   'Already following': 'Вы уже подписаны на этого автора',
   'Not following': 'Вы не подписаны на этого автора',
   'Promo code is invalid or exhausted': 'Промокод недействителен или исчерпан',
+  'Cannot upvote your own post': 'Нельзя оценивать собственный пост',
+  'Cannot upvote a post that is not published': 'Оценивать можно только опубликованные посты',
 }
 
 export function getErrorMessage(error: unknown): string {

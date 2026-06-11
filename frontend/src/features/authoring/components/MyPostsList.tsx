@@ -36,8 +36,8 @@ export function MyPostsList({ posts, onEdit }: { posts: MyPost[], onEdit: (p: My
           <div key={post.id} className="border p-4 rounded bg-white shadow-sm flex flex-col gap-2">
             <div className="flex justify-between items-start">
               <h3 className="font-bold text-lg">{post.title || 'Без названия'}</h3>
-              <span className="text-xs px-2 py-1 bg-gray-100 rounded text-gray-700 font-medium">
-                {POST_STATUS_MAP[post.status]}
+              <span className={`text-xs px-2 py-1 rounded font-medium ${post.status === 'MODERATED' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700'}`}>
+                {post.status === 'MODERATED' ? 'Заблокирован модератором' : POST_STATUS_MAP[post.status]}
               </span>
             </div>
             <div className="text-sm text-gray-500">
@@ -50,13 +50,13 @@ export function MyPostsList({ posts, onEdit }: { posts: MyPost[], onEdit: (p: My
               >
                 Редактировать
               </button>
-              {isDraft && (
+              {(isDraft || post.status === 'ARCHIVED') && (
                 <button
                   disabled={isBusy}
                   onClick={() => handleAction(() => publishPost.mutateAsync(post.id))}
                   className="text-sm text-green-600 hover:text-green-800 font-medium disabled:opacity-50"
                 >
-                  Опубликовать
+                  {isDraft ? 'Опубликовать' : 'Опубликовать снова'}
                 </button>
               )}
               {isPublished && (

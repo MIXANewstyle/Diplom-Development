@@ -30,20 +30,31 @@ export function FollowButton({ authorId }: { authorId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <button
-        type="button"
-        onClick={handleToggle}
-        disabled={isPending}
-        className={`px-4 py-1.5 rounded text-sm font-medium transition-colors disabled:opacity-50
-          ${
-            isFollowing
-              ? 'bg-gray-200 text-gray-800 hover:bg-red-100 hover:text-red-700 content-["Отписаться"]'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
-          }`}
-      >
-        {isFollowing ? 'Отписаться' : 'Подписаться'}
-      </button>
+    <div className="inline-flex flex-col gap-1 align-middle">
+      {isFollowing ? (
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-green-700 bg-green-100 px-2 py-1 rounded">
+            Вы подписаны
+          </span>
+          <button
+            type="button"
+            onClick={handleToggle}
+            disabled={isPending}
+            className="px-3 py-1 text-sm font-medium border border-gray-300 text-gray-700 rounded hover:bg-red-50 hover:text-red-700 hover:border-red-200 disabled:opacity-50 transition-colors"
+          >
+            Отписаться
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={handleToggle}
+          disabled={isPending}
+          className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          Подписаться
+        </button>
+      )}
       <ErrorText error={errorMsg} className="text-xs" />
     </div>
   )
