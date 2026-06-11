@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.diplom.userservice.security.CustomUserDetails;
 import com.diplom.userservice.exception.InvalidCredentialsException;
+import com.diplom.userservice.exception.UserNotFoundException;
 import jakarta.validation.Valid;
 
 @RestController
@@ -58,6 +59,16 @@ public class UserController {
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new InvalidCredentialsException("Invalid credentials");
         }
+
+        String token = jwtService.generateToken(user.getId(), user.getEmail(), user.getRoleId());
+        return ResponseEntity.ok(new JwtResponse(token));
+    }
+
+    @PostMapping("/me/token")
+    public ResponseEntity<JwtResponse> refreshToken(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        User user = userRepository.findById(userDetails.getId())
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         String token = jwtService.generateToken(user.getId(), user.getEmail(), user.getRoleId());
         return ResponseEntity.ok(new JwtResponse(token));
