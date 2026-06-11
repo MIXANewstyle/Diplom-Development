@@ -73,15 +73,37 @@ public class PsychProfileClient {
                 return null;
             }
 
-            Object aboutObj = response.getBody().get("about");
-            if (aboutObj == null) {
+            Map<?, ?> body = response.getBody();
+            java.util.function.Function<Object, String> getTrimmed = (obj) -> {
+                if (obj == null) return null;
+                String s = obj.toString().trim();
+                return s.isBlank() ? null : s;
+            };
+
+            String aboutSelf = getTrimmed.apply(body.get("about_self"));
+            if (aboutSelf == null) {
+                aboutSelf = getTrimmed.apply(body.get("about"));
+            }
+            String reason = getTrimmed.apply(body.get("reason"));
+            String goals = getTrimmed.apply(body.get("goals"));
+            String priorExp = getTrimmed.apply(body.get("prior_experience"));
+
+            String priorLabel = null;
+            if ("none".equals(priorExp)) priorLabel = "нет";
+            else if ("some".equals(priorExp)) priorLabel = "немного";
+            else if ("extensive".equals(priorExp)) priorLabel = "большой";
+
+            java.util.List<String> parts = new java.util.ArrayList<>();
+            if (aboutSelf != null) parts.add("О себе: " + aboutSelf + ".");
+            if (reason != null) parts.add("Что привело: " + reason + ".");
+            if (goals != null) parts.add("Хочет поработать над: " + goals + ".");
+            if (priorLabel != null) parts.add("Опыт терапии: " + priorLabel + ".");
+
+            if (parts.isEmpty()) {
                 return null;
             }
 
-            String about = aboutObj.toString();
-            if (about.isBlank()) {
-                return null;
-            }
+            String about = String.join(" ", parts);
 
             // Truncate to the configured sub-budget
             if (about.length() > aboutMaxChars) {
