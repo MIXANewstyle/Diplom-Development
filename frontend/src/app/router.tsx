@@ -3,6 +3,7 @@ import { ProtectedRoute } from '../shared/components/ProtectedRoute'
 import { AppLayout } from '../shared/layouts/AppLayout'
 import { RoleGate } from '../shared/components/RoleGate'
 
+import { LandingPage } from '../pages/LandingPage'
 import { FeedPage } from '../pages/FeedPage'
 import { SearchPage } from '../pages/SearchPage'
 import { ProfilePage } from '../pages/ProfilePage'
@@ -25,16 +26,15 @@ import NotFoundPage from '../pages/NotFoundPage'
 export const router = createBrowserRouter([
   {
     path: '/',
+    element: <LandingPage />,
+  },
+  {
     element: (
       <ProtectedRoute>
         <AppLayout />
       </ProtectedRoute>
     ),
     children: [
-      {
-        index: true,
-        element: <Navigate to="/feed" replace />,
-      },
       {
         path: 'feed',
         element: <FeedPage />,
