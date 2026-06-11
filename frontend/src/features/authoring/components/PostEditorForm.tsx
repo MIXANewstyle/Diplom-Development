@@ -5,6 +5,8 @@ import { editorContentToTextarea, textareaToEditorContentStr } from '../lib/cont
 import { useTags } from '../../feed/hooks/useTags'
 import { getErrorMessage } from '../../../shared/lib/errors'
 import { ErrorText } from '../../../shared/components/ErrorText'
+import { PostView } from '../../posts/components/PostView'
+import type { Post } from '../../feed/types'
 
 interface Props {
   initialPost?: MyPost
@@ -18,6 +20,7 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(initialPost?.tags.map(t => t.id) || [])
   const [keywordsStr, setKeywordsStr] = useState(initialPost?.keywords.join(', ') || '')
   const [errorMsg, setErrorMsg] = useState('')
+  const [showPreview, setShowPreview] = useState(false)
 
   const { data: tagsPage } = useTags()
   const allTags = tagsPage?.content ?? []
@@ -108,13 +111,51 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium">Содержание (используйте `# ` для заголовков)</label>
-        <textarea
-          value={body}
-          onChange={e => setBody(e.target.value)}
-          className="border border-gray-300 p-2 rounded h-64 font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          placeholder="# Заголовок&#10;&#10;Текст абзаца..."
-        />
+        <div className="flex justify-between items-end mb-1">
+          <label className="text-sm font-medium">Содержание</label>
+          <button
+            type="button"
+            onClick={() => setShowPreview(!showPreview)}
+            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+          >
+            {showPreview ? 'Редактировать' : 'Предпросмотр'}
+          </button>
+        </div>
+        {!showPreview && (
+          <div className="text-xs text-gray-500 mb-1">
+            Поддерживается: <code># Заголовок · ## Подзаголовок · - список · 1. нумерация · &gt; цитата · **жирный**</code>
+          </div>
+        )}
+        
+        {showPreview ? (
+          <div className="border border-gray-300 p-4 rounded min-h-[16rem] bg-gray-50 overflow-y-auto">
+            <PostView post={{
+              id: 'preview',
+              authorId: 'preview',
+              authorUsername: 'Автор',
+              authorAvatarUrl: null,
+              title: title.trim() || 'Без названия',
+              content: textareaToEditorContentStr(body),
+              coverImageUrl: coverImageUrl || null,
+              status: 'DRAFT',
+              publishedAt: null,
+              updatedAt: new Date().toISOString(),
+              viewsCount: 0,
+              upvotesCount: 0,
+              commentsCount: 0,
+              tags: allTags.filter(t => selectedTagIds.includes(t.id)),
+              keywords: keywordsStr.split(',').map(k => k.trim()).filter(Boolean),
+              version: 1
+            } as Post} />
+          </div>
+        ) : (
+          <textarea
+            value={body}
+            onChange={e => setBody(e.target.value)}
+            className="border border-gray-300 p-2 rounded h-64 font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            placeholder="# Заголовок&#10;&#10;Текст абзаца..."
+          />
+        )}
       </div>
 
       <div className="flex flex-col gap-1">

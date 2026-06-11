@@ -4,34 +4,57 @@ import { formatDate } from '../../../shared/lib/format'
 import { Link } from 'react-router-dom'
 import { useUpvote } from '../../feed/hooks/useUpvote'
 import { FollowButton } from '../../social/components/FollowButton'
-import type { Post, EditorBlock } from '../../feed/types'
+import type { Post, EditorBlock, EditorContent } from '../../feed/types'
+import { textareaToEditorContentStr } from '../../authoring/lib/content'
+import React from 'react'
+
+function parseInline(text: string) {
+  const parts = text.split(/(\*\*.*?\*\*)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>
+    }
+    return <React.Fragment key={i}>{part}</React.Fragment>
+  })
+}
 
 function renderBlock(block: EditorBlock, index: number) {
   switch (block.type) {
     case 'paragraph':
       return (
-        <p key={index} className="mb-4">
-          {block.data.text}
+        <p key={index} className="mb-3 leading-relaxed">
+          {parseInline(block.data.text)}
         </p>
       )
     case 'header': {
-      const Tag = `h${block.data.level || 2}` as keyof JSX.IntrinsicElements
+      const level = block.data.level || 2
+      const classes = 
+        level === 1 ? 'text-2xl font-bold mt-6 mb-3' :
+        level === 2 ? 'text-xl font-semibold mt-5 mb-2' :
+        'text-lg font-semibold mt-4 mb-2'
+      const Tag = `h${Math.min(Math.max(level, 1), 6)}` as keyof JSX.IntrinsicElements
       return (
-        <Tag key={index} className="font-bold my-4">
-          {block.data.text}
+        <Tag key={index} className={classes}>
+          {parseInline(block.data.text)}
         </Tag>
       )
     }
     case 'list': {
       const ListTag = block.data.style === 'ordered' ? 'ol' : 'ul'
       return (
-        <ListTag key={index} className={`mb-4 pl-6 ${block.data.style === 'ordered' ? 'list-decimal' : 'list-disc'}`}>
+        <ListTag key={index} className={`pl-6 mb-3 space-y-1 ${block.data.style === 'ordered' ? 'list-decimal' : 'list-disc'}`}>
           {block.data.items.map((item, i) => (
-            <li key={i}>{item}</li>
+            <li key={i}>{parseInline(item)}</li>
           ))}
         </ListTag>
       )
     }
+    case 'quote':
+      return (
+        <blockquote key={index} className="border-l-4 pl-4 italic text-gray-600 mb-3 whitespace-pre-wrap">
+          {parseInline(block.data.text)}
+        </blockquote>
+      )
     default:
       return null
   }
@@ -74,12 +97,29 @@ export function PostView({ post }: { post: Post }) {
       </header>
 
       {post.content && (
-        <div className="whitespace-pre-wrap leading-relaxed text-gray-800">
-          {typeof post.content === 'string' ? (
-            post.content
-          ) : (
-            post.content.blocks.map((block, i) => renderBlock(block, i))
-          )}
+        <div className="text-gray-800">
+          {(() => {
+            let blocks: EditorBlock[] = []
+            if (typeof post.content === 'string') {
+              try {
+                // If it's valid JSON, it might already be blocks
+                const parsed = JSON.parse(post.content) as EditorContent
+                if (parsed.blocks) blocks = parsed.blocks
+              } catch {
+                // Otherwise treat as plain string and parse it now
+                try {
+                  const contentObj = JSON.parse(textareaToEditorContentStr(post.content)) as EditorContent
+                  blocks = contentObj.blocks
+                } catch {
+                  // Fallback
+                  return <div className="whitespace-pre-wrap leading-relaxed">{post.content}</div>
+                }
+              }
+            } else if (post.content.blocks) {
+              blocks = post.content.blocks
+            }
+            return blocks.map((block, i) => renderBlock(block, i))
+          })()}
         </div>
       )}
 

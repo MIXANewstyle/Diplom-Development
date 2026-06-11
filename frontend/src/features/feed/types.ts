@@ -9,6 +9,7 @@ export type EditorBlock =
   | { type: 'paragraph'; data: { text: string } }
   | { type: 'header'; data: { text: string; level: number } }
   | { type: 'list'; data: { style: 'ordered' | 'unordered'; items: string[] } }
+  | { type: 'quote'; data: { text: string } }
 
 export type EditorContent = {
   time?: number
