@@ -4,6 +4,7 @@ import { useFeed } from '../hooks/useFeed'
 import { PostCard } from './PostCard'
 import { SortTabs } from './SortTabs'
 import { TagFilter } from './TagFilter'
+import { canEngage } from '../../../shared/lib/roles'
 import type { SortMode } from '../types'
 import type { AxiosError } from 'axios'
 
@@ -26,7 +27,7 @@ export function FeedList() {
   return (
     <div className="space-y-4">
       <SortTabs value={sort} onChange={setSort} />
-      <TagFilter selected={selectedTags} onToggle={handleToggleTag} />
+      {canEngage(user?.role) && <TagFilter selected={selectedTags} onToggle={handleToggleTag} />}
 
       {isPending && <p className="text-gray-500">Загрузка...</p>}
 

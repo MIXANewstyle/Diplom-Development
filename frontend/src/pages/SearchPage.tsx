@@ -3,7 +3,9 @@ import { useAuthStore } from '../shared/stores/authStore'
 import { useSearch } from '../features/search/hooks/useSearch'
 import { PostCard } from '../features/feed/components/PostCard'
 import { TagFilter } from '../features/feed/components/TagFilter'
-import type { AxiosError } from 'axios'
+import { canEngage } from '../shared/lib/roles'
+import { getErrorMessage } from '../shared/lib/errors'
+import axios from 'axios'
 
 export function SearchPage() {
   const [inputValue, setInputValue] = useState('')
@@ -27,8 +29,6 @@ export function SearchPage() {
     }
   }
 
-  const axiosError = error as AxiosError<{ message?: string }> | null
-
   return (
     <div className="space-y-4 max-w-3xl">
       <h1 className="text-2xl font-bold">Поиск</h1>
@@ -50,7 +50,7 @@ export function SearchPage() {
         </button>
       </form>
 
-      {query && <TagFilter selected={selectedTags} onToggle={handleToggleTag} />}
+      {canEngage(user?.role) && query && <TagFilter selected={selectedTags} onToggle={handleToggleTag} />}
 
       {!query && (
         <p className="text-gray-500">Введите запрос для поиска публикаций.</p>
@@ -58,11 +58,11 @@ export function SearchPage() {
 
       {query && isPending && <p className="text-gray-500">Загрузка...</p>}
 
-      {axiosError && (
+      {error && (
         <p className="text-red-500">
-          {axiosError.response?.status === 403
+          {axios.isAxiosError(error) && error.response?.status === 403
             ? `Для просмотра нужна подписка уровня BASIC или выше. Текущая роль: ${user?.role ?? 'неизвестна'}.`
-            : axiosError.response?.data?.message ?? axiosError.message}
+            : getErrorMessage(error)}
         </p>
       )}
 
