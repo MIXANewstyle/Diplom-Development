@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import axios from 'axios';
+import { getErrorMessage } from '../shared/lib/errors';
 import { useAuthStore } from '../shared/stores/authStore';
 import { useMyProfile } from '../features/profile/hooks/useMyProfile';
 import { ProfileView } from '../features/profile/components/ProfileView';
@@ -18,13 +18,7 @@ export function ProfilePage() {
   }
 
   if (error || !profile) {
-    let errorMsg = 'Ошибка загрузки профиля';
-    if (axios.isAxiosError(error) && error.response?.data?.message) {
-      errorMsg = error.response.data.message;
-    } else if (error instanceof Error) {
-      errorMsg = error.message;
-    }
-    return <div className="p-4 text-red-600">{errorMsg}</div>;
+    return <div className="p-4 text-red-600">{error ? getErrorMessage(error) : 'Ошибка загрузки профиля'}</div>;
   }
 
   return (

@@ -11,16 +11,11 @@ import {
   useUsersBatch,
   useUnfollow
 } from '../features/social/hooks'
-import axios from 'axios'
 import type { UserBrief } from '../features/social/types'
+import { getErrorMessage } from '../shared/lib/errors'
 
-// Generic error handler
 function handleReqErr(err: unknown, setter: (msg: string) => void) {
-  if (axios.isAxiosError(err)) {
-    setter(err.response?.data?.message || 'Ошибка выполнения действия')
-  } else {
-    setter('Неизвестная ошибка')
-  }
+  setter(getErrorMessage(err))
 }
 
 function UserRow({ 

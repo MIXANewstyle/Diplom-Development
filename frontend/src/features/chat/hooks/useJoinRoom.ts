@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { joinRoom } from '../api'
 import { isAxiosError } from 'axios'
+import { getErrorMessage } from '../../../shared/lib/errors'
 
 export const useJoinRoom = (roomId: string) => {
   const queryClient = useQueryClient()
@@ -15,7 +16,7 @@ export const useJoinRoom = (roomId: string) => {
       if (isAxiosError(error) && error.response?.status === 403) {
         alert('Для присоединения к комнате нужна подписка BASIC (или выше).')
       } else {
-        alert('Ошибка при присоединении: ' + (error as Error).message)
+        alert('Ошибка при присоединении: ' + getErrorMessage(error))
       }
     },
   })

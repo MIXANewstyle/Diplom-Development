@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useCheckout, useConfirmStubPayment, useValidatePromo } from '../hooks';
 import type { Plan } from '../types';
-import axios from 'axios';
+import { getErrorMessage } from '../../../shared/lib/errors';
+import { ErrorText } from '../../../shared/components/ErrorText';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface CheckoutPanelProps {
@@ -31,11 +32,7 @@ export function CheckoutPanel({ plan, onCancel }: CheckoutPanelProps) {
         setPromoError('Промокод недействителен');
       }
     } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        setPromoError(err.response?.data?.message || 'Ошибка проверки промокода');
-      } else {
-        setPromoError('Неизвестная ошибка');
-      }
+      setPromoError(getErrorMessage(err));
     }
   };
 
@@ -55,11 +52,7 @@ export function CheckoutPanel({ plan, onCancel }: CheckoutPanelProps) {
       
       onCancel(); // Close panel on success
     } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        setCheckoutError(err.response?.data?.message || 'Ошибка оплаты');
-      } else {
-        setCheckoutError('Неизвестная ошибка');
-      }
+      setCheckoutError(getErrorMessage(err));
     }
   };
 
@@ -102,17 +95,13 @@ export function CheckoutPanel({ plan, onCancel }: CheckoutPanelProps) {
             Проверить
           </button>
         </div>
-        {promoError && <p className="text-red-600 text-sm mt-1">{promoError}</p>}
+        <ErrorText error={promoError} />
         {finalAmount !== null && !promoError && (
           <p className="text-green-600 text-sm mt-1">Промокод применен!</p>
         )}
       </div>
 
-      {checkoutError && (
-        <div className="bg-red-50 text-red-600 p-3 rounded text-sm mb-4">
-          {checkoutError}
-        </div>
-      )}
+      <ErrorText error={checkoutError} className="bg-red-50 p-3 rounded mb-4 mt-0" />
 
       <div className="flex gap-2 justify-end">
         <button 

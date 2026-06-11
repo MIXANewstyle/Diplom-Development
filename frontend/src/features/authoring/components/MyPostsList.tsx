@@ -2,7 +2,7 @@ import type { MyPost } from '../types'
 import { POST_STATUS_MAP } from '../types'
 import { usePublishPost, useArchivePost, useDeletePost } from '../hooks'
 import { formatDate } from '../../../shared/lib/format'
-import axios from 'axios'
+import { getErrorMessage } from '../../../shared/lib/errors'
 
 export function MyPostsList({ posts, onEdit }: { posts: MyPost[], onEdit: (p: MyPost) => void }) {
   const publishPost = usePublishPost()
@@ -14,11 +14,7 @@ export function MyPostsList({ posts, onEdit }: { posts: MyPost[], onEdit: (p: My
   }
 
   const handleError = (err: unknown) => {
-    if (axios.isAxiosError(err)) {
-      alert(err.response?.data?.message || 'Произошла ошибка')
-    } else {
-      alert('Неизвестная ошибка')
-    }
+    alert(getErrorMessage(err))
   }
 
   const handleAction = async (action: () => Promise<any>) => {

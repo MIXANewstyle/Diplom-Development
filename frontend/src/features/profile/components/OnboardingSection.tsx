@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import type { MyProfile, PsychProfile } from '../types';
 import { parsePsychProfile, serializePsychProfile, psychProfileLength } from '../lib/psychProfile';
 import { useUpdateProfile } from '../hooks/useUpdateProfile';
-import axios from 'axios';
+import { getErrorMessage } from '../../../shared/lib/errors';
+import { ErrorText } from '../../../shared/components/ErrorText';
 
 interface OnboardingSectionProps {
   profile: MyProfile;
@@ -38,11 +39,7 @@ export function OnboardingSection({ profile }: OnboardingSectionProps) {
       setSuccessMsg('Анкета сохранена');
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        setErrorMsg(err.response?.data?.message || 'Ошибка сохранения анкеты');
-      } else {
-        setErrorMsg('Неизвестная ошибка');
-      }
+      setErrorMsg(getErrorMessage(err));
     }
   };
 
@@ -53,11 +50,7 @@ export function OnboardingSection({ profile }: OnboardingSectionProps) {
         Заполните эти поля, чтобы ИИ-терапевт лучше понимал вашу ситуацию. Это необязательно.
       </p>
 
-      {errorMsg && (
-        <div className="bg-red-50 text-red-600 p-3 rounded text-sm mb-4">
-          {errorMsg}
-        </div>
-      )}
+      <ErrorText error={errorMsg} className="bg-red-50 p-3 rounded mb-4 mt-0" />
       {successMsg && (
         <div className="bg-green-50 text-green-700 p-3 rounded text-sm mb-4">
           {successMsg}

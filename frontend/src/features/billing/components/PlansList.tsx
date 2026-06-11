@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { usePlans, useMySubscription, useClaimTrial } from '../hooks';
 import type { Plan } from '../types';
-import axios from 'axios';
+import { getErrorMessage } from '../../../shared/lib/errors';
+import { ErrorText } from '../../../shared/components/ErrorText';
 
 interface PlansListProps {
   onSelectPlan: (plan: Plan) => void;
@@ -22,15 +23,7 @@ export function PlansList({ onSelectPlan }: PlansListProps) {
     try {
       await claimTrial();
     } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        if (err.response?.status === 409) {
-          setTrialError('Пробный период уже использован');
-        } else {
-          setTrialError(err.response?.data?.message || 'Ошибка активации пробного периода');
-        }
-      } else {
-        setTrialError('Неизвестная ошибка');
-      }
+      setTrialError(getErrorMessage(err));
     }
   };
 
@@ -40,11 +33,7 @@ export function PlansList({ onSelectPlan }: PlansListProps) {
     <div className="space-y-4">
       <h2 className="text-xl font-bold">Тарифные планы</h2>
       
-      {trialError && (
-        <div className="bg-red-50 text-red-600 p-3 rounded text-sm">
-          {trialError}
-        </div>
-      )}
+      <ErrorText error={trialError} className="bg-red-50 p-3 rounded mb-4 mt-0" />
 
       {!trialUsed && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">

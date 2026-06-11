@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useLogin } from '../hooks/useLogin'
-import { isAxiosError } from 'axios'
-import type { ApiErrorResponse } from '../../../shared/types/api'
+import { getErrorMessage } from '../../../shared/lib/errors'
+import { ErrorText } from '../../../shared/components/ErrorText'
+import axios from 'axios'
 
 export function LoginForm() {
   const [email, setEmail] = useState('')
@@ -13,16 +14,10 @@ export function LoginForm() {
     mutate({ email, password })
   }
 
-  let errorMessage = ''
   let fieldErrors: Record<string, string> = {}
 
-  if (error) {
-    if (isAxiosError<ApiErrorResponse>(error)) {
-      errorMessage = error.response?.data?.message ?? error.message
-      fieldErrors = error.response?.data?.fieldErrors ?? {}
-    } else {
-      errorMessage = error.message ?? 'Произошла ошибка'
-    }
+  if (error && axios.isAxiosError(error)) {
+    fieldErrors = error.response?.data?.fieldErrors ?? {}
   }
 
   return (
@@ -36,7 +31,7 @@ export function LoginForm() {
           onChange={(e) => setEmail(e.target.value)}
           className="w-full border rounded p-2"
         />
-        {fieldErrors.email && <p className="text-red-600 text-sm mt-1">{fieldErrors.email}</p>}
+        <ErrorText error={fieldErrors.email} />
       </div>
       <div>
         <label className="block text-sm font-medium mb-1">Пароль</label>
@@ -47,10 +42,10 @@ export function LoginForm() {
           onChange={(e) => setPassword(e.target.value)}
           className="w-full border rounded p-2"
         />
-        {fieldErrors.password && <p className="text-red-600 text-sm mt-1">{fieldErrors.password}</p>}
+        <ErrorText error={fieldErrors.password} />
       </div>
 
-      {errorMessage && <p className="text-red-600 font-medium">{errorMessage}</p>}
+      <ErrorText error={getErrorMessage(error)} className="font-medium text-base" />
 
       <button
         type="submit"

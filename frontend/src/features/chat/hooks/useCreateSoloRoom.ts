@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { createSoloRoom } from '../api'
 import { isAxiosError } from 'axios'
+import { getErrorMessage } from '../../../shared/lib/errors'
 
 export const useCreateSoloRoom = () => {
   const queryClient = useQueryClient()
@@ -17,7 +18,7 @@ export const useCreateSoloRoom = () => {
       if (isAxiosError(error) && error.response?.status === 403) {
         alert('Для создания комнаты нужна подписка BASIC (или выше).')
       } else {
-        alert('Ошибка при создании комнаты: ' + (error as Error).message)
+        alert('Ошибка при создании комнаты: ' + getErrorMessage(error))
       }
     },
   })

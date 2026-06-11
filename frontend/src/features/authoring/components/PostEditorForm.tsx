@@ -3,7 +3,8 @@ import type { MyPost, PostFormValues } from '../types'
 import { useCreatePost, useUpdatePost } from '../hooks'
 import { editorContentToTextarea, textareaToEditorContentStr } from '../lib/content'
 import { useTags } from '../../feed/hooks/useTags'
-import axios from 'axios'
+import { getErrorMessage } from '../../../shared/lib/errors'
+import { ErrorText } from '../../../shared/components/ErrorText'
 
 interface Props {
   initialPost?: MyPost
@@ -68,11 +69,7 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
       }
       onClose()
     } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        setErrorMsg(err.response?.data?.message || 'Ошибка сохранения')
-      } else {
-        setErrorMsg('Неизвестная ошибка')
-      }
+      setErrorMsg(getErrorMessage(err))
     }
   }
 
@@ -86,7 +83,7 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
     <form onSubmit={handleSave} className="flex flex-col gap-4 bg-white p-6 rounded-lg shadow-sm border">
       <h2 className="text-xl font-bold">{initialPost ? 'Редактировать пост' : 'Новый пост'}</h2>
 
-      {errorMsg && <div className="text-red-500 text-sm bg-red-50 p-3 rounded">{errorMsg}</div>}
+      <ErrorText error={errorMsg} className="bg-red-50 p-3 rounded mt-0" />
 
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium">Название *</label>

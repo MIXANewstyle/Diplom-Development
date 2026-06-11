@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { MyProfile, GenderId } from '../types';
 import { GENDER_OPTIONS } from '../types';
 import { useUpdateProfile } from '../hooks/useUpdateProfile';
+import { getErrorMessage } from '../../../shared/lib/errors';
+import { ErrorText } from '../../../shared/components/ErrorText';
 import axios from 'axios';
 
 interface ProfileEditFormProps {
@@ -48,14 +50,10 @@ export function ProfileEditForm({ profile, onCancel, onSaved }: ProfileEditFormP
       });
       onSaved();
     } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        if (err.response?.status === 409) {
-          setErrorMsg('Имя пользователя уже занято');
-        } else {
-          setErrorMsg(err.response?.data?.message || 'Ошибка сохранения');
-        }
+      if (axios.isAxiosError(err) && err.response?.status === 409) {
+        setErrorMsg('Имя пользователя уже занято');
       } else {
-        setErrorMsg('Неизвестная ошибка');
+        setErrorMsg(getErrorMessage(err));
       }
     }
   };
@@ -64,11 +62,7 @@ export function ProfileEditForm({ profile, onCancel, onSaved }: ProfileEditFormP
     <div className="bg-white border border-gray-200 rounded-lg p-6">
       <h2 className="text-xl font-bold mb-4">Редактирование профиля</h2>
       
-      {errorMsg && (
-        <div className="bg-red-50 text-red-600 p-3 rounded text-sm mb-4">
-          {errorMsg}
-        </div>
-      )}
+      <ErrorText error={errorMsg} className="bg-red-50 p-3 rounded mb-4 mt-0" />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

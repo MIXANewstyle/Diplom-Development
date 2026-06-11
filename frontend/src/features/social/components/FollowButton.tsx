@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useAuthStore } from '../../../shared/stores/authStore'
 import { useMyFollows, useFollow, useUnfollow } from '../hooks'
-import axios from 'axios'
+import { getErrorMessage } from '../../../shared/lib/errors'
+import { ErrorText } from '../../../shared/components/ErrorText'
 
 export function FollowButton({ authorId }: { authorId: string }) {
   const user = useAuthStore((s) => s.user)
@@ -24,11 +25,7 @@ export function FollowButton({ authorId }: { authorId: string }) {
         await follow.mutateAsync(authorId)
       }
     } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        setErrorMsg(err.response?.data?.message || 'Ошибка подписки')
-      } else {
-        setErrorMsg('Неизвестная ошибка')
-      }
+      setErrorMsg(getErrorMessage(err))
     }
   }
 
@@ -47,7 +44,7 @@ export function FollowButton({ authorId }: { authorId: string }) {
       >
         {isFollowing ? 'Отписаться' : 'Подписаться'}
       </button>
-      {errorMsg && <span className="text-xs text-red-500">{errorMsg}</span>}
+      <ErrorText error={errorMsg} className="text-xs" />
     </div>
   )
 }
