@@ -12,6 +12,7 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
   'Promo code is invalid or exhausted': 'Промокод недействителен или исчерпан',
   'Cannot upvote your own post': 'Нельзя оценивать собственный пост',
   'Cannot upvote a post that is not published': 'Оценивать можно только опубликованные посты',
+  'LLM rate limit exceeded. Try again in a moment.': 'Лимит запросов к ИИ исчерпан — подождите минуту и попробуйте снова.',
 }
 
 export function getErrorMessage(error: unknown): string {
@@ -34,8 +35,9 @@ export function getErrorMessage(error: unknown): string {
 
     // Map known backend messages to Russian
     if (data.message) {
-      if (ERROR_MESSAGE_MAP[data.message]) {
-        return ERROR_MESSAGE_MAP[data.message]
+      const matchedKey = Object.keys(ERROR_MESSAGE_MAP).find(k => data.message.startsWith(k))
+      if (matchedKey) {
+        return ERROR_MESSAGE_MAP[matchedKey]
       }
       
       // If the message is reasonably short, surface it, otherwise generic fallback

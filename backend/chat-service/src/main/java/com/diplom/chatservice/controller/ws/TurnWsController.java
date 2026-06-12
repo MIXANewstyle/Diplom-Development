@@ -222,6 +222,11 @@ public class TurnWsController {
                             log.info("TURN_CHANGED broadcast roomId={} floorHolder={}",
                                     roomId, updatedRoom.getCurrentFloorParticipantId());
                         }
+                    } catch (com.diplom.chatservice.exception.LlmRateLimitedException e) {
+                        log.warn("AI task failed due to rate limit roomId={}", roomId);
+                        turnPersistenceService.handleAiFailure(roomId);
+                        timer.stop(meterRegistry.timer("chat.turn.roundtrip.latency", "outcome", "failure"));
+                        roomBroadcaster.broadcast(roomId, AiErrorEvent.of(e.getMessage()));
                     } catch (Throwable t) {
                         log.error("AI task failed roomId={}", roomId, t);
                         turnPersistenceService.handleAiFailure(roomId);

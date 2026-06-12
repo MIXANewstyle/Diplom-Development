@@ -168,4 +168,20 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = createBody(HttpStatus.GONE, "Gone", ex.getMessage());
         return new ResponseEntity<>(body, HttpStatus.GONE);
     }
+
+    @ExceptionHandler(com.diplom.chatservice.exception.LlmRateLimitedException.class)
+    public ResponseEntity<Object> handleLlmRateLimitedException(com.diplom.chatservice.exception.LlmRateLimitedException ex) {
+        log.warn("LlmRateLimitedException: {}", ex.getMessage());
+        String msg = ex.getMessage();
+        if (ex.getRetryAfterSeconds() != null) {
+            msg += " (~" + ex.getRetryAfterSeconds() + "s)";
+        }
+        Map<String, Object> body = createBody(HttpStatus.TOO_MANY_REQUESTS, "Too Many Requests", msg);
+        
+        ResponseEntity.BodyBuilder builder = ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS);
+        if (ex.getRetryAfterSeconds() != null) {
+            builder.header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()));
+        }
+        return builder.body(body);
+    }
 }

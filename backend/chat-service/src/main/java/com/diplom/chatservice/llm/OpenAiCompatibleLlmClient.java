@@ -105,12 +105,15 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
                     meterRegistry.counter("chat.llm.errors.total", "status", String.valueOf(e.getStatusCode().value())).increment();
                     // 4xx errors - NEVER retry, do not log body, do not leak API keys
                     if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
-                        if (attempt > this.maxRetries) {
-                            log.error("LLM complete failed after {} attempts due to 429 Too Many Requests.", attempt);
-                            throw new LlmUnavailableException("LLM provider rate limit exceeded");
+                        Long retryAfterSeconds = null;
+                        String retryAfterHeader = e.getResponseHeaders() != null ? e.getResponseHeaders().getFirst("Retry-After") : null;
+                        if (retryAfterHeader != null) {
+                            try {
+                                retryAfterSeconds = Long.parseLong(retryAfterHeader);
+                            } catch (NumberFormatException ignored) {}
                         }
-                        meterRegistry.counter("chat.llm.retries.total").increment();
-                        throw e; // Caught by outer catch
+                        log.warn("LLM complete failed with 429 Too Many Requests: status={}, body={}", e.getStatusCode().value(), e.getResponseBodyAsString());
+                        throw new com.diplom.chatservice.exception.LlmRateLimitedException("LLM rate limit exceeded. Try again in a moment.", retryAfterSeconds);
                     } else {
                         log.error("LLM complete failed with 4xx error: status={}, model={}", e.getStatusCode().value(), this.model);
                         throw new LlmUnavailableException("LLM provider client error: " + e.getStatusCode().value());
@@ -166,8 +169,8 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
 
             } catch (HttpClientErrorException | HttpServerErrorException | ResourceAccessException e) {
                 // Caught above to handle retries and metrics, fall through to backoff
-            } catch (LlmUnavailableException e) {
-                throw e; // rethrow empty response
+            } catch (LlmUnavailableException | com.diplom.chatservice.exception.LlmRateLimitedException e) {
+                throw e; // rethrow empty response or rate limit
             } catch (Exception e) {
                 // Unknown exception
                 meterRegistry.counter("chat.llm.errors.total", "status", "unknown").increment();
