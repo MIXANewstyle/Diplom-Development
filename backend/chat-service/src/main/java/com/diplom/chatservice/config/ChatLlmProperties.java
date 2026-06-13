@@ -12,6 +12,7 @@ public record ChatLlmProperties(
         double temperature,
         long requestTimeoutMs,
         int maxRetries,
+        boolean logPayload,
         int promptTokenBudget,
         int hardTurnCap,
         ContextProps context,

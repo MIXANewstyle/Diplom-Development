@@ -23,10 +23,13 @@ import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Component
 public class OpenAiCompatibleLlmClient implements LlmClient {
+
+    private static final AtomicLong REQUEST_SEQ = new AtomicLong();
 
     private final RestTemplate restTemplate;
     private final MeterRegistry meterRegistry;
@@ -34,6 +37,7 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
     private final String model;
     private final String apiKey;
     private final int maxRetries;
+    private final boolean logPayload;
 
     public OpenAiCompatibleLlmClient(
             RestTemplateBuilder restTemplateBuilder,
@@ -44,12 +48,17 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
         this.model = properties.model();
         this.apiKey = properties.apiKey();
         this.maxRetries = properties.maxRetries();
+        this.logPayload = properties.logPayload();
         this.meterRegistry = meterRegistry;
 
         this.restTemplate = restTemplateBuilder
                 .setConnectTimeout(Duration.ofMillis(properties.requestTimeoutMs()))
                 .setReadTimeout(Duration.ofMillis(properties.requestTimeoutMs()))
                 .build();
+
+        if (this.logPayload) {
+            log.warn("chat.llm.log-payload is ENABLED — full conversation content is being written to logs. NEVER enable in production.");
+        }
     }
 
     @jakarta.annotation.PostConstruct
@@ -89,6 +98,11 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
 
         while (true) {
             attempt++;
+            long seq = 0;
+            if (this.logPayload) {
+                seq = REQUEST_SEQ.incrementAndGet();
+                logLlmRequestPayload(seq, attempt, url, openAiRequest);
+            }
             try {
                 long startTime = System.currentTimeMillis();
                 Timer.Sample sample = Timer.start(meterRegistry);
@@ -165,6 +179,10 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
                 log.info("LLM complete success: model={}, latencyMs={}, promptTokens={}, completionTokens={}, status={}",
                         this.model, latency, promptTokens, completionTokens, response.getStatusCode().value());
 
+                if (this.logPayload) {
+                    logLlmResponse(seq, content, promptTokens, completionTokens);
+                }
+
                 return new LlmResponse(content, promptTokens, completionTokens, finishReason);
 
             } catch (HttpClientErrorException | HttpServerErrorException | ResourceAccessException e) {
@@ -189,6 +207,32 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
                 throw new LlmUnavailableException("Thread interrupted during retry backoff");
             }
         }
+    }
+
+    private void logLlmRequestPayload(long seq, int attempt, String url, OpenAiRequest request) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== LLM REQUEST #").append(seq)
+                .append(" (attempt ").append(attempt).append(") → ").append(url)
+                .append(" | model=").append(request.model())
+                .append(" maxTokens=").append(request.maxTokens())
+                .append(" temp=").append(request.temperature())
+                .append(" ===\n");
+        for (OpenAiMessage msg : request.messages()) {
+            String content = msg.content() != null ? msg.content() : "";
+            sb.append("[").append(msg.role()).append("] (").append(content.length()).append(" chars)\n");
+            sb.append(content).append('\n');
+        }
+        sb.append("=== END LLM REQUEST #").append(seq).append(" ===");
+        log.info(sb.toString());
+    }
+
+    private void logLlmResponse(long seq, String content, Integer promptTokens, Integer completionTokens) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== LLM RESPONSE #").append(seq).append(" ===\n");
+        sb.append(content != null ? content : "").append('\n');
+        sb.append("usage: promptTokens=").append(promptTokens)
+                .append(" completionTokens=").append(completionTokens);
+        log.info(sb.toString());
     }
 
     private record OpenAiMessage(String role, String content) {}

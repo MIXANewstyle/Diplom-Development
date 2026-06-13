@@ -65,6 +65,8 @@ chat:
     temperature: 0.7
     request-timeout-ms: 45000
     max-retries: 2
+    # NEVER enable in production — writes full conversation content to logs (GDPR/privacy).
+    log-payload: ${LLM_LOG_PAYLOAD:false}
     prompt-token-budget: 6000
     hard-turn-cap: 60
     context:
