@@ -1,7 +1,6 @@
 package com.diplom.billingservice.service;
 
 import com.diplom.billingservice.dto.TransactionResponse;
-import com.diplom.billingservice.entity.Transaction;
 import com.diplom.billingservice.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

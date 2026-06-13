@@ -117,7 +117,9 @@ public class ProfileCacheService {
             UUID id = idValue instanceof UUID uuid ? uuid : UUID.fromString(String.valueOf(idValue));
             Object avatar = map.get("avatarUrl");
             String avatarUrl = avatar == null ? null : String.valueOf(avatar);
-            return new UserBatchResponse(id, String.valueOf(username), avatarUrl);
+            Object fullName = map.get("fullName");
+            String fullNameStr = fullName == null ? null : String.valueOf(fullName);
+            return new UserBatchResponse(id, String.valueOf(username), fullNameStr, avatarUrl);
         }
         return null;
     }

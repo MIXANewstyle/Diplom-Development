@@ -5,7 +5,6 @@ import com.diplom.chatservice.service.FriendLinkProjectionService;
 import com.diplom.chatservice.service.ModerationBlocklistService;
 import com.diplom.chatservice.service.RoleCacheService;
 import com.diplom.chatservice.service.RoomService;
-import com.diplom.chatservice.service.WsSessionRegistry;
 import com.diplom.chatservice.consumer.dto.RoleUpdatedEvent;
 import com.diplom.chatservice.consumer.dto.AccountModeratedEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -29,7 +28,6 @@ public class UserEventsConsumer {
     private final ModerationBlocklistService moderationBlocklistService;
     private final RoleCacheService roleCacheService;
     private final RoomService roomService;
-    private final WsSessionRegistry wsSessionRegistry;
     private final ObjectMapper objectMapper;
     private final org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
 

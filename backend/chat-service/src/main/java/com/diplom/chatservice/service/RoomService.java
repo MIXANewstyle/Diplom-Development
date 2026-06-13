@@ -546,8 +546,9 @@ public class RoomService {
 
     @Transactional(readOnly = true)
     public TurnsPageResponse getTurns(UUID roomId, Object principal, int page, int size) {
-        Room room = roomRepository.findById(roomId)
-            .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
+        if (!roomRepository.existsById(roomId)) {
+            throw new RoomNotFoundException("Room not found: " + roomId);
+        }
 
         com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
 

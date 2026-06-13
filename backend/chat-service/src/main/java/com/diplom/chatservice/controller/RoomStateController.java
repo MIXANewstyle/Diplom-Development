@@ -22,7 +22,6 @@ import org.springframework.messaging.simp.annotation.SubscribeMapping;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Controller;
 
-import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;

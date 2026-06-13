@@ -200,17 +200,17 @@ public class SocialService {
                 
         List<UserBatchResponse> friends = friendsIds.stream()
                 .filter(profiles::containsKey)
-                .map(id -> new UserBatchResponse(id, profiles.get(id).getUsername(), profiles.get(id).getAvatarUrl()))
+                .map(id -> new UserBatchResponse(id, profiles.get(id).getUsername(), profiles.get(id).getFullName(), profiles.get(id).getAvatarUrl()))
                 .toList();
                 
         List<UserBatchResponse> incoming = incomingIds.stream()
                 .filter(profiles::containsKey)
-                .map(id -> new UserBatchResponse(id, profiles.get(id).getUsername(), profiles.get(id).getAvatarUrl()))
+                .map(id -> new UserBatchResponse(id, profiles.get(id).getUsername(), profiles.get(id).getFullName(), profiles.get(id).getAvatarUrl()))
                 .toList();
                 
         List<UserBatchResponse> outgoing = outgoingIds.stream()
                 .filter(profiles::containsKey)
-                .map(id -> new UserBatchResponse(id, profiles.get(id).getUsername(), profiles.get(id).getAvatarUrl()))
+                .map(id -> new UserBatchResponse(id, profiles.get(id).getUsername(), profiles.get(id).getFullName(), profiles.get(id).getAvatarUrl()))
                 .toList();
                 
         return new MyFriendsResponse(friends, incoming, outgoing);

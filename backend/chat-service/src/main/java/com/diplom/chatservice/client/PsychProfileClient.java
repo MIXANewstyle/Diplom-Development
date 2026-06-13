@@ -59,6 +59,7 @@ public class PsychProfileClient {
 
             HttpEntity<Void> request = new HttpEntity<>(headers);
 
+            @SuppressWarnings("rawtypes")
             ResponseEntity<Map> response = restTemplate.exchange(
                     baseUrl + "/internal/v1/users/" + userId + "/psych-profile",
                     HttpMethod.GET,

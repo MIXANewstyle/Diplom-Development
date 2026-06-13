@@ -17,7 +17,6 @@ import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 
 import java.time.OffsetDateTime;
 
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;

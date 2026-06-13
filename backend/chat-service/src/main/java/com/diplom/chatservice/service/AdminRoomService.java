@@ -31,10 +31,6 @@ public class AdminRoomService {
     private final InviteRepository inviteRepository;
     private final RoomBroadcaster roomBroadcaster;
 
-    private static final int STATUS_CREATED = 1;
-    private static final int STATUS_WAITING_CONSENT = 2;
-    private static final int STATUS_ACTIVE = 3;
-    private static final int STATUS_ENDING = 4;
     private static final int STATUS_ARCHIVED = 5;
     private static final int STATUS_ABANDONED = 6;
     private static final int STATUS_EXPIRED = 7;
