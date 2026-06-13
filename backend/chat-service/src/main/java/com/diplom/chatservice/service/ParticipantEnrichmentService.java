@@ -61,7 +61,7 @@ public class ParticipantEnrichmentService {
                             base.guestDisplayName(),
                             base.guestGenderId(),
                             base.guestAge(),
-                            profile.username(),  // displayName
+                            profile.getDisplayName(),  // displayName
                             profile.avatarUrl()   // avatarUrl
                         );
                     }

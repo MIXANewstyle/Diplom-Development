@@ -129,7 +129,7 @@ public class ContextSnapshotService {
 
             UUID userId = p.getUserId();
             UserBatchResponse profile = profiles.get(userId);
-            String displayName = profile != null ? profile.username() : null;
+            String displayName = profile != null ? profile.getDisplayName() : null;
             String about = aboutMap.get(userId);
 
             try {

@@ -121,7 +121,7 @@ public class InviteService {
             Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(List.of(initiator.getUserId()), null);
             UserBatchResponse profile = profiles.get(initiator.getUserId());
             if (profile != null) {
-                hostName = profile.username();
+                hostName = profile.getDisplayName();
             }
         }
 

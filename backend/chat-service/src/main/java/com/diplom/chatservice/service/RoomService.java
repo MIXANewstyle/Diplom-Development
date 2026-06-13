@@ -508,7 +508,7 @@ public class RoomService {
                     if (p.getUserId() != null && !p.getUserId().equals(callerId)) {
                         com.diplom.chatservice.dto.UserBatchResponse profile = profiles.get(p.getUserId());
                         if (profile != null) {
-                            otherDisplayName = profile.username();
+                            otherDisplayName = profile.getDisplayName();
                             otherAvatarUrl = profile.avatarUrl();
                         }
                         break;

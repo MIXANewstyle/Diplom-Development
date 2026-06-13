@@ -157,7 +157,7 @@ public class UserService {
         List<UUID> dedupedIds = ids.stream().distinct().toList();
         List<UserProfile> profiles = userProfileRepository.findAllByUserIdIn(dedupedIds);
         return profiles.stream()
-                .map(p -> new UserBatchResponse(p.getUser().getId(), p.getUsername(), p.getAvatarUrl()))
+                .map(p -> new UserBatchResponse(p.getUser().getId(), p.getUsername(), p.getFullName(), p.getAvatarUrl()))
                 .toList();
     }
 
@@ -195,7 +195,7 @@ public class UserService {
         
         return profiles.stream()
                 .filter(p -> !p.getId().equals(currentUserId))
-                .map(p -> new UserBatchResponse(p.getId(), p.getUsername(), p.getAvatarUrl()))
+                .map(p -> new UserBatchResponse(p.getId(), p.getUsername(), p.getFullName(), p.getAvatarUrl()))
                 .toList();
     }
 }
