@@ -19,6 +19,8 @@ export const PairedRoomView = ({ roomId }: Props) => {
   const { data: room, isLoading: isRoomLoading, isError: isRoomError } = useRoom(roomId)
   const joinRoomMutation = useJoinRoom(roomId)
 
+  const myParticipantId = room?.participants?.find((p) => p.userId === myId)?.id
+
   const {
     status: wsStatus,
     error: wsError,
@@ -41,7 +43,7 @@ export const PairedRoomView = ({ roomId }: Props) => {
     agreeEnd,
     declineEnd,
     finishThought,
-  } = useRoomSocket(roomId)
+  } = useRoomSocket(roomId, myParticipantId)
 
   const { data: turnsPage } = useTurns(roomId)
 
@@ -90,8 +92,7 @@ export const PairedRoomView = ({ roomId }: Props) => {
   const amIHost = room.ownerUserId === myId
   
   // Current user's consent state
-  const myParticipantId = myParticipant?.id
-  const haveIConsented = myParticipantId ? !!consentByParticipant[myParticipantId] || !!myParticipant.consentStartAt : false
+  const haveIConsented = myParticipantId ? !!consentByParticipant[myParticipantId] || !!myParticipant?.consentStartAt : false
 
   const handleJoin = () => {
     joinRoomMutation.mutate()

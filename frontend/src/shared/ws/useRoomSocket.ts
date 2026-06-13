@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { StompSubscription } from '@stomp/stompjs'
 import { stompClient } from './stompClient'
 import { wsAssistantTurnToResponse, wsUserTurnToResponse } from './normalizeTurn'
@@ -19,7 +19,9 @@ type ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
 
 const OFFLINE_DEBOUNCE_MS = 2000
 
-export const useRoomSocket = (roomId: string) => {
+export const useRoomSocket = (roomId: string, myParticipantId?: string) => {
+  const myParticipantIdRef = useRef<string | undefined>(myParticipantId)
+  const ownDraftBubbleIdsRef = useRef(new Set<string>())
   const [status, setStatus] = useState<ConnectionStatus>('disconnected')
   const [snapshot, setSnapshot] = useState<RoomStateSnapshot | null>(null)
   const [lastEvent, setLastEvent] = useState<unknown>(null)
@@ -40,12 +42,22 @@ export const useRoomSocket = (roomId: string) => {
 
   const sendConsentStart = () => stompClient.publish(`/app/rooms/${roomId}/consent/start`, {})
   const sendConsentRevoke = () => stompClient.publish(`/app/rooms/${roomId}/consent/revoke`, {})
-  const upsertDraft = (bubbleId: string, text: string) => stompClient.publish(`/app/rooms/${roomId}/draft/upsert`, { bubbleId, text })
-  const deleteDraft = (bubbleId: string) => stompClient.publish(`/app/rooms/${roomId}/draft/delete`, { bubbleId })
+  const upsertDraft = (bubbleId: string, text: string) => {
+    ownDraftBubbleIdsRef.current.add(bubbleId)
+    stompClient.publish(`/app/rooms/${roomId}/draft/upsert`, { bubbleId, text })
+  }
+  const deleteDraft = (bubbleId: string) => {
+    ownDraftBubbleIdsRef.current.delete(bubbleId)
+    stompClient.publish(`/app/rooms/${roomId}/draft/delete`, { bubbleId })
+  }
   const finishThought = (turnSeq: number) => stompClient.publish(`/app/rooms/${roomId}/finish`, { turnSeq })
   const proposeEnd = () => stompClient.publish(`/app/rooms/${roomId}/end/propose`, {})
   const agreeEnd = () => stompClient.publish(`/app/rooms/${roomId}/end/agree`, {})
   const declineEnd = () => stompClient.publish(`/app/rooms/${roomId}/end/decline`, {})
+
+  useEffect(() => {
+    myParticipantIdRef.current = myParticipantId
+  }, [myParticipantId])
 
   useEffect(() => {
     if (!roomId) return
@@ -53,6 +65,8 @@ export const useRoomSocket = (roomId: string) => {
     let isMounted = true
     const subscriptions: StompSubscription[] = []
     const offlineTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+    ownDraftBubbleIdsRef.current = new Set()
 
     setStatus('connecting')
     setError(null)
@@ -132,12 +146,22 @@ export const useRoomSocket = (roomId: string) => {
           setDialogueStarted(true)
           setCurrentFloorParticipantId(String(msg.currentFloorParticipantId))
         } else if (msg?.type === 'DRAFT_BROADCAST') {
+          const bubbleId = String(msg.bubbleId)
+          const senderId = String(msg.participantId)
+          const isOwnDraft =
+            ownDraftBubbleIdsRef.current.has(bubbleId) ||
+            (!!myParticipantIdRef.current && senderId === myParticipantIdRef.current)
+
+          if (isOwnDraft) {
+            return
+          }
+
           setOtherDrafts((prev) => {
             const next = { ...prev }
             if (msg.op === 'UPSERT') {
-              next[msg.bubbleId] = msg.text
+              next[bubbleId] = msg.text
             } else if (msg.op === 'DELETE') {
-              delete next[msg.bubbleId]
+              delete next[bubbleId]
             }
             return next
           })

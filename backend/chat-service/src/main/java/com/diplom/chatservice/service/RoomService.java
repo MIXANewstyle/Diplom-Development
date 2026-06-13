@@ -495,7 +495,11 @@ public class RoomService {
                 RoomParticipant myParticipant = participants.stream()
                     .filter(p -> callerId.equals(p.getUserId()))
                     .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("Participant not found"));
+                    .orElse(null);
+                if (myParticipant == null) {
+                    log.warn("Participant {} not found for room {}, skipping from list", callerId, room.getId());
+                    return null;
+                }
 
                 // Find the other participant (if any — solo rooms have none)
                 String otherDisplayName = null;
@@ -519,6 +523,7 @@ public class RoomService {
                 return mapper.toRoomSummaryResponse(room, myParticipant,
                     otherDisplayName, otherAvatarUrl);
             })
+            .filter(java.util.Objects::nonNull)
             .toList();
     }
 

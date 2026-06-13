@@ -54,8 +54,8 @@ public class ProfileCacheService {
         // 1. Try cache for each id.
         for (UUID id : distinct) {
             String key = KEY_PREFIX + id + KEY_SUFFIX;
-            Object cached = redisTemplate.opsForValue().get(key);
-            if (cached instanceof UserBatchResponse profile) {
+            UserBatchResponse profile = readFromCache(key);
+            if (profile != null) {
                 result.put(id, profile);
             } else {
                 misses.add(id);
@@ -75,5 +75,50 @@ public class ProfileCacheService {
         }
 
         return result;
+    }
+
+    /**
+     * Reads a cached profile. Entries written by other services (e.g. content-service)
+     * use a different {@code @class} and may deserialize as {@link Map} or fail
+     * deserialization entirely — both cases are treated as cache misses.
+     */
+    private UserBatchResponse readFromCache(String key) {
+        try {
+            Object cached = redisTemplate.opsForValue().get(key);
+            return toUserBatchResponse(cached);
+        } catch (Exception ex) {
+            log.warn("Failed to read profile cache key {}: {}", key, ex.getMessage());
+            evictCacheKey(key);
+            return null;
+        }
+    }
+
+    private void evictCacheKey(String key) {
+        try {
+            redisTemplate.delete(key);
+        } catch (Exception ex) {
+            log.debug("Failed to evict profile cache key {}: {}", key, ex.getMessage());
+        }
+    }
+
+    private UserBatchResponse toUserBatchResponse(Object cached) {
+        if (cached == null) {
+            return null;
+        }
+        if (cached instanceof UserBatchResponse profile) {
+            return profile;
+        }
+        if (cached instanceof Map<?, ?> map) {
+            Object idValue = map.get("id");
+            Object username = map.get("username");
+            if (idValue == null || username == null) {
+                return null;
+            }
+            UUID id = idValue instanceof UUID uuid ? uuid : UUID.fromString(String.valueOf(idValue));
+            Object avatar = map.get("avatarUrl");
+            String avatarUrl = avatar == null ? null : String.valueOf(avatar);
+            return new UserBatchResponse(id, String.valueOf(username), avatarUrl);
+        }
+        return null;
     }
 }

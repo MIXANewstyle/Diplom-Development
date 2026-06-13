@@ -16,6 +16,10 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
 }
 
 export function getErrorMessage(error: unknown): string {
+  if (!error) {
+    return ''
+  }
+
   if (axios.isAxiosError<ApiErrorResponse>(error)) {
     // If we have a network error or timeout
     if (!error.response) {

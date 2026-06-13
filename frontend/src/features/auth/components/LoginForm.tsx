@@ -45,7 +45,7 @@ export function LoginForm() {
         <ErrorText error={fieldErrors.password} />
       </div>
 
-      <ErrorText error={getErrorMessage(error)} className="font-medium text-base" />
+      <ErrorText error={error ? getErrorMessage(error) : null} className="font-medium text-base" />
 
       <button
         type="submit"
