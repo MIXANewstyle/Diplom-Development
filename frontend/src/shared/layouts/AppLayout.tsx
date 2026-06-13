@@ -16,7 +16,7 @@ export function AppLayout() {
     <div className="min-h-screen flex flex-col text-gray-700">
       <header className="bg-gray-100 border-b border-gray-300">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="font-bold text-lg">Mindspace</div>
+          <NavLink to="/feed" className="font-bold text-lg">Claudium</NavLink>
           
           <nav className="flex gap-6">
             <NavLink 
