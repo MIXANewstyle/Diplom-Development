@@ -21,6 +21,11 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 
 import java.time.Duration;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -30,6 +35,8 @@ import java.util.concurrent.atomic.AtomicLong;
 public class OpenAiCompatibleLlmClient implements LlmClient {
 
     private static final AtomicLong REQUEST_SEQ = new AtomicLong();
+    private static final Path PAYLOAD_LOG_FILE = Path.of("llm-payload.log");
+    private static final Object PAYLOAD_LOG_LOCK = new Object();
 
     private final RestTemplate restTemplate;
     private final MeterRegistry meterRegistry;
@@ -57,7 +64,8 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
                 .build();
 
         if (this.logPayload) {
-            log.warn("chat.llm.log-payload is ENABLED — full conversation content is being written to logs. NEVER enable in production.");
+            log.warn("chat.llm.log-payload is ENABLED — full conversation content is being written to logs and {} (UTF-8). NEVER enable in production.",
+                    PAYLOAD_LOG_FILE.toAbsolutePath());
         }
     }
 
@@ -223,7 +231,7 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
             sb.append(content).append('\n');
         }
         sb.append("=== END LLM REQUEST #").append(seq).append(" ===");
-        log.info(sb.toString());
+        appendPayloadLog(sb.toString());
     }
 
     private void logLlmResponse(long seq, String content, Integer promptTokens, Integer completionTokens) {
@@ -232,7 +240,23 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
         sb.append(content != null ? content : "").append('\n');
         sb.append("usage: promptTokens=").append(promptTokens)
                 .append(" completionTokens=").append(completionTokens);
-        log.info(sb.toString());
+        appendPayloadLog(sb.toString());
+    }
+
+    private void appendPayloadLog(String text) {
+        log.info(text);
+        synchronized (PAYLOAD_LOG_LOCK) {
+            try {
+                Files.writeString(
+                        PAYLOAD_LOG_FILE,
+                        text + System.lineSeparator(),
+                        StandardCharsets.UTF_8,
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.APPEND);
+            } catch (IOException e) {
+                log.warn("Failed to append LLM payload log file {}: {}", PAYLOAD_LOG_FILE.toAbsolutePath(), e.getMessage());
+            }
+        }
     }
 
     private record OpenAiMessage(String role, String content) {}
