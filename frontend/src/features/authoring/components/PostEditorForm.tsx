@@ -187,11 +187,11 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
         />
       </div>
 
-      <div className="flex justify-end gap-3 mt-4">
+      <div className="flex flex-wrap justify-end gap-3 mt-4">
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2 border border-gray-300 rounded text-gray-700 font-medium hover:bg-gray-50"
+          className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded text-gray-700 font-medium hover:bg-gray-50"
           disabled={isPending}
         >
           Отмена
@@ -199,7 +199,7 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
         <button
           type="submit"
           disabled={isPending}
-          className="px-4 py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 disabled:opacity-50"
+          className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 disabled:opacity-50"
         >
           {isPending ? 'Сохранение...' : 'Сохранить'}
         </button>

@@ -20,8 +20,8 @@ export function TransactionsList() {
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-6 overflow-hidden">
       <h2 className="text-xl font-bold mb-4">История платежей</h2>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+      <div className="overflow-x-auto -mx-6 px-6">
+        <table className="w-full min-w-[440px] text-left text-sm">
           <thead className="bg-gray-50 text-gray-600 border-b border-gray-200">
             <tr>
               <th className="px-4 py-3 font-medium">Дата</th>

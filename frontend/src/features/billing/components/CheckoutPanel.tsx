@@ -98,18 +98,18 @@ export function CheckoutPanel({ plan, onCancel }: CheckoutPanelProps) {
 
       <ErrorText error={checkoutError} className="bg-red-50 p-3 rounded mb-4 mt-0" />
 
-      <div className="flex gap-2 justify-end">
+      <div className="flex flex-wrap gap-2 justify-end">
         <button 
           onClick={onCancel}
           disabled={isBusy}
-          className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+          className="flex-1 sm:flex-none px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
         >
           Отмена
         </button>
         <button 
           onClick={handleCheckout}
           disabled={isBusy}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+          className="flex-1 sm:flex-none px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {checkingOut ? 'Обработка...' : `Оплатить ${displayAmount} ${plan.currency}`}
         </button>

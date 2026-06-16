@@ -28,17 +28,17 @@ export function AuthoringPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-2xl font-bold">Студия автора</h1>
         <button
           onClick={() => setIsCreating(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700"
+          className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700"
         >
           Создать пост
         </button>
       </div>
 
-      <div className="flex gap-2 border-b pb-2">
+      <div className="flex flex-wrap gap-2 border-b pb-2">
         <button
           onClick={() => setStatusFilter(undefined)}
           className={`px-3 py-1 rounded-t border-b-2 ${!statusFilter ? 'border-blue-600 font-bold text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}

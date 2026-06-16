@@ -87,7 +87,7 @@ function UserRow({ user }: { user: { id: string, username: string, avatarUrl?: s
         <div className="font-medium">{user.username}</div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-gray-500">Роль:</span>
         <select 
           value={roleId} 
@@ -107,7 +107,7 @@ function UserRow({ user }: { user: { id: string, username: string, avatarUrl?: s
         </button>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-gray-500">Статус:</span>
         <select 
           value={statusId} 

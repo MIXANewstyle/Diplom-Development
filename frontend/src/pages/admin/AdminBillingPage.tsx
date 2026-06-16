@@ -87,9 +87,9 @@ function PromoCodesSection() {
           <label className="block text-xs font-medium text-gray-700 mb-1">Окончание</label>
           <input type="datetime-local" value={newPromo.validUntil} onChange={e => setNewPromo({...newPromo, validUntil: e.target.value})} className="w-full border px-2 py-1 rounded" />
         </div>
-        <div className="xl:col-span-6 flex justify-between items-center">
+        <div className="col-span-1 md:col-span-2 lg:col-span-3 xl:col-span-6 flex flex-wrap items-center justify-between gap-2">
           {message ? <span className={`text-sm ${message.type === 'error' ? 'text-red-600' : 'text-green-600'}`}>{message.text}</span> : <span />}
-          <button disabled={createPromo.isPending} type="submit" className="bg-blue-600 text-white px-4 py-1.5 rounded disabled:opacity-50 text-sm">Создать промокод</button>
+          <button disabled={createPromo.isPending} type="submit" className="w-full sm:w-auto bg-blue-600 text-white px-4 py-1.5 rounded disabled:opacity-50 text-sm">Создать промокод</button>
         </div>
       </form>
 
@@ -98,7 +98,7 @@ function PromoCodesSection() {
       
       {promos && promos.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <table className="min-w-[500px] w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-2 text-left font-medium text-gray-500">Код</th>
@@ -181,14 +181,14 @@ function TransactionsSection() {
         <p><strong>Важно:</strong> При возврате средств пользователю необходимо перезайти в систему для обновления уровня подписки.</p>
       </div>
 
-      <form onSubmit={handleApplyFilters} className="bg-gray-50 p-4 border border-gray-200 rounded flex flex-wrap gap-4 items-end">
+      <form onSubmit={handleApplyFilters} className="bg-gray-50 p-4 border border-gray-200 rounded flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4 sm:items-end">
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">User ID</label>
-          <input type="text" value={filters.userId} onChange={e => setFilters({...filters, userId: e.target.value})} className="border px-2 py-1 rounded w-40 text-sm" />
+          <input type="text" value={filters.userId} onChange={e => setFilters({...filters, userId: e.target.value})} className="w-full sm:w-40 border px-2 py-1 rounded text-sm" />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">Статус</label>
-          <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} className="border px-2 py-1 rounded w-32 text-sm">
+          <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} className="w-full sm:w-32 border px-2 py-1 rounded text-sm">
             <option value="">Все</option>
             <option value="SUCCESS">SUCCESS</option>
             <option value="PENDING">PENDING</option>
@@ -198,13 +198,13 @@ function TransactionsSection() {
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">С (Дата)</label>
-          <input type="date" value={filters.from} onChange={e => setFilters({...filters, from: e.target.value})} className="border px-2 py-1 rounded w-36 text-sm" />
+          <input type="date" value={filters.from} onChange={e => setFilters({...filters, from: e.target.value})} className="w-full sm:w-36 border px-2 py-1 rounded text-sm" />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">По (Дата)</label>
-          <input type="date" value={filters.to} onChange={e => setFilters({...filters, to: e.target.value})} className="border px-2 py-1 rounded w-36 text-sm" />
+          <input type="date" value={filters.to} onChange={e => setFilters({...filters, to: e.target.value})} className="w-full sm:w-36 border px-2 py-1 rounded text-sm" />
         </div>
-        <button type="submit" className="bg-gray-200 hover:bg-gray-300 px-4 py-1.5 rounded text-sm">Фильтровать</button>
+        <button type="submit" className="w-full sm:w-auto bg-gray-200 hover:bg-gray-300 px-4 py-1.5 rounded text-sm">Фильтровать</button>
       </form>
 
       {message && <div className={`text-sm ${message.type === 'error' ? 'text-red-600' : 'text-green-600'}`}>{message.text}</div>}
@@ -212,7 +212,7 @@ function TransactionsSection() {
 
       {isLoading ? <div>Загрузка...</div> : (
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <table className="min-w-[600px] w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-2 text-left font-medium text-gray-500">Дата</th>

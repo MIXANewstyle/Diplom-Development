@@ -22,20 +22,20 @@ export function AuthorPage() {
 
   return (
     <div className="space-y-4 max-w-3xl">
-      <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-200">
+      <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-200 flex-wrap">
         {authorAvatarUrl ? (
           <img 
             src={authorAvatarUrl} 
             alt={authorName} 
-            className="w-16 h-16 rounded-full object-cover border border-gray-200"
+            className="w-16 h-16 rounded-full object-cover border border-gray-200 shrink-0"
           />
         ) : (
-          <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-xl">
+          <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-xl shrink-0">
             {authorName.charAt(0).toUpperCase()}
           </div>
         )}
-        <div className="flex-1 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">{authorName}</h1>
+        <div className="flex-1 flex items-center justify-between gap-3 flex-wrap min-w-0">
+          <h1 className="text-2xl font-bold break-words min-w-0">{authorName}</h1>
           <FollowButton authorId={authorId || ''} />
         </div>
       </div>

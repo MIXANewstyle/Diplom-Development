@@ -34,16 +34,16 @@ export function MyPostsList({ posts, onEdit }: { posts: MyPost[], onEdit: (p: My
 
         return (
           <div key={post.id} className="border p-4 rounded bg-white shadow-sm flex flex-col gap-2">
-            <div className="flex justify-between items-start">
-              <h3 className="font-bold text-lg">{post.title || 'Без названия'}</h3>
-              <span className={`text-xs px-2 py-1 rounded font-medium ${post.status === 'MODERATED' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700'}`}>
+            <div className="flex justify-between items-start gap-2 flex-wrap">
+              <h3 className="font-bold text-lg min-w-0 break-words">{post.title || 'Без названия'}</h3>
+              <span className={`shrink-0 text-xs px-2 py-1 rounded font-medium ${post.status === 'MODERATED' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700'}`}>
                 {post.status === 'MODERATED' ? 'Заблокирован модератором' : POST_STATUS_MAP[post.status]}
               </span>
             </div>
             <div className="text-sm text-gray-500">
               Обновлено: {formatDate(post.updatedAt)}
             </div>
-            <div className="flex gap-4 mt-2 border-t pt-2">
+            <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2 border-t pt-2">
               <button
                 onClick={() => onEdit(post)}
                 className="text-sm text-blue-600 hover:text-blue-800 font-medium"

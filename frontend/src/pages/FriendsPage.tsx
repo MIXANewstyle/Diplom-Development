@@ -29,18 +29,18 @@ function UserRow({
 }) {
   return (
     <div className="flex flex-col py-3 border-b last:border-0 border-gray-100">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
           {user.avatarUrl ? (
-            <img src={user.avatarUrl} alt={user.username} className="w-10 h-10 rounded-full object-cover" />
+            <img src={user.avatarUrl} alt={user.username} className="w-10 h-10 rounded-full object-cover shrink-0" />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">
+            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold shrink-0">
               {user.username.charAt(0).toUpperCase()}
             </div>
           )}
-          <span className="font-medium text-gray-900">{user.username}</span>
+          <span className="font-medium text-gray-900 break-words min-w-0">{user.username}</span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           {actions}
         </div>
       </div>
