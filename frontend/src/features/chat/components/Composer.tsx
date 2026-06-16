@@ -41,11 +41,11 @@ export const Composer = ({ isActive, isPending, onSubmit }: ComposerProps) => {
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
         disabled={isPending}
-        maxLength={8000}
+        maxLength={2000}
       />
       <div className="flex justify-between items-center gap-2 flex-wrap">
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-400">{text.length} / 8000</span>
+          <span className="text-xs text-gray-400">{text.length} / 2000</span>
           {isPending && (
             <span className="text-sm text-gray-500 animate-pulse">ИИ печатает…</span>
           )}

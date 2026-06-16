@@ -149,10 +149,10 @@ public class TurnWsController {
             }
             String joinedText = sb.toString();
 
-            if (joinedText.length() > 8000) {
+            if (joinedText.length() > 2000) {
                 log.info("FINISH_THOUGHT branch=REJECTED roomId={} reason=text_over_limit length={}",
                         roomId, joinedText.length());
-                wsErrorSender.send(principalName, WsError.limit("Packaged thought exceeds 8000 characters limit"));
+                wsErrorSender.send(principalName, WsError.limit("Packaged thought exceeds 2000 characters limit"));
                 return;
             }
 

@@ -35,7 +35,7 @@ public class DraftService {
     public static final int MAX_DRAFT_COUNT = 30;
 
     /** Maximum text length per draft bubble in characters (§6.9). */
-    public static final int MAX_DRAFT_TEXT_LENGTH = 4000;
+    public static final int MAX_DRAFT_TEXT_LENGTH = 2000;
 
     /** Session-scoped TTL for draft buffer keys. */
     private static final Duration DRAFT_TTL = Duration.ofHours(2);
@@ -52,7 +52,7 @@ public class DraftService {
      * if the bubbleId already exists (preserving position).
      *
      * @return the updated buffer (for callers that need it)
-     * @throws DraftLimitException if text length exceeds 4000 or buffer would exceed 30 entries
+     * @throws DraftLimitException if text length exceeds 2000 or buffer would exceed 30 entries
      */
     public List<DraftBubble> upsert(UUID roomId, UUID participantId, UUID bubbleId, String text) {
         if (text != null && text.length() > MAX_DRAFT_TEXT_LENGTH) {
