@@ -74,17 +74,15 @@ export const PairedComposer = ({
           onChange={(e) => setText(e.target.value)}
           disabled={isDisabled}
           maxLength={8000}
-          className="w-full h-24 p-2 text-sm border-0 focus:ring-0 resize-none outline-none disabled:bg-gray-50 disabled:text-gray-500 bg-transparent font-mono"
+          className="w-full h-20 md:h-24 p-2 text-sm border-0 focus:ring-0 resize-none outline-none disabled:bg-gray-50 disabled:text-gray-500 bg-transparent font-mono"
           placeholder={placeholder}
         />
-        <div className="flex justify-between items-center">
-          <div className="text-xs text-gray-400">
-            {text.length} / 8000
-          </div>
+        <div className="flex flex-wrap justify-between items-center gap-2">
+          <div className="text-xs text-gray-400">{text.length} / 8000</div>
           <button
             type="submit"
             disabled={isDisabled || !text.trim()}
-            className="px-6 py-2 bg-blue-600 text-white rounded font-medium text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="w-full sm:w-auto px-6 py-2 bg-blue-600 text-white rounded font-medium text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
             {isSubmitting ? 'Отправка...' : 'Отправить'}
           </button>

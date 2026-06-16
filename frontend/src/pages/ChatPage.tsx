@@ -39,13 +39,13 @@ export const ChatPage = () => {
             {createRoomMutation.isPending ? 'Создание...' : 'Новая соло-сессия'}
           </button>
 
-          <div className="flex gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg shrink-0">
+          <div className="flex flex-col sm:flex-row gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
             {friends.length > 0 ? (
               <>
                 <select
                   value={selectedFriendId}
                   onChange={(e) => setSelectedFriendId(e.target.value)}
-                  className="px-3 py-2 border border-blue-200 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none w-48"
+                  className="px-3 py-2 border border-blue-200 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-48"
                 >
                   <option value="" disabled>Выберите друга</option>
                   {friends.map((f) => (
@@ -55,7 +55,7 @@ export const ChatPage = () => {
                 <button
                   onClick={handleCreatePairedRoom}
                   disabled={!selectedFriendId || createPairedRoomMutation.isPending}
-                  className="px-4 py-2 bg-blue-600 text-white rounded font-medium text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm whitespace-nowrap"
+                  className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded font-medium text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
                 >
                   {createPairedRoomMutation.isPending ? 'Запуск...' : 'Новая парная комната'}
                 </button>

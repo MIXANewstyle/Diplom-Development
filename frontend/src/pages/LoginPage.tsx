@@ -10,14 +10,16 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="max-w-md mx-auto mt-12 p-6 bg-gray-100 rounded border">
-      <h1 className="text-2xl font-bold mb-6">Вход</h1>
-      <LoginForm />
-      <div className="mt-4 text-center">
-        <Link to="/register" className="text-blue-600 underline text-sm">
-          Нет аккаунта? Зарегистрироваться
-        </Link>
-      </div>
-    </main>
+    <div className="min-h-[70vh] flex items-center justify-center px-4 py-8">
+      <main className="w-full max-w-sm p-6 bg-gray-100 rounded border">
+        <h1 className="text-2xl font-bold mb-6">Вход</h1>
+        <LoginForm />
+        <div className="mt-4 text-center">
+          <Link to="/register" className="text-blue-600 underline text-sm">
+            Нет аккаунта? Зарегистрироваться
+          </Link>
+        </div>
+      </main>
+    </div>
   )
 }

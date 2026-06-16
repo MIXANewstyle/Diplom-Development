@@ -32,7 +32,7 @@ export const Composer = ({ isActive, isPending, onSubmit }: ComposerProps) => {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 bg-white border-t flex flex-col">
+    <form onSubmit={handleSubmit} className="p-3 md:p-4 bg-white border-t flex flex-col gap-2">
       <textarea
         className="w-full border rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
         rows={3}
@@ -43,24 +43,20 @@ export const Composer = ({ isActive, isPending, onSubmit }: ComposerProps) => {
         disabled={isPending}
         maxLength={8000}
       />
-      <div className="mt-2 flex justify-between items-center">
-        <span className="text-xs text-gray-400">
-          {text.length} / 8000
-        </span>
-        <div className="flex items-center gap-4">
+      <div className="flex justify-between items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-400">{text.length} / 8000</span>
           {isPending && (
-            <span className="text-sm text-gray-500 animate-pulse">
-              ИИ печатает…
-            </span>
+            <span className="text-sm text-gray-500 animate-pulse">ИИ печатает…</span>
           )}
-          <button
-            type="submit"
-            disabled={!text.trim() || isPending}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Отправить
-          </button>
         </div>
+        <button
+          type="submit"
+          disabled={!text.trim() || isPending}
+          className="w-full sm:w-auto px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          Отправить
+        </button>
       </div>
     </form>
   )

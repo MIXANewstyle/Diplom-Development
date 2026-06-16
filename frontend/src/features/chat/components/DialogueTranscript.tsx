@@ -80,7 +80,7 @@ export const DialogueTranscript = ({
           <div key={bubbleId} className="flex justify-start w-full">
             <div className="max-w-[80%] bg-white border border-gray-200 text-gray-500 p-3 rounded-lg rounded-tl-none shadow-sm opacity-70">
               <div className="text-xs font-bold mb-1 text-gray-400">Собеседник (печатает...)</div>
-              <div className="whitespace-pre-wrap font-mono text-sm">{text}</div>
+              <div className="whitespace-pre-wrap break-words font-mono text-sm">{text}</div>
             </div>
           </div>
         )

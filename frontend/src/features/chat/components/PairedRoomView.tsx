@@ -145,15 +145,15 @@ export const PairedRoomView = ({ roomId }: Props) => {
     : room.status
 
   return (
-    <div className="max-w-4xl mx-auto h-[calc(100vh-80px)] flex flex-col py-4 px-4 gap-6">
-      <div className="flex justify-between items-center pb-4 border-b shrink-0">
-        <div>
+    <div className="max-w-4xl mx-auto h-[calc(100vh-80px)] flex flex-col py-4 px-2 md:px-4 gap-4 md:gap-6">
+      <div className="flex justify-between items-start gap-2 pb-4 border-b shrink-0">
+        <div className="min-w-0">
           <h1 className="text-xl font-bold text-gray-900">Парная сессия</h1>
           <div className="text-sm text-gray-500">Статус: {statusDisplay}</div>
         </div>
-        <div className="flex flex-col items-end text-xs text-gray-500 mr-4">
+        <div className="flex flex-col items-end text-xs text-gray-500 shrink-0">
           <div>WS: {wsStatus}</div>
-          {wsError && <div className="text-red-500">WS Error: {wsError}</div>}
+          {wsError && <div className="text-red-500 break-all">WS Error: {wsError}</div>}
         </div>
       </div>
 
@@ -266,11 +266,11 @@ export const PairedRoomView = ({ roomId }: Props) => {
             )}
 
             {!archived && endProposerParticipantId && (
-              <div className="bg-yellow-50 border border-yellow-200 p-4 shrink-0 rounded-lg mx-4 mb-4 flex items-center justify-between">
+              <div className="bg-yellow-50 border border-yellow-200 p-4 shrink-0 rounded-lg mx-2 md:mx-4 mb-4 flex flex-wrap items-center justify-between gap-2">
                 {endProposerParticipantId !== myParticipantId ? (
                   <>
                     <span className="text-sm text-yellow-800 font-medium">Собеседник предлагает завершить диалог</span>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 shrink-0">
                       <button onClick={declineEnd} className="px-3 py-1.5 bg-white border border-gray-300 rounded text-sm hover:bg-gray-50">Продолжить</button>
                       <button onClick={agreeEnd} className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700">Согласиться</button>
                     </div>
@@ -281,7 +281,7 @@ export const PairedRoomView = ({ roomId }: Props) => {
               </div>
             )}
 
-            <div className="shrink-0 pt-2 border-t border-gray-200 px-4 pb-4 bg-white rounded-b-lg">
+            <div className="shrink-0 pt-2 border-t border-gray-200 px-2 md:px-4 pb-4 bg-white rounded-b-lg">
               <PairedComposer
                 isActive={room.status === 'ACTIVE' || dialogueStarted}
                 archived={archived}
