@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRoom } from '../hooks/useRoom'
 import { useJoinRoom } from '../hooks/useJoinRoom'
 import { useRoomSocket } from '../../../shared/ws/useRoomSocket'
@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useTurns } from '../hooks/useTurns'
 import { DialogueTranscript } from './DialogueTranscript'
 import { PairedComposer } from './PairedComposer'
+import type { TurnResponse } from '../types'
 
 interface Props {
   roomId: string
@@ -39,6 +40,7 @@ export const PairedRoomView = ({ roomId }: Props) => {
     sendConsentStart,
     sendConsentRevoke,
     upsertDraft,
+    deleteDraft,
     proposeEnd,
     agreeEnd,
     declineEnd,
@@ -47,6 +49,10 @@ export const PairedRoomView = ({ roomId }: Props) => {
 
   const { data: turnsPage } = useTurns(roomId)
 
+  // Optimistic "sent" bubble: created immediately on submit, replaced once the
+  // server turn arrives (matched by seq) to avoid a blank gap in the transcript.
+  const [pendingSentTurn, setPendingSentTurn] = useState<TurnResponse | null>(null)
+
   // Seed maxSeq from history if not set
   useEffect(() => {
     if (turnsPage?.items && maxSeq === 0) {
@@ -54,6 +60,38 @@ export const PairedRoomView = ({ roomId }: Props) => {
       if (highest > 0) setMaxSeq(highest)
     }
   }, [turnsPage?.items, maxSeq, setMaxSeq])
+
+  // Drop the optimistic bubble once the authoritative server turn (same seq,
+  // different id) appears in either live or history turns.
+  useEffect(() => {
+    if (!pendingSentTurn) return
+    const allServerTurns = [...(turnsPage?.items ?? []), ...liveTurns]
+    const confirmed = allServerTurns.some(
+      (t) => t.seq === pendingSentTurn.seq && t.id !== pendingSentTurn.id
+    )
+    if (confirmed) setPendingSentTurn(null)
+  }, [liveTurns, turnsPage?.items, pendingSentTurn])
+
+  // Called by PairedComposer when the user submits a message.
+  const handleComposerSubmit = (text: string, bubbleId: string) => {
+    if (!myParticipantId) return
+    // Show the message immediately as a sent bubble in both transcripts.
+    setPendingSentTurn({
+      id: bubbleId,
+      roomId,
+      seq: maxSeq + 1,
+      role: 'USER',
+      participantId: myParticipantId,
+      content: text,
+      promptTokens: null,
+      completionTokens: null,
+      createdAt: new Date().toISOString(),
+    })
+    // Clear the live "печатает…" draft on the other side.
+    deleteDraft(bubbleId)
+    // Trigger AI processing.
+    finishThought(maxSeq + 1)
+  }
 
   const queryClient = useQueryClient()
 
@@ -213,6 +251,7 @@ export const PairedRoomView = ({ roomId }: Props) => {
               aiThinking={aiThinking}
               myParticipantId={myParticipantId}
               participants={participants}
+              pendingSentTurn={pendingSentTurn}
             />
 
             {!archived && !endProposerParticipantId && (
@@ -248,8 +287,9 @@ export const PairedRoomView = ({ roomId }: Props) => {
                 archived={archived}
                 hasFloor={currentFloorParticipantId === myParticipantId}
                 aiThinking={aiThinking}
+                endPending={!!endProposerParticipantId}
                 onDraftUpsert={upsertDraft}
-                onSubmit={() => finishThought(maxSeq + 1)}
+                onSubmit={handleComposerSubmit}
               />
             </div>
           </div>

@@ -5,8 +5,9 @@ interface Props {
   archived: boolean
   hasFloor: boolean
   aiThinking: boolean
+  endPending: boolean
   onDraftUpsert: (bubbleId: string, text: string) => void
-  onSubmit: () => void
+  onSubmit: (text: string, bubbleId: string) => void
 }
 
 export const PairedComposer = ({
@@ -14,6 +15,7 @@ export const PairedComposer = ({
   archived,
   hasFloor,
   aiThinking,
+  endPending,
   onDraftUpsert,
   onSubmit,
 }: Props) => {
@@ -28,7 +30,7 @@ export const PairedComposer = ({
     }
   }, [aiThinking])
 
-  // Debounce draft upsert
+  // Debounce draft upsert — only while holding the floor
   useEffect(() => {
     if (!hasFloor || !text.trim()) return
     const timer = setTimeout(() => {
@@ -37,11 +39,12 @@ export const PairedComposer = ({
     return () => clearTimeout(timer)
   }, [text, bubbleId, hasFloor, onDraftUpsert])
 
-  const isDisabled = !isActive || archived || !hasFloor || aiThinking || isSubmitting
+  const isDisabled = !isActive || archived || !hasFloor || aiThinking || isSubmitting || endPending
 
   let placeholder = 'Введите сообщение...'
   if (archived) placeholder = 'Диалог завершён'
   else if (!isActive) placeholder = 'Ожидание начала диалога...'
+  else if (endPending) placeholder = 'Идёт предложение завершить диалог…'
   else if (aiThinking) placeholder = 'Ожидание ответа ИИ...'
   else if (!hasFloor) placeholder = 'Ход собеседника...'
 
@@ -49,11 +52,16 @@ export const PairedComposer = ({
     e.preventDefault()
     if (!text.trim() || isDisabled) return
 
+    const submittedText = text
+    const submittedBubbleId = bubbleId
+
     setIsSubmitting(true)
-    onDraftUpsert(bubbleId, text)
-    onSubmit()
-    
-    // Clear for next turn
+    // Send final draft state to backend, then let the parent handle
+    // deleteDraft + finishThought so the optimistic bubble is created atomically.
+    onDraftUpsert(submittedBubbleId, submittedText)
+    onSubmit(submittedText, submittedBubbleId)
+
+    // Rotate for next turn
     setText('')
     setBubbleId(crypto.randomUUID())
   }

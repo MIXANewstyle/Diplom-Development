@@ -9,6 +9,7 @@ interface Props {
   aiThinking: boolean
   myParticipantId?: string
   participants: any[]
+  pendingSentTurn?: TurnResponse | null
 }
 
 export const DialogueTranscript = ({
@@ -18,22 +19,33 @@ export const DialogueTranscript = ({
   aiThinking,
   myParticipantId,
   participants,
+  pendingSentTurn,
 }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Merge and deduplicate
+  // Merge history + live turns, deduplicated by id (live wins on conflict).
   const mergedMap = new Map<string, TurnResponse>()
   historyTurns.forEach((t) => mergedMap.set(t.id, t))
   liveTurns.forEach((t) => mergedMap.set(t.id, t))
 
-  const sortedTurns = Array.from(mergedMap.values()).sort((a, b) => a.seq - b.seq)
+  const serverTurns = Array.from(mergedMap.values()).sort((a, b) => a.seq - b.seq)
+
+  // Splice in the optimistic bubble unless the server has already delivered the
+  // real turn for the same seq (matched by seq, different id means it's the real one).
+  const pendingIsSuperseded =
+    !pendingSentTurn ||
+    serverTurns.some((t) => t.seq === pendingSentTurn.seq && t.id !== pendingSentTurn.id)
+
+  const sortedTurns = pendingSentTurn && !pendingIsSuperseded
+    ? [...serverTurns, pendingSentTurn].sort((a, b) => a.seq - b.seq)
+    : serverTurns
 
   // Auto-scroll to bottom
   useEffect(() => {
     if (containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight
     }
-  }, [sortedTurns, otherDrafts, aiThinking])
+  }, [sortedTurns, otherDrafts, aiThinking, pendingSentTurn])
 
   return (
     <div
