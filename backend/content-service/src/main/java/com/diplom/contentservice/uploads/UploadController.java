@@ -39,10 +39,10 @@ public class UploadController {
 
     // -------------------------------------------------------------------------
     // POST /api/v1/uploads/image
-    // AUTHOR or ADMIN only (role hierarchy: ADMIN > AUTHOR)
+    // Any authenticated user (avatars, post covers, etc.)
     // -------------------------------------------------------------------------
     @PostMapping("/image")
-    @PreAuthorize("hasRole('AUTHOR')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, String>> uploadImage(
             @RequestParam("file") MultipartFile file) throws IOException {
 
