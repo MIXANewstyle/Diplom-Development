@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { MyProfile, GenderId } from '../types';
 import { GENDER_OPTIONS } from '../types';
 import { useUpdateProfile } from '../hooks/useUpdateProfile';
 import { getErrorMessage } from '../../../shared/lib/errors';
 import { ErrorText } from '../../../shared/components/ErrorText';
+import { uploadImage } from '../../../shared/api/uploads';
 import axios from 'axios';
 
 interface ProfileEditFormProps {
@@ -11,6 +12,9 @@ interface ProfileEditFormProps {
   onCancel: () => void;
   onSaved: () => void;
 }
+
+const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 export function ProfileEditForm({ profile, onCancel, onSaved }: ProfileEditFormProps) {
   const [fullName, setFullName] = useState(profile.fullName);
@@ -22,7 +26,43 @@ export function ProfileEditForm({ profile, onCancel, onSaved }: ProfileEditFormP
   const [genderId, setGenderId] = useState<string>(profile.genderId ? String(profile.genderId) : '');
   
   const [errorMsg, setErrorMsg] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { mutateAsync, isPending } = useUpdateProfile();
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (!file) return;
+
+    setUploadError('');
+
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      setUploadError('Допустимые форматы: JPEG, PNG, WebP, GIF.');
+      return;
+    }
+    if (file.size > MAX_SIZE_BYTES) {
+      setUploadError('Файл слишком большой. Максимум 5 МБ.');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const url = await uploadImage(file);
+      setAvatarUrl(url);
+    } catch (err) {
+      setUploadError(getErrorMessage(err));
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    setAvatarUrl('');
+    setUploadError('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +98,8 @@ export function ProfileEditForm({ profile, onCancel, onSaved }: ProfileEditFormP
     }
   };
 
+  const isSubmitDisabled = isPending || isUploading;
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-6">
       <h2 className="text-xl font-bold mb-4">Редактирование профиля</h2>
@@ -91,14 +133,48 @@ export function ProfileEditForm({ profile, onCancel, onSaved }: ProfileEditFormP
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">URL аватара</label>
-          <input 
-            type="url" 
-            value={avatarUrl} 
-            onChange={e => setAvatarUrl(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2"
-            maxLength={2048}
+          <label className="block text-sm font-medium text-gray-700 mb-1">Аватар</label>
+
+          {avatarUrl && (
+            <div className="flex items-center gap-3 mb-2">
+              <img
+                src={avatarUrl}
+                alt="Предпросмотр аватара"
+                className="w-16 h-16 rounded-full object-cover border border-gray-200"
+              />
+              <button
+                type="button"
+                onClick={handleRemoveAvatar}
+                className="text-sm text-gray-700 border border-gray-300 rounded px-3 py-1 hover:bg-gray-50"
+              >
+                Убрать
+              </button>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="px-4 py-2 text-sm border border-gray-300 rounded font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isUploading ? 'Загрузка...' : avatarUrl ? 'Заменить' : 'Загрузить аватар'}
+            </button>
+            <span className="text-xs text-gray-400">JPEG, PNG, WebP, GIF · до 5 МБ</span>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            className="hidden"
+            onChange={handleFileChange}
           />
+
+          {uploadError && (
+            <p className="text-sm text-red-600 mt-2">{uploadError}</p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -151,17 +227,17 @@ export function ProfileEditForm({ profile, onCancel, onSaved }: ProfileEditFormP
           <button 
             type="button" 
             onClick={onCancel}
-            disabled={isPending}
+            disabled={isSubmitDisabled}
             className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
           >
             Отмена
           </button>
           <button 
             type="submit" 
-            disabled={isPending}
+            disabled={isSubmitDisabled}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
           >
-            Сохранить
+            {isPending ? 'Сохранение...' : isUploading ? 'Загрузка...' : 'Сохранить'}
           </button>
         </div>
       </form>
