@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLogin } from '../hooks/useLogin'
 import { getErrorMessage } from '../../../shared/lib/errors'
 import { ErrorText } from '../../../shared/components/ErrorText'
+import { PasswordInput } from '../../../shared/components/PasswordInput'
 import axios from 'axios'
 
 export function LoginForm() {
@@ -35,12 +36,11 @@ export function LoginForm() {
       </div>
       <div>
         <label className="block text-sm font-medium mb-1">Пароль</label>
-        <input
-          type="password"
+        <PasswordInput
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full border rounded p-2"
+          autoComplete="current-password"
         />
         <ErrorText error={fieldErrors.password} />
       </div>

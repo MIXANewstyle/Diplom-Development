@@ -2,18 +2,31 @@ import { useState } from 'react'
 import { useRegister } from '../hooks/useRegister'
 import { getErrorMessage } from '../../../shared/lib/errors'
 import { ErrorText } from '../../../shared/components/ErrorText'
+import { PasswordInput } from '../../../shared/components/PasswordInput'
 import axios from 'axios'
 
 export function RegisterForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [username, setUsername] = useState('')
   const [fullName, setFullName] = useState('')
-  
+  const [confirmMismatch, setConfirmMismatch] = useState(false)
+
   const { mutate, isPending, error } = useRegister()
+
+  const mismatchMessage = 'Пароли не совпадают'
+  const passwordsMismatch =
+    confirmPassword !== '' && confirmPassword !== password
+  const showConfirmError = passwordsMismatch || confirmMismatch
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (password !== confirmPassword) {
+      setConfirmMismatch(true)
+      return
+    }
+    setConfirmMismatch(false)
     mutate({ email, password, username, fullName })
   }
 
@@ -60,21 +73,33 @@ export function RegisterForm() {
       </div>
       <div>
         <label className="block text-sm font-medium mb-1">Пароль</label>
-        <input
-          type="password"
+        <PasswordInput
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full border rounded p-2"
+          autoComplete="new-password"
         />
         <ErrorText error={fieldErrors.password} />
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Повторите пароль</label>
+        <PasswordInput
+          required
+          value={confirmPassword}
+          onChange={(e) => {
+            setConfirmPassword(e.target.value)
+            setConfirmMismatch(false)
+          }}
+          autoComplete="new-password"
+        />
+        <ErrorText error={showConfirmError ? mismatchMessage : null} />
       </div>
 
       <ErrorText error={error ? getErrorMessage(error) : null} className="font-medium text-base" />
 
       <button
         type="submit"
-        disabled={isPending}
+        disabled={isPending || passwordsMismatch}
         className="bg-blue-600 text-white p-2 rounded disabled:opacity-50"
       >
         {isPending ? 'Подождите...' : 'Зарегистрироваться'}
