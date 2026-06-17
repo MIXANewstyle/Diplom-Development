@@ -14,13 +14,14 @@ import { AuthorPage } from '../pages/AuthorPage'
 import { FriendsPage } from '../pages/FriendsPage'
 import { PostDetailPage } from '../pages/PostDetailPage'
 import { ChatPage } from '../pages/ChatPage'
-import { RoomPage } from '../pages/RoomPage'
+import { RoomAccessPage } from '../pages/RoomAccessPage'
 import { AdminLayout } from '../pages/admin/AdminLayout'
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage'
 import { AdminTagsPage } from '../pages/admin/AdminTagsPage'
 import { AdminBillingPage } from '../pages/admin/AdminBillingPage'
 import LoginPage from '../pages/LoginPage'
 import RegisterPage from '../pages/RegisterPage'
+import InvitePage from '../pages/InvitePage'
 import NotFoundPage from '../pages/NotFoundPage'
 
 export const router = createBrowserRouter([
@@ -80,10 +81,6 @@ export const router = createBrowserRouter([
         element: <ChatPage />,
       },
       {
-        path: 'chat/:roomId',
-        element: <RoomPage />,
-      },
-      {
         path: 'admin',
         element: (
           <RoleGate allowed={['ADMIN']}>
@@ -106,6 +103,14 @@ export const router = createBrowserRouter([
   {
     path: '/register',
     element: <RegisterPage />,
+  },
+  {
+    path: '/invite/:token',
+    element: <InvitePage />,
+  },
+  {
+    path: '/chat/:roomId',
+    element: <RoomAccessPage />,
   },
   {
     path: '*',

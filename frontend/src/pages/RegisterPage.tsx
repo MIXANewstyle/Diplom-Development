@@ -1,13 +1,17 @@
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { RegisterForm } from '../features/auth/components/RegisterForm'
 import { useAuthStore } from '../shared/stores/authStore'
+import { getSafeRedirect } from '../shared/lib/redirect'
 
 export default function RegisterPage() {
   const token = useAuthStore((state) => state.token)
+  const location = useLocation()
 
   if (token) {
-    return <Navigate to="/" replace />
+    return <Navigate to={getSafeRedirect(location.search)} replace />
   }
+
+  const loginLink = location.search ? `/login${location.search}` : '/login'
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4 py-8">
@@ -15,7 +19,7 @@ export default function RegisterPage() {
         <h1 className="text-2xl font-bold mb-6">Регистрация</h1>
         <RegisterForm />
         <div className="mt-4 text-center">
-          <Link to="/login" className="text-blue-600 underline text-sm">
+          <Link to={loginLink} className="text-blue-600 underline text-sm">
             Уже есть аккаунт? Войти
           </Link>
         </div>

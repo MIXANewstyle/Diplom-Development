@@ -68,6 +68,10 @@ spring:
           uri: ${CHAT_SERVICE_URL:http://localhost:8083}
           predicates:
             - Path=/api/v1/rooms/**
+        - id: chat-service-invites
+          uri: ${CHAT_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/invites/**
         - id: chat-service-ws
           uri: ${CHAT_SERVICE_URL:http://localhost:8083}
           predicates:

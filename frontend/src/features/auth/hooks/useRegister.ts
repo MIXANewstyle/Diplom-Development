@@ -1,11 +1,13 @@
 import { useMutation } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { registerUser, loginUser } from '../api'
 import { useAuthStore } from '../../../shared/stores/authStore'
+import { getSafeRedirect } from '../../../shared/lib/redirect'
 import type { RegisterRequest } from '../types'
 
 export function useRegister() {
   const navigate = useNavigate()
+  const location = useLocation()
   const setAuth = useAuthStore((state) => state.setAuth)
 
   return useMutation({
@@ -16,7 +18,7 @@ export function useRegister() {
     },
     onSuccess: (data) => {
       setAuth(data.token)
-      navigate('/')
+      navigate(getSafeRedirect(location.search), { replace: true })
     },
   })
 }

@@ -52,6 +52,9 @@ public class InviteService {
     private static final int INVITE_STATUS_REVOKED = 2;
     private static final int INVITE_STATUS_REDEEMED = 3;
 
+    private static final int ROOM_STATUS_CREATED = 1;
+    private static final int ROOM_STATUS_WAITING_CONSENT = 2;
+
     private static final int ROLE_INITIATOR = 1;
     private static final int ROLE_INVITEE = 2;
 
@@ -64,8 +67,8 @@ public class InviteService {
             throw new NotRoomParticipantException("Caller is not a participant");
         }
 
-        if (room.getTypeId() != 1 || !"WAITING_CONSENT".equals(room.getPhase())) { // 1 = PAIRED
-            throw new InvalidRoomStateException("Room is not waiting for consent or not paired");
+        if (room.getTypeId() != 1 || (room.getStatusId() != 1 && room.getStatusId() != 2)) { // 1 = PAIRED; status 1=CREATED, 2=WAITING_CONSENT
+            throw new InvalidRoomStateException("Room is not accepting invites or not paired");
         }
 
         // Generate token
@@ -148,6 +151,12 @@ public class InviteService {
         newParticipant.setRoleId(ROLE_INVITEE);
         participantRepository.save(newParticipant);
 
+        // Mirror the FRIEND join flow: once the invitee is attached, move the room to WAITING_CONSENT
+        if (room.getStatusId() == ROOM_STATUS_CREATED) {
+            room.setStatusId(ROOM_STATUS_WAITING_CONSENT);
+            roomRepository.save(room);
+        }
+
         invite.setStatusId(INVITE_STATUS_REDEEMED);
         inviteRepository.save(invite);
     }
@@ -184,6 +193,12 @@ public class InviteService {
         }
         
         contextSnapshotService.captureForGuest(guestParticipant, genderLabel);
+
+        // Mirror the FRIEND join flow: once the invitee is attached, move the room to WAITING_CONSENT
+        if (room.getStatusId() == ROOM_STATUS_CREATED) {
+            room.setStatusId(ROOM_STATUS_WAITING_CONSENT);
+            roomRepository.save(room);
+        }
 
         invite.setStatusId(INVITE_STATUS_REDEEMED);
         inviteRepository.save(invite);

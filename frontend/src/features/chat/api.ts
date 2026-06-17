@@ -20,19 +20,32 @@ export const listRooms = async (page = 0, size = 20): Promise<RoomSummaryRespons
   return data
 }
 
-export const getRoom = async (roomId: string): Promise<RoomResponse> => {
-  const { data } = await apiClient.get<RoomResponse>(`/api/v1/rooms/${roomId}`)
+export const getRoom = async (
+  roomId: string,
+  options?: { authToken?: string }
+): Promise<RoomResponse> => {
+  const { data } = await apiClient.get<RoomResponse>(`/api/v1/rooms/${roomId}`, {
+    headers: options?.authToken
+      ? { Authorization: `Bearer ${options.authToken}` }
+      : undefined,
+  })
   return data
 }
 
 export const getTurns = async (
   roomId: string,
   page = 0,
-  size = 50
+  size = 50,
+  options?: { authToken?: string }
 ): Promise<TurnsPageResponse> => {
   const { data } = await apiClient.get<TurnsPageResponse>(
     `/api/v1/rooms/${roomId}/turns`,
-    { params: { page, size } }
+    {
+      params: { page, size },
+      headers: options?.authToken
+        ? { Authorization: `Bearer ${options.authToken}` }
+        : undefined,
+    }
   )
   return data
 }
@@ -57,6 +70,13 @@ export const createPairedRoom = async (friendUserId: string): Promise<RoomRespon
   const { data } = await apiClient.post<RoomResponse>('/api/v1/rooms/paired', {
     inviteMode: 'FRIEND',
     friendUserId,
+  })
+  return data
+}
+
+export const createPairedLinkRoom = async (): Promise<RoomResponse> => {
+  const { data } = await apiClient.post<RoomResponse>('/api/v1/rooms/paired', {
+    inviteMode: 'LINK',
   })
   return data
 }

@@ -15,6 +15,7 @@ export class StompClientWrapper {
   private client: Client | null = null
   private connectionPromise: Promise<void> | null = null
   private onConnectCallbacks: Array<() => void> = []
+  private activeToken: string | null = null
 
   /** Register a callback that runs on every connect/reconnect. Returns an unsubscribe function. */
   onReconnect(callback: () => void): () => void {
@@ -27,21 +28,25 @@ export class StompClientWrapper {
     }
   }
 
-  connect(): Promise<void> {
-    if (this.client?.connected) {
+  connect(authTokenOverride?: string): Promise<void> {
+    const token = authTokenOverride ?? useAuthStore.getState().token
+
+    if (!token) {
+      return Promise.reject(new Error('No auth token available for STOMP connection'))
+    }
+
+    if (this.client?.connected && this.activeToken === token) {
       return Promise.resolve()
     }
+
+    if (this.client?.active) {
+      this.disconnect()
+    }
+
+    this.activeToken = token
     if (this.connectionPromise) return this.connectionPromise
 
     this.connectionPromise = new Promise((resolve, reject) => {
-      const token = useAuthStore.getState().token
-
-      if (!token) {
-        this.connectionPromise = null
-        reject(new Error('No auth token available for STOMP connection'))
-        return
-      }
-
       let resolved = false
 
       this.client = new Client({
@@ -89,6 +94,7 @@ export class StompClientWrapper {
     }
     this.client = null
     this.connectionPromise = null
+    this.activeToken = null
   }
 
   subscribe(destination: string, callback: (body: any) => void): StompSubscription | null {

@@ -3,10 +3,12 @@ import { useRoom } from '../hooks/useRoom'
 import { useJoinRoom } from '../hooks/useJoinRoom'
 import { useRoomSocket } from '../../../shared/ws/useRoomSocket'
 import { useAuthStore } from '../../../shared/stores/authStore'
+import { useGuestSessionStore } from '../../../shared/stores/guestSessionStore'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTurns } from '../hooks/useTurns'
 import { DialogueTranscript } from './DialogueTranscript'
 import { PairedComposer } from './PairedComposer'
+import { InvitePanel } from './InvitePanel'
 import type { TurnResponse } from '../types'
 
 interface Props {
@@ -15,12 +17,21 @@ interface Props {
 
 export const PairedRoomView = ({ roomId }: Props) => {
   const me = useAuthStore((s) => s.user)
+  const authToken = useAuthStore((s) => s.token)
   const myId = me?.id
+  const guestSession = useGuestSessionStore((s) => s.getSession(roomId))
+  const isGuest = !authToken && !!guestSession
+  const guestAuthToken = isGuest ? guestSession?.token : undefined
 
-  const { data: room, isLoading: isRoomLoading, isError: isRoomError } = useRoom(roomId)
+  const { data: room, isLoading: isRoomLoading, isError: isRoomError } = useRoom(
+    roomId,
+    guestAuthToken
+  )
   const joinRoomMutation = useJoinRoom(roomId)
 
-  const myParticipantId = room?.participants?.find((p) => p.userId === myId)?.id
+  const myParticipantId = isGuest
+    ? guestSession?.participantId
+    : room?.participants?.find((p) => p.userId === myId)?.id
 
   const {
     status: wsStatus,
@@ -45,9 +56,9 @@ export const PairedRoomView = ({ roomId }: Props) => {
     agreeEnd,
     declineEnd,
     finishThought,
-  } = useRoomSocket(roomId, myParticipantId)
+  } = useRoomSocket(roomId, myParticipantId, guestAuthToken)
 
-  const { data: turnsPage } = useTurns(roomId)
+  const { data: turnsPage } = useTurns(roomId, 0, 50, guestAuthToken)
 
   // Optimistic "sent" bubble: created immediately on submit, replaced once the
   // server turn arrives (matched by seq) to avoid a blank gap in the transcript.
@@ -123,11 +134,13 @@ export const PairedRoomView = ({ roomId }: Props) => {
   }
 
   const participants = room.participants || []
-  const myParticipant = participants.find((p) => p.userId === myId)
-  
+  const myParticipant = isGuest
+    ? participants.find((p) => p.id === guestSession?.participantId)
+    : participants.find((p) => p.userId === myId)
+
   // Am I the invitee who hasn't joined yet?
-  const amIInvitee = myParticipant && myParticipant.joinedAt === null
-  const amIHost = room.ownerUserId === myId
+  const amIInvitee = !isGuest && myParticipant && myParticipant.joinedAt === null
+  const amIHost = !isGuest && room.ownerUserId === myId
   
   // Current user's consent state
   const haveIConsented = myParticipantId ? !!consentByParticipant[myParticipantId] || !!myParticipant?.consentStartAt : false
@@ -159,10 +172,13 @@ export const PairedRoomView = ({ roomId }: Props) => {
 
       <div className="flex flex-col md:flex-row gap-6">
         {participants.map((p) => {
-          const isMe = p.userId === myId
+          const isMe = isGuest
+            ? p.id === guestSession?.participantId
+            : p.userId === myId
+          const participantName = p.displayName || p.guestDisplayName || '?'
           const hasConsented = !!consentByParticipant[p.id] || !!p.consentStartAt
           const isFloorHolder = currentFloorParticipantId === p.id
-          const hasJoined = p.joinedAt !== null
+          const hasJoined = p.joinedAt !== null || (p.userId == null && !!p.guestDisplayName)
           const isOnline = hasJoined && (
             (isMe && wsStatus === 'connected') || onlineParticipants.has(p.id)
           )
@@ -170,15 +186,15 @@ export const PairedRoomView = ({ roomId }: Props) => {
           return (
             <div key={p.id} className="flex-1 bg-white border border-gray-200 rounded-lg p-4 shadow-sm flex items-center gap-4 relative">
               {p.avatarUrl ? (
-                <img src={p.avatarUrl} alt={p.displayName} className="w-12 h-12 rounded-full object-cover" />
+                <img src={p.avatarUrl} alt={participantName} className="w-12 h-12 rounded-full object-cover" />
               ) : (
                 <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">
-                  {p.displayName?.charAt(0).toUpperCase() || '?'}
+                  {participantName.charAt(0).toUpperCase()}
                 </div>
               )}
               <div className="flex-1">
                 <div className="font-bold text-gray-900">
-                  {p.displayName} {isMe && <span className="text-gray-400 font-normal text-sm">(Вы)</span>}
+                  {participantName} {isMe && <span className="text-gray-400 font-normal text-sm">(Вы)</span>}
                 </div>
                 <div className="text-xs text-gray-500">{p.role}</div>
               </div>
@@ -208,6 +224,8 @@ export const PairedRoomView = ({ roomId }: Props) => {
                   {joinRoomMutation.isPending ? 'Подключение...' : 'Присоединиться'}
                 </button>
               </>
+            ) : amIHost && participants.length < 2 ? (
+              <InvitePanel roomId={roomId} />
             ) : amIHost ? (
               <p className="text-gray-600">Ожидаем, пока собеседник присоединится...</p>
             ) : (

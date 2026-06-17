@@ -31,14 +31,19 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      useAuthStore.getState().clearAuth()
-      queryClient.clear()
-      
-      // Не делаем редирект, если мы уже находимся на странице логина или регистрации.
-      // Иначе при неверном пароле (401) страница будет перезагружаться.
-      const isAuthPage = window.location.pathname === '/login' || window.location.pathname === '/register'
-      if (!isAuthPage) {
-        window.location.href = '/login'
+      const hadAuthToken = !!useAuthStore.getState().token
+      if (hadAuthToken) {
+        useAuthStore.getState().clearAuth()
+        queryClient.clear()
+
+        // Не делаем редирект, если мы уже находимся на странице логина или регистрации.
+        // Иначе при неверном пароле (401) страница будет перезагружаться.
+        const isAuthPage =
+          window.location.pathname === '/login' ||
+          window.location.pathname === '/register'
+        if (!isAuthPage) {
+          window.location.href = '/login'
+        }
       }
     }
 

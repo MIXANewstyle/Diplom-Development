@@ -19,7 +19,11 @@ type ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
 
 const OFFLINE_DEBOUNCE_MS = 2000
 
-export const useRoomSocket = (roomId: string, myParticipantId?: string) => {
+export const useRoomSocket = (
+  roomId: string,
+  myParticipantId?: string,
+  authTokenOverride?: string | null
+) => {
   const myParticipantIdRef = useRef<string | undefined>(myParticipantId)
   const ownDraftBubbleIdsRef = useRef(new Set<string>())
   const [status, setStatus] = useState<ConnectionStatus>('disconnected')
@@ -234,7 +238,7 @@ export const useRoomSocket = (roomId: string, myParticipantId?: string) => {
 
     const connect = async () => {
       try {
-        await stompClient.connect()
+        await stompClient.connect(authTokenOverride ?? undefined)
         if (!isMounted) return
         setStatus('connected')
       } catch (err) {
@@ -256,7 +260,7 @@ export const useRoomSocket = (roomId: string, myParticipantId?: string) => {
       stompClient.disconnect()
       setStatus('disconnected')
     }
-  }, [roomId])
+  }, [roomId, authTokenOverride])
 
   return {
     status,
