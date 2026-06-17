@@ -6,6 +6,7 @@ import { useUpvote } from '../../feed/hooks/useUpvote'
 import { FollowButton } from '../../social/components/FollowButton'
 import type { Post, EditorBlock, EditorContent } from '../../feed/types'
 import { textareaToEditorContentStr } from '../../authoring/lib/content'
+import { ImageCarousel } from './ImageCarousel'
 import React from 'react'
 
 function parseInline(text: string) {
@@ -65,14 +66,15 @@ export function PostView({ post }: { post: Post }) {
   const upvote = useUpvote()
   const engaged = canEngage(user?.role)
 
+  // Determine images to display: prefer imageUrls, fall back to legacy coverImageUrl
+  const images = (post.imageUrls && post.imageUrls.length > 0)
+    ? post.imageUrls
+    : (post.coverImageUrl ? [post.coverImageUrl] : [])
+
   return (
     <article className="space-y-4">
-      {post.coverImageUrl && (
-        <img
-          src={post.coverImageUrl}
-          alt={post.title}
-          className="w-full h-auto max-h-[70vh] object-contain rounded"
-        />
+      {images.length > 0 && (
+        <ImageCarousel images={images} alt={post.title} />
       )}
 
       <header className="space-y-2">

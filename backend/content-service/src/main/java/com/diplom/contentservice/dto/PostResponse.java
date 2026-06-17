@@ -13,6 +13,7 @@ public record PostResponse(
     String title,
     String content,
     String coverImageUrl,
+    List<String> imageUrls,
     String status,
     OffsetDateTime publishedAt,
     OffsetDateTime updatedAt,

@@ -5,7 +5,7 @@ export type MyPost = Post
 export interface PostFormValues {
   title: string
   content?: string
-  coverImageUrl?: string
+  imageUrls?: string[]
   tagIds?: string[]
   keywords?: string[]
 }

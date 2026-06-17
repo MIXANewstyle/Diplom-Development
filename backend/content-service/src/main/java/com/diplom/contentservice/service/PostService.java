@@ -54,7 +54,7 @@ public class PostService {
                 .authorId(authorId)
                 .title(request.title().trim())
                 .content(request.content())
-                .coverImageUrl(request.coverImageUrl())
+                .imageUrls(request.imageUrls() != null ? new java.util.ArrayList<>(request.imageUrls()) : new java.util.ArrayList<>())
                 .statusId(PostStatus.DRAFT.getId())
                 .viewsCount(0)
                 .upvotesCount(0)
@@ -97,8 +97,8 @@ public class PostService {
             throw new InvalidPostStateException("Moderated posts cannot be edited");
         }
 
-        if (status == PostStatus.PUBLISHED && request.coverImageUrl() != null) {
-            throw new InvalidPostStateException("Cover image cannot be edited after publication");
+        if (status == PostStatus.PUBLISHED && request.imageUrls() != null) {
+            throw new InvalidPostStateException("Images cannot be edited after publication");
         }
 
         if (request.title() != null) {
@@ -107,8 +107,8 @@ public class PostService {
         if (request.content() != null) {
             post.setContent(request.content());
         }
-        if (request.coverImageUrl() != null) {
-            post.setCoverImageUrl(request.coverImageUrl());
+        if (request.imageUrls() != null) {
+            post.setImageUrls(new java.util.ArrayList<>(request.imageUrls()));
         }
         if (request.tagIds() != null) {
             post.setTags(resolveTagsOrThrow(request.tagIds()));

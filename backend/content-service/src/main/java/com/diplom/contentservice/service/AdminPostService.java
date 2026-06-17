@@ -74,7 +74,7 @@ public class AdminPostService {
 
         if (request.title() != null)         post.setTitle(request.title().trim());
         if (request.content() != null)       post.setContent(request.content());
-        if (request.coverImageUrl() != null) post.setCoverImageUrl(request.coverImageUrl());
+        if (request.imageUrls() != null)     post.setImageUrls(new java.util.ArrayList<>(request.imageUrls()));
         if (request.tagIds() != null) {
             Set<Tag> tags = resolveTagsOrThrow(request.tagIds());
             post.setTags(tags);
@@ -115,7 +115,7 @@ public class AdminPostService {
         Map<String, Object> snap = new LinkedHashMap<>();
         snap.put("title", post.getTitle());
         snap.put("content", post.getContent());
-        snap.put("coverImageUrl", post.getCoverImageUrl());
+        snap.put("imageUrls", post.getImageUrls());
         snap.put("statusId", post.getStatusId());
         snap.put("tagIds", post.getTags().stream().map(Tag::getId).toList());
         snap.put("keywords", post.getKeywords());
