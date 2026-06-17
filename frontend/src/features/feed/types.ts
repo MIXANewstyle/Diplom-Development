@@ -25,6 +25,7 @@ export type Post = {
   title: string
   content: EditorContent | string | null
   coverImageUrl: string | null
+  imageUrls: string[]
   status: PostStatus
   publishedAt: string | null
   updatedAt: string

@@ -21,6 +21,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -55,6 +56,11 @@ public class Post {
     @Column(columnDefinition = "text[]")
     @JdbcTypeCode(SqlTypes.ARRAY)
     private List<String> keywords;
+
+    @Column(name = "image_urls", columnDefinition = "text[]")
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Builder.Default
+    private List<String> imageUrls = new ArrayList<>();
 
     @Column(name = "status_id", nullable = false)
     private Integer statusId;

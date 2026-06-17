@@ -18,11 +18,12 @@ interface Props {
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_SIZE_BYTES = 5 * 1024 * 1024 // 5 MB
+const MAX_IMAGES = 10
 
 export function PostEditorForm({ initialPost, onClose }: Props) {
   const [title, setTitle] = useState(initialPost?.title || '')
   const [body, setBody] = useState(() => editorContentToTextarea(initialPost?.content || null))
-  const [coverImageUrl, setCoverImageUrl] = useState(initialPost?.coverImageUrl || '')
+  const [imageUrls, setImageUrls] = useState<string[]>(initialPost?.imageUrls ?? [])
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(initialPost?.tags.map(t => t.id) || [])
   const [keywordsStr, setKeywordsStr] = useState(initialPost?.keywords.join(', ') || '')
   const [errorMsg, setErrorMsg] = useState('')
@@ -41,29 +42,45 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
 
   const isPending = createPost.isPending || updatePost.isPending
 
-  // ── Cover upload ──────────────────────────────────────────────────────────
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    // Reset input so the same file can be re-selected after clearing
+  // ── Multi-image upload ────────────────────────────────────────────────────
+  const handleFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
     if (fileInputRef.current) fileInputRef.current.value = ''
-    if (!file) return
+    if (!files || files.length === 0) return
 
     setUploadError('')
 
-    // Client-side pre-checks (backend enforces too; these are UX only)
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      setUploadError('Допустимые форматы: JPEG, PNG, WebP, GIF.')
+    const remaining = MAX_IMAGES - imageUrls.length
+    if (remaining <= 0) {
+      setUploadError(`Максимум ${MAX_IMAGES} изображений.`)
       return
     }
-    if (file.size > MAX_SIZE_BYTES) {
-      setUploadError('Файл слишком большой. Максимум 5 МБ.')
-      return
+
+    const filesToUpload = Array.from(files).slice(0, remaining)
+    if (files.length > remaining) {
+      setUploadError(`Можно добавить ещё ${remaining}. Лишние файлы пропущены.`)
+    }
+
+    // Client-side pre-checks
+    for (const file of filesToUpload) {
+      if (!ACCEPTED_TYPES.includes(file.type)) {
+        setUploadError('Допустимые форматы: JPEG, PNG, WebP, GIF.')
+        return
+      }
+      if (file.size > MAX_SIZE_BYTES) {
+        setUploadError(`Файл «${file.name}» слишком большой. Максимум 5 МБ.`)
+        return
+      }
     }
 
     setIsUploading(true)
     try {
-      const url = await uploadCoverImage(file)
-      setCoverImageUrl(url)
+      const uploaded: string[] = []
+      for (const file of filesToUpload) {
+        const url = await uploadCoverImage(file)
+        uploaded.push(url)
+      }
+      setImageUrls(prev => [...prev, ...uploaded])
     } catch (err) {
       setUploadError(getErrorMessage(err))
     } finally {
@@ -71,10 +88,18 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
     }
   }
 
-  const handleRemoveCover = () => {
-    setCoverImageUrl('')
-    setUploadError('')
-    if (fileInputRef.current) fileInputRef.current.value = ''
+  const handleRemoveImage = (index: number) => {
+    setImageUrls(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const handleMoveImage = (index: number, direction: -1 | 1) => {
+    const target = index + direction
+    if (target < 0 || target >= imageUrls.length) return
+    setImageUrls(prev => {
+      const next = [...prev]
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
+    })
   }
 
   // ── Form submit ───────────────────────────────────────────────────────────
@@ -104,7 +129,7 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
     const payload: PostFormValues = {
       title: title.trim(),
       content: textareaToEditorContentStr(body),
-      coverImageUrl: coverImageUrl.trim() || undefined,
+      imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
       tagIds: selectedTagIds,
       keywords,
     }
@@ -175,25 +200,62 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
         />
       </div>
 
-      {/* ── Cover image uploader ─────────────────────────────────────────── */}
+      {/* ── Multi-image uploader ───────────────────────────────────────────── */}
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium">Обложка</label>
+        <label className="text-sm font-medium">Изображения поста</label>
+        <p className="text-xs text-gray-500">Первое изображение — обложка поста</p>
 
-        {/* Preview of current cover (uploaded or pre-existing https://) */}
-        {coverImageUrl && (
-          <div className="relative">
-            <img
-              src={coverImageUrl}
-              alt="Предпросмотр обложки"
-              className="w-full h-auto max-h-60 object-contain rounded border border-gray-200 bg-gray-50"
-            />
-            <button
-              type="button"
-              onClick={handleRemoveCover}
-              className="absolute top-2 right-2 bg-white text-gray-700 border border-gray-300 rounded px-2 py-0.5 text-xs font-medium hover:bg-gray-100 shadow-sm"
-            >
-              Убрать
-            </button>
+        {/* Thumbnails grid */}
+        {imageUrls.length > 0 && (
+          <div className="flex flex-wrap gap-3">
+            {imageUrls.map((url, i) => (
+              <div
+                key={`${url}-${i}`}
+                className={`relative group w-24 h-24 rounded border-2 overflow-hidden flex-shrink-0 ${
+                  i === 0 ? 'border-blue-500' : 'border-gray-200'
+                }`}
+              >
+                <img
+                  src={url}
+                  alt={`Изображение ${i + 1}`}
+                  className="w-full h-full object-cover"
+                />
+                {i === 0 && (
+                  <span className="absolute bottom-0 left-0 right-0 bg-blue-600 text-white text-[10px] text-center py-0.5 leading-none">
+                    Обложка
+                  </span>
+                )}
+                {/* Controls overlay */}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleMoveImage(i, -1)}
+                    disabled={i === 0}
+                    className="w-6 h-6 bg-white rounded text-xs font-bold disabled:opacity-30"
+                    title="Сдвинуть влево"
+                  >
+                    ◀
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(i)}
+                    className="w-6 h-6 bg-red-500 text-white rounded text-xs font-bold"
+                    title="Удалить"
+                  >
+                    ✕
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMoveImage(i, 1)}
+                    disabled={i === imageUrls.length - 1}
+                    className="w-6 h-6 bg-white rounded text-xs font-bold disabled:opacity-30"
+                    title="Сдвинуть вправо"
+                  >
+                    ▶
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -202,12 +264,14 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
+            disabled={isUploading || imageUrls.length >= MAX_IMAGES}
             className="px-4 py-2 text-sm border border-gray-300 rounded font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isUploading ? 'Загрузка...' : coverImageUrl ? 'Заменить' : 'Загрузить обложку'}
+            {isUploading ? 'Загрузка...' : 'Добавить изображения'}
           </button>
-          <span className="text-xs text-gray-400">JPEG, PNG, WebP, GIF · до 5 МБ</span>
+          <span className="text-xs text-gray-400">
+            JPEG, PNG, WebP, GIF · до 5 МБ · {imageUrls.length}/{MAX_IMAGES}
+          </span>
         </div>
 
         {/* Hidden file input */}
@@ -215,8 +279,9 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
           ref={fileInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
+          multiple
           className="hidden"
-          onChange={handleFileChange}
+          onChange={handleFilesChange}
         />
 
         {/* Upload-specific error */}
@@ -251,7 +316,8 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
               authorAvatarUrl: null,
               title: title.trim() || 'Без названия',
               content: textareaToEditorContentStr(body),
-              coverImageUrl: coverImageUrl || null,
+              coverImageUrl: imageUrls.length > 0 ? imageUrls[0] : null,
+              imageUrls: imageUrls,
               status: 'DRAFT',
               publishedAt: null,
               updatedAt: new Date().toISOString(),

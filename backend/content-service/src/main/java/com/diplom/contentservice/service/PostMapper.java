@@ -23,6 +23,8 @@ public class PostMapper {
         long upvotes = post.getUpvotesCount() + deltas.upvotes();
         long comments = post.getCommentsCount() + deltas.comments();
         long views = post.getViewsCount() + deltas.views();
+        List<String> images = imageUrlsOrEmpty(post);
+        String cover = images.isEmpty() ? null : images.get(0);
         return new PostResponse(
                 post.getId(),
                 post.getAuthorId(),
@@ -30,7 +32,8 @@ public class PostMapper {
                 authorProfile == null ? null : authorProfile.avatarUrl(),
                 post.getTitle(),
                 post.getContent(),
-                post.getCoverImageUrl(),
+                cover,
+                images,
                 PostStatus.fromId(post.getStatusId()).name(),
                 post.getPublishedAt(),
                 post.getUpdatedAt(),
@@ -70,5 +73,9 @@ public class PostMapper {
 
     private List<String> keywordsOrEmpty(Post post) {
         return post.getKeywords() == null ? List.of() : post.getKeywords();
+    }
+
+    private List<String> imageUrlsOrEmpty(Post post) {
+        return post.getImageUrls() == null ? List.of() : post.getImageUrls();
     }
 }
