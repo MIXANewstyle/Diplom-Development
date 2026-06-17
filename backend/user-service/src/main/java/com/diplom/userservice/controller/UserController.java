@@ -4,6 +4,7 @@ import com.diplom.userservice.dto.JwtResponse;
 import com.diplom.userservice.dto.LoginRequest;
 import com.diplom.userservice.dto.MyProfileResponse;
 import com.diplom.userservice.dto.ProfileUpdateRequest;
+import com.diplom.userservice.dto.PublicProfileResponse;
 import com.diplom.userservice.dto.UserRegistrationRequest;
 import com.diplom.userservice.dto.UserResponse;
 import com.diplom.userservice.dto.UserBatchRequest;
@@ -86,6 +87,11 @@ public class UserController {
     public ResponseEntity<MyProfileResponse> getMyProfile(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(userService.getMyProfile(userDetails.getId()));
+    }
+
+    @GetMapping("/{userId}/profile")
+    public ResponseEntity<PublicProfileResponse> getPublicProfile(@PathVariable UUID userId) {
+        return ResponseEntity.ok(userService.getPublicProfile(userId));
     }
 
     @PostMapping("/batch")

@@ -2,6 +2,7 @@ package com.diplom.userservice.service;
 
 import com.diplom.userservice.dto.UserRegistrationRequest;
 import com.diplom.userservice.dto.MyProfileResponse;
+import com.diplom.userservice.dto.PublicProfileResponse;
 import com.diplom.userservice.dto.UserResponse;
 import com.diplom.userservice.dto.UserBatchResponse;
 import com.diplom.userservice.entity.User;
@@ -182,6 +183,25 @@ public class UserService {
                 profile.getGenderId(),
                 profile.getPsychProfile(),
                 profile.getUpdatedAt()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public PublicProfileResponse getPublicProfile(UUID userId) {
+        UserProfile profile = userProfileRepository.findById(userId)
+                .orElseThrow(() -> new UserProfileNotFoundException("Profile for user " + userId + " not found"));
+        User user = profile.getUser();
+
+        String roleName = UserRole.fromId(user.getRoleId()).getName();
+
+        return new PublicProfileResponse(
+                profile.getId(),
+                profile.getUsername(),
+                profile.getFullName(),
+                profile.getAvatarUrl(),
+                profile.getBio(),
+                profile.getContactInfo(),
+                roleName
         );
     }
 

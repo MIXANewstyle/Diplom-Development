@@ -1,6 +1,21 @@
 import { apiClient } from '../../shared/api/client'
 import type { FeedResponse } from '../feed/types'
 
+export interface PublicProfile {
+  id: string
+  username: string
+  fullName: string
+  avatarUrl: string | null
+  bio: string | null
+  contactInfo: string | null
+  role: string
+}
+
+export async function getAuthorProfile(authorId: string): Promise<PublicProfile> {
+  const { data } = await apiClient.get<PublicProfile>(`/api/v1/users/${authorId}/profile`)
+  return data
+}
+
 export async function getAuthorPosts(params: {
   authorId: string
   cursor?: string
