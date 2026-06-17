@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react'
+import { Bold, Underline, Strikethrough } from 'lucide-react'
 import type { MyPost, PostFormValues } from '../types'
 import { useCreatePost, useUpdatePost } from '../hooks'
 import { editorContentToTextarea, textareaToEditorContentStr } from '../lib/content'
+import { wrapSelectionWithMark, type InlineMark } from '../lib/formatting'
 import { useTags } from '../../feed/hooks/useTags'
 import { getErrorMessage } from '../../../shared/lib/errors'
 import { ErrorText } from '../../../shared/components/ErrorText'
@@ -29,6 +31,8 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
   const [uploadError, setUploadError] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [selection, setSelection] = useState<{ start: number; end: number } | null>(null)
 
   const { data: tagsPage } = useTags()
   const allTags = tagsPage?.content ?? []
@@ -125,6 +129,35 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
 
   const isSubmitDisabled = isPending || isUploading
 
+  const updateSelection = () => {
+    const el = textareaRef.current
+    if (!el) return
+    const { selectionStart, selectionEnd } = el
+    if (selectionStart !== selectionEnd) {
+      setSelection({ start: selectionStart, end: selectionEnd })
+    } else {
+      setSelection(null)
+    }
+  }
+
+  const applyFormat = (mark: InlineMark) => {
+    if (!selection) return
+    const { text: newText, newStart, newEnd } = wrapSelectionWithMark(
+      body,
+      selection.start,
+      selection.end,
+      mark,
+    )
+    setBody(newText)
+    setSelection({ start: newStart, end: newEnd })
+    requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(newStart, newEnd)
+    })
+  }
+
   return (
     <form onSubmit={handleSave} className="flex flex-col gap-4 bg-white p-6 rounded-lg shadow-sm border">
       <h2 className="text-xl font-bold">{initialPost ? 'Редактировать пост' : 'Новый пост'}</h2>
@@ -205,7 +238,7 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
         </div>
         {!showPreview && (
           <div className="text-xs text-gray-500 mb-1">
-            Поддерживается: <code># Заголовок · ## Подзаголовок · - список · 1. нумерация · &gt; цитата · **жирный**</code>
+            Поддерживается: <code># Заголовок · ## Подзаголовок · - список · 1. нумерация · &gt; цитата · **жирный** · __подчёркнутый__ · ~~зачёркнутый~~</code>
           </div>
         )}
         
@@ -231,12 +264,49 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
             } as Post} />
           </div>
         ) : (
-          <textarea
-            value={body}
-            onChange={e => setBody(e.target.value)}
-            className="border border-gray-300 p-2 rounded h-64 font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            placeholder={"# Заголовок\n\nТекст абзаца..."}
-          />
+          <div className="relative">
+            {selection && (
+              <div className="flex items-center gap-1 mb-2 p-1 bg-white border border-gray-300 rounded shadow-sm w-fit">
+                <button
+                  type="button"
+                  title="Жирный"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => applyFormat('bold')}
+                  className="p-1.5 rounded hover:bg-gray-100 text-gray-700"
+                >
+                  <Bold className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  title="Подчёркнутый"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => applyFormat('underline')}
+                  className="p-1.5 rounded hover:bg-gray-100 text-gray-700"
+                >
+                  <Underline className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  title="Зачёркнутый"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => applyFormat('strikethrough')}
+                  className="p-1.5 rounded hover:bg-gray-100 text-gray-700"
+                >
+                  <Strikethrough className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+            <textarea
+              ref={textareaRef}
+              value={body}
+              onChange={e => setBody(e.target.value)}
+              onSelect={updateSelection}
+              onMouseUp={updateSelection}
+              onKeyUp={updateSelection}
+              className="border border-gray-300 p-2 rounded h-64 w-full font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              placeholder={"# Заголовок\n\nТекст абзаца..."}
+            />
+          </div>
         )}
       </div>
 

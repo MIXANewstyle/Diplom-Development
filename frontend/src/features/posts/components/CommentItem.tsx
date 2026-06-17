@@ -14,6 +14,7 @@ import { useCreateComment } from '../hooks/useCreateComment'
 import { CommentForm } from './CommentForm'
 import { ReplyList } from './ReplyList'
 import type { Comment } from '../types'
+import { parseInline } from '../lib/markdown'
 
 export function CommentItem({
   postId,
@@ -119,7 +120,7 @@ export function CommentItem({
                 comment.deleted ? 'text-gray-400 italic' : 'text-gray-800'
               }`}
             >
-              {comment.content}
+              {parseInline(comment.content)}
             </div>
           )}
 

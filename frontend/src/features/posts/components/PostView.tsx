@@ -6,59 +6,7 @@ import { useUpvote } from '../../feed/hooks/useUpvote'
 import { FollowButton } from '../../social/components/FollowButton'
 import type { Post, EditorBlock, EditorContent } from '../../feed/types'
 import { textareaToEditorContentStr } from '../../authoring/lib/content'
-import React from 'react'
-
-function parseInline(text: string) {
-  const parts = text.split(/(\*\*.*?\*\*)/g)
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>
-    }
-    return <React.Fragment key={i}>{part}</React.Fragment>
-  })
-}
-
-function renderBlock(block: EditorBlock, index: number) {
-  switch (block.type) {
-    case 'paragraph':
-      return (
-        <p key={index} className="mb-3 leading-relaxed">
-          {parseInline(block.data.text)}
-        </p>
-      )
-    case 'header': {
-      const level = block.data.level || 2
-      const classes = 
-        level === 1 ? 'text-2xl font-bold mt-6 mb-3' :
-        level === 2 ? 'text-xl font-semibold mt-5 mb-2' :
-        'text-lg font-semibold mt-4 mb-2'
-      const Tag = `h${Math.min(Math.max(level, 1), 6)}` as keyof JSX.IntrinsicElements
-      return (
-        <Tag key={index} className={classes}>
-          {parseInline(block.data.text)}
-        </Tag>
-      )
-    }
-    case 'list': {
-      const ListTag = block.data.style === 'ordered' ? 'ol' : 'ul'
-      return (
-        <ListTag key={index} className={`pl-6 mb-3 space-y-1 ${block.data.style === 'ordered' ? 'list-decimal' : 'list-disc'}`}>
-          {block.data.items.map((item, i) => (
-            <li key={i}>{parseInline(item)}</li>
-          ))}
-        </ListTag>
-      )
-    }
-    case 'quote':
-      return (
-        <blockquote key={index} className="border-l-4 pl-4 italic text-gray-600 mb-3 whitespace-pre-wrap">
-          {parseInline(block.data.text)}
-        </blockquote>
-      )
-    default:
-      return null
-  }
-}
+import { renderBlock } from '../lib/markdown'
 
 export function PostView({ post }: { post: Post }) {
   const user = useAuthStore((s) => s.user)
