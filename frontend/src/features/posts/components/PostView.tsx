@@ -71,7 +71,7 @@ export function PostView({ post }: { post: Post }) {
         <img
           src={post.coverImageUrl}
           alt={post.title}
-          className="w-full max-h-96 object-cover rounded"
+          className="w-full h-auto max-h-[70vh] object-contain rounded"
         />
       )}
 

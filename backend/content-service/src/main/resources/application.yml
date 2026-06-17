@@ -26,6 +26,10 @@ spring:
     port: 5672
     username: guest
     password: guest
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 jwt:
   secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
@@ -43,3 +47,7 @@ management:
     web:
       exposure:
         include: health,prometheus
+
+app:
+  uploads:
+    dir: ${UPLOADS_DIR:/app/uploads}

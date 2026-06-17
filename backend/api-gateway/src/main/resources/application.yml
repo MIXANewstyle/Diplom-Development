@@ -28,6 +28,10 @@ spring:
           uri: ${USER_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/api/v1/social/**
+        - id: content-service-uploads
+          uri: ${CONTENT_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/v1/uploads/**
         - id: content-service-posts
           uri: ${CONTENT_SERVICE_URL:http://localhost:8082}
           predicates:

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { MyPost, PostFormValues } from '../types'
 import { useCreatePost, useUpdatePost } from '../hooks'
 import { editorContentToTextarea, textareaToEditorContentStr } from '../lib/content'
@@ -7,11 +7,15 @@ import { getErrorMessage } from '../../../shared/lib/errors'
 import { ErrorText } from '../../../shared/components/ErrorText'
 import { PostView } from '../../posts/components/PostView'
 import type { Post } from '../../feed/types'
+import { uploadCoverImage } from '../api'
 
 interface Props {
   initialPost?: MyPost
   onClose: () => void
 }
+
+const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const MAX_SIZE_BYTES = 5 * 1024 * 1024 // 5 MB
 
 export function PostEditorForm({ initialPost, onClose }: Props) {
   const [title, setTitle] = useState(initialPost?.title || '')
@@ -21,6 +25,10 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
   const [keywordsStr, setKeywordsStr] = useState(initialPost?.keywords.join(', ') || '')
   const [errorMsg, setErrorMsg] = useState('')
   const [showPreview, setShowPreview] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: tagsPage } = useTags()
   const allTags = tagsPage?.content ?? []
@@ -29,16 +37,49 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
 
   const isPending = createPost.isPending || updatePost.isPending
 
+  // ── Cover upload ──────────────────────────────────────────────────────────
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    // Reset input so the same file can be re-selected after clearing
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    if (!file) return
+
+    setUploadError('')
+
+    // Client-side pre-checks (backend enforces too; these are UX only)
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      setUploadError('Допустимые форматы: JPEG, PNG, WebP, GIF.')
+      return
+    }
+    if (file.size > MAX_SIZE_BYTES) {
+      setUploadError('Файл слишком большой. Максимум 5 МБ.')
+      return
+    }
+
+    setIsUploading(true)
+    try {
+      const url = await uploadCoverImage(file)
+      setCoverImageUrl(url)
+    } catch (err) {
+      setUploadError(getErrorMessage(err))
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleRemoveCover = () => {
+    setCoverImageUrl('')
+    setUploadError('')
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  // ── Form submit ───────────────────────────────────────────────────────────
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMsg('')
 
     if (!title.trim()) {
       setErrorMsg('Название обязательно')
-      return
-    }
-    if (coverImageUrl && !coverImageUrl.startsWith('https://')) {
-      setErrorMsg('Ссылка на обложку должна начинаться с https://')
       return
     }
     if (selectedTagIds.length > 5) {
@@ -82,6 +123,8 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
     )
   }
 
+  const isSubmitDisabled = isPending || isUploading
+
   return (
     <form onSubmit={handleSave} className="flex flex-col gap-4 bg-white p-6 rounded-lg shadow-sm border">
       <h2 className="text-xl font-bold">{initialPost ? 'Редактировать пост' : 'Новый пост'}</h2>
@@ -99,15 +142,54 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium">Обложка (URL)</label>
+      {/* ── Cover image uploader ─────────────────────────────────────────── */}
+      <div className="flex flex-col gap-2">
+        <label className="text-sm font-medium">Обложка</label>
+
+        {/* Preview of current cover (uploaded or pre-existing https://) */}
+        {coverImageUrl && (
+          <div className="relative">
+            <img
+              src={coverImageUrl}
+              alt="Предпросмотр обложки"
+              className="w-full h-auto max-h-60 object-contain rounded border border-gray-200 bg-gray-50"
+            />
+            <button
+              type="button"
+              onClick={handleRemoveCover}
+              className="absolute top-2 right-2 bg-white text-gray-700 border border-gray-300 rounded px-2 py-0.5 text-xs font-medium hover:bg-gray-100 shadow-sm"
+            >
+              Убрать
+            </button>
+          </div>
+        )}
+
+        {/* Upload button + hidden file input */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="px-4 py-2 text-sm border border-gray-300 rounded font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isUploading ? 'Загрузка...' : coverImageUrl ? 'Заменить' : 'Загрузить обложку'}
+          </button>
+          <span className="text-xs text-gray-400">JPEG, PNG, WebP, GIF · до 5 МБ</span>
+        </div>
+
+        {/* Hidden file input */}
         <input
-          type="text"
-          value={coverImageUrl}
-          onChange={e => setCoverImageUrl(e.target.value)}
-          className="border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          placeholder="https://..."
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="hidden"
+          onChange={handleFileChange}
         />
+
+        {/* Upload-specific error */}
+        {uploadError && (
+          <p className="text-sm text-red-600">{uploadError}</p>
+        )}
       </div>
 
       <div className="flex flex-col gap-1">
@@ -153,7 +235,7 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
             value={body}
             onChange={e => setBody(e.target.value)}
             className="border border-gray-300 p-2 rounded h-64 font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            placeholder="# Заголовок&#10;&#10;Текст абзаца..."
+            placeholder={"# Заголовок\n\nТекст абзаца..."}
           />
         )}
       </div>
@@ -192,16 +274,16 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
           type="button"
           onClick={onClose}
           className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded text-gray-700 font-medium hover:bg-gray-50"
-          disabled={isPending}
+          disabled={isSubmitDisabled}
         >
           Отмена
         </button>
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isSubmitDisabled}
           className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 disabled:opacity-50"
         >
-          {isPending ? 'Сохранение...' : 'Сохранить'}
+          {isPending ? 'Сохранение...' : isUploading ? 'Загрузка...' : 'Сохранить'}
         </button>
       </div>
     </form>

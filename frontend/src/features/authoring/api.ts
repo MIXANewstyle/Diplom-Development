@@ -30,3 +30,10 @@ export async function archivePost(postId: string): Promise<MyPost> {
 export async function deletePost(postId: string): Promise<void> {
   await apiClient.delete(`/api/v1/posts/${postId}`)
 }
+
+export async function uploadCoverImage(file: File): Promise<string> {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await apiClient.post<{ url: string }>('/api/v1/uploads/image', form)
+  return data.url
+}

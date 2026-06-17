@@ -111,6 +111,9 @@ services:
       - SPRING_DATA_REDIS_HOST=redis
       - JWT_SECRET=${JWT_SECRET}
       - USER_SERVICE_URL=http://user-service:8081
+      - UPLOADS_DIR=/app/uploads
+    volumes:
+      - content-uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -213,3 +216,4 @@ volumes:
   rabbitmq-data:
   caddy_data:
   caddy_config:
+  content-uploads:
