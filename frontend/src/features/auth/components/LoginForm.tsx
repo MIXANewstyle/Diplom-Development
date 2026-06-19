@@ -24,8 +24,11 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
-        <label className="block text-sm font-medium mb-1">Email</label>
+        <label htmlFor="login-email" className="block text-sm font-medium mb-1">
+          Email
+        </label>
         <input
+          id="login-email"
           type="email"
           required
           value={email}
@@ -35,8 +38,11 @@ export function LoginForm() {
         <ErrorText error={fieldErrors.email} />
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1">Пароль</label>
+        <label htmlFor="login-password" className="block text-sm font-medium mb-1">
+          Пароль
+        </label>
         <PasswordInput
+          id="login-password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
