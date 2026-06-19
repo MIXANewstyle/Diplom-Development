@@ -39,8 +39,11 @@ export function RegisterForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
-        <label className="block text-sm font-medium mb-1">Email</label>
+        <label htmlFor="register-email" className="block text-sm font-medium mb-1">
+          Email
+        </label>
         <input
+          id="register-email"
           type="email"
           required
           value={email}
@@ -50,8 +53,11 @@ export function RegisterForm() {
         <ErrorText error={fieldErrors.email} />
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1">Имя пользователя (username)</label>
+        <label htmlFor="register-username" className="block text-sm font-medium mb-1">
+          Имя пользователя (username)
+        </label>
         <input
+          id="register-username"
           type="text"
           required
           value={username}
@@ -61,8 +67,11 @@ export function RegisterForm() {
         <ErrorText error={fieldErrors.username} />
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1">Полное имя (Full Name)</label>
+        <label htmlFor="register-fullname" className="block text-sm font-medium mb-1">
+          Полное имя (Full Name)
+        </label>
         <input
+          id="register-fullname"
           type="text"
           required
           value={fullName}
@@ -72,8 +81,11 @@ export function RegisterForm() {
         <ErrorText error={fieldErrors.fullName} />
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1">Пароль</label>
+        <label htmlFor="register-password" className="block text-sm font-medium mb-1">
+          Пароль
+        </label>
         <PasswordInput
+          id="register-password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -82,8 +94,11 @@ export function RegisterForm() {
         <ErrorText error={fieldErrors.password} />
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1">Повторите пароль</label>
+        <label htmlFor="register-confirm-password" className="block text-sm font-medium mb-1">
+          Повторите пароль
+        </label>
         <PasswordInput
+          id="register-confirm-password"
           required
           value={confirmPassword}
           onChange={(e) => {

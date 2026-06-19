@@ -71,11 +71,14 @@ export function CheckoutPanel({ plan, onCancel }: CheckoutPanelProps) {
       </div>
 
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Промокод (необязательно)</label>
+        <label htmlFor="checkout-promo" className="block text-sm font-medium text-gray-700 mb-1">
+          Промокод (необязательно)
+        </label>
         <div className="flex gap-2">
-          <input 
-            type="text" 
-            value={promoCode} 
+          <input
+            id="checkout-promo"
+            type="text"
+            value={promoCode}
             onChange={e => setPromoCode(e.target.value)}
             className="flex-1 border border-gray-300 rounded px-3 py-2 uppercase"
             placeholder="PROMO2026"
