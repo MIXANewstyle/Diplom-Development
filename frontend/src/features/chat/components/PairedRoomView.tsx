@@ -155,6 +155,8 @@ export const PairedRoomView = ({ roomId }: Props) => {
     ? 'Ожидание готовности'
     : room.status === 'ACTIVE' || dialogueStarted
     ? 'Активна'
+    : room.status === 'ARCHIVED' || archived
+    ? 'Диалог завершён'
     : room.status
 
   return (
@@ -260,8 +262,13 @@ export const PairedRoomView = ({ roomId }: Props) => {
           </div>
         )}
 
-        {(room.status === 'ACTIVE' || dialogueStarted) && (
+        {(room.status === 'ACTIVE' || dialogueStarted || room.status === 'ARCHIVED' || archived || (turnsPage?.items?.length ?? 0) > 0) && (
           <div className="w-full h-full flex flex-col items-stretch text-left">
+            {(room.status === 'ARCHIVED' || archived) && (
+              <div className="text-center text-sm text-gray-500 pb-4 shrink-0 italic">
+                Этот диалог завершён
+              </div>
+            )}
             <DialogueTranscript
               historyTurns={turnsPage?.items || []}
               liveTurns={liveTurns}
@@ -272,7 +279,7 @@ export const PairedRoomView = ({ roomId }: Props) => {
               pendingSentTurn={pendingSentTurn}
             />
 
-            {!archived && !endProposerParticipantId && (
+            {!(room.status === 'ARCHIVED' || archived) && !endProposerParticipantId && (
               <div className="flex justify-end pt-2 pb-4 shrink-0 px-4">
                 <button
                   onClick={proposeEnd}
@@ -283,7 +290,7 @@ export const PairedRoomView = ({ roomId }: Props) => {
               </div>
             )}
 
-            {!archived && endProposerParticipantId && (
+            {!(room.status === 'ARCHIVED' || archived) && endProposerParticipantId && (
               <div className="bg-yellow-50 border border-yellow-200 p-4 shrink-0 rounded-lg mx-2 md:mx-4 mb-4 flex flex-wrap items-center justify-between gap-2">
                 {endProposerParticipantId !== myParticipantId ? (
                   <>
@@ -299,17 +306,19 @@ export const PairedRoomView = ({ roomId }: Props) => {
               </div>
             )}
 
-            <div className="shrink-0 pt-2 border-t border-gray-200 px-2 md:px-4 pb-4 bg-white rounded-b-lg">
-              <PairedComposer
-                isActive={room.status === 'ACTIVE' || dialogueStarted}
-                archived={archived}
-                hasFloor={currentFloorParticipantId === myParticipantId}
-                aiThinking={aiThinking}
-                endPending={!!endProposerParticipantId}
-                onDraftUpsert={upsertDraft}
-                onSubmit={handleComposerSubmit}
-              />
-            </div>
+            {!(room.status === 'ARCHIVED' || archived) && (
+              <div className="shrink-0 pt-2 border-t border-gray-200 px-2 md:px-4 pb-4 bg-white rounded-b-lg">
+                <PairedComposer
+                  isActive={room.status === 'ACTIVE' || dialogueStarted}
+                  archived={archived}
+                  hasFloor={currentFloorParticipantId === myParticipantId}
+                  aiThinking={aiThinking}
+                  endPending={!!endProposerParticipantId}
+                  onDraftUpsert={upsertDraft}
+                  onSubmit={handleComposerSubmit}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
