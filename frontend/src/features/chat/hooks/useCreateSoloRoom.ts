@@ -9,7 +9,7 @@ export const useCreateSoloRoom = () => {
   const navigate = useNavigate()
 
   return useMutation({
-    mutationFn: createSoloRoom,
+    mutationFn: (title?: string) => createSoloRoom(title),
     onSuccess: (room) => {
       queryClient.invalidateQueries({ queryKey: ['chat', 'rooms'] })
       navigate(`/chat/${room.id}`)

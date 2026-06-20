@@ -17,6 +17,7 @@ export interface ParticipantResponse {
 
 export interface RoomResponse {
   id: string
+  title: string | null
   type: RoomType
   status: RoomStatus
   phase: string | null
@@ -30,6 +31,7 @@ export interface RoomResponse {
 
 export interface RoomSummaryResponse {
   id: string
+  title: string | null
   type: RoomType
   status: RoomStatus
   myRole: string | null

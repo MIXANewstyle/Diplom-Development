@@ -56,4 +56,8 @@ public interface RoomRepository extends JpaRepository<Room, UUID> {
 
     @Query("SELECT r FROM Room r WHERE r.statusId IN (3, 4)")
     Page<Room> findAbandonedCandidates(Pageable pageable);
+
+    @Modifying
+    @Query("UPDATE Room r SET r.seedContextRoomId = null WHERE r.seedContextRoomId = :roomId")
+    void nullifySeedContextReferences(@Param("roomId") UUID roomId);
 }

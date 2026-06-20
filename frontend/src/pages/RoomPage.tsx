@@ -6,8 +6,12 @@ import { useEndSoloRoom } from '../features/chat/hooks/useEndSoloRoom'
 import { Transcript } from '../features/chat/components/Transcript'
 import { Composer } from '../features/chat/components/Composer'
 import { PairedRoomView } from '../features/chat/components/PairedRoomView'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRoomSocket } from '../shared/ws/useRoomSocket'
+import { useQueryClient, useMutation } from '@tanstack/react-query'
+import { Pencil, Check, X } from 'lucide-react'
+import { renameRoom } from '../features/chat/api'
+import { getErrorMessage } from '../shared/lib/errors'
 
 export const RoomPage = () => {
   const { roomId } = useParams<{ roomId: string }>()
@@ -47,6 +51,23 @@ const SoloRoomView = ({ id, room }: { id: string, room: any }) => {
 
   const transcriptContainerRef = useRef<HTMLDivElement>(null)
   const { status: wsStatus, snapshot, error: wsError } = useRoomSocket(id)
+  const queryClient = useQueryClient()
+
+  // Rename inline editing
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const renameMutation = useMutation({
+    mutationFn: (newTitle: string | null) => renameRoom(id, newTitle),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat', 'room', id] })
+      queryClient.invalidateQueries({ queryKey: ['chat', 'rooms'] })
+      setIsEditingTitle(false)
+    },
+    onError: (err) => alert('Ошибка: ' + getErrorMessage(err)),
+  })
+  const startRename = () => { setEditTitle(room?.title || ''); setIsEditingTitle(true) }
+  const submitRename = () => { renameMutation.mutate(editTitle.trim() || null) }
+  const cancelRename = () => setIsEditingTitle(false)
 
   useEffect(() => {
     if (transcriptContainerRef.current) {
@@ -72,7 +93,27 @@ const SoloRoomView = ({ id, room }: { id: string, room: any }) => {
       {/* Header */}
       <div className="flex justify-between items-start gap-2 pb-4 border-b shrink-0">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-gray-900">Соло сессия</h1>
+          {isEditingTitle ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                maxLength={100}
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') submitRename(); if (e.key === 'Escape') cancelRename(); }}
+                className="text-xl font-bold text-gray-900 border-b-2 border-blue-500 outline-none bg-transparent w-full min-w-0"
+                placeholder="Название сессии"
+              />
+              <button onClick={submitRename} disabled={renameMutation.isPending} className="p-1 text-green-600 hover:text-green-800 shrink-0"><Check size={18} /></button>
+              <button onClick={cancelRename} className="p-1 text-gray-400 hover:text-gray-600 shrink-0"><X size={18} /></button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 group/title">
+              <h1 className="text-xl font-bold text-gray-900">{room?.title || 'Соло сессия'}</h1>
+              <button onClick={startRename} className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover/title:opacity-100 focus:opacity-100 transition-opacity shrink-0" title="Переименовать"><Pencil size={14} /></button>
+            </div>
+          )}
           <div className="text-sm text-gray-500">Статус: {room.status}</div>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">

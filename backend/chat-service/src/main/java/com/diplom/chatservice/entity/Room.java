@@ -54,6 +54,9 @@ public class Room {
     @Column(name = "ai_model", nullable = false, length = 100)
     private String aiModel;
 
+    @Column(name = "title", length = 100)
+    private String title;
+
     @Column(name = "seed_context_room_id")
     private UUID seedContextRoomId;
 

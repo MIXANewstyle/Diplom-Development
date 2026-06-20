@@ -4,6 +4,7 @@ import com.diplom.chatservice.dto.CreatePairedRoomRequest;
 import com.diplom.chatservice.dto.CreateSoloRoomRequest;
 import com.diplom.chatservice.dto.EndRespondRequest;
 import com.diplom.chatservice.dto.ParticipantResponse;
+import com.diplom.chatservice.dto.RenameRoomRequest;
 import com.diplom.chatservice.dto.RoomResponse;
 import com.diplom.chatservice.dto.RoomSummaryResponse;
 import com.diplom.chatservice.dto.TurnsPageResponse;
@@ -22,7 +23,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -181,7 +184,7 @@ public class RoomController {
         List<ParticipantResponse> enriched = participantEnrichmentService.enrichParticipants(participants, jwt);
 
         RoomResponse enrichedResponse = new RoomResponse(
-            base.id(), base.type(), base.status(), base.phase(),
+            base.id(), base.title(), base.type(), base.status(), base.phase(),
             base.currentFloorParticipantId(), base.aiModel(), base.ownerUserId(),
             base.createdAt(), base.startedAt(), enriched
         );
@@ -224,6 +227,25 @@ public class RoomController {
             return auth.substring(7);
         }
         throw new IllegalStateException("No bearer token in current request");
+    }
+
+    @PatchMapping("/{roomId}")
+    public ResponseEntity<RoomResponse> renameRoom(
+        @AuthenticationPrincipal Object principal,
+        @PathVariable UUID roomId,
+        @Valid @RequestBody RenameRoomRequest request
+    ) {
+        RoomResponse response = roomService.renameRoom(roomId, request, principal);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{roomId}")
+    public ResponseEntity<Void> deleteRoom(
+        @AuthenticationPrincipal Object principal,
+        @PathVariable UUID roomId
+    ) {
+        roomService.deleteRoom(roomId, principal);
+        return ResponseEntity.noContent().build();
     }
 }
 

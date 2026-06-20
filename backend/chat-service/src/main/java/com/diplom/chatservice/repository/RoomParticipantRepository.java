@@ -26,4 +26,6 @@ public interface RoomParticipantRepository extends JpaRepository<RoomParticipant
     @Modifying
     @Query("UPDATE RoomParticipant rp SET rp.lastSeenAt = :lastSeenAt WHERE rp.roomId = :roomId AND rp.id = :participantId")
     void updateLastSeenAt(@Param("roomId") UUID roomId, @Param("participantId") UUID participantId, @Param("lastSeenAt") OffsetDateTime lastSeenAt);
+
+    void deleteByRoomId(UUID roomId);
 }

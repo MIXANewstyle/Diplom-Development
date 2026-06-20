@@ -61,6 +61,7 @@ public class RoomMapper {
 
         return new RoomResponse(
             room.getId(),
+            room.getTitle(),
             roomTypeName(room.getTypeId()),
             roomStatusName(room.getStatusId()),
             room.getPhase(),
@@ -77,6 +78,7 @@ public class RoomMapper {
                                                       String otherDisplayName, String otherAvatarUrl) {
         return new RoomSummaryResponse(
             room.getId(),
+            room.getTitle(),
             roomTypeName(room.getTypeId()),
             roomStatusName(room.getStatusId()),
             participantRoleName(myParticipant.getRoleId()),

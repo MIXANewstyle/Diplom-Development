@@ -6,9 +6,10 @@ import type {
   TurnsPageResponse,
 } from './types'
 
-export const createSoloRoom = async (): Promise<RoomResponse> => {
+export const createSoloRoom = async (title?: string): Promise<RoomResponse> => {
   const { data } = await apiClient.post<RoomResponse>('/api/v1/rooms/solo', {
     mode: 'PROBLEM_SOLVING',
+    ...(title ? { title } : {}),
   })
   return data
 }
@@ -66,17 +67,22 @@ export const endSoloRoom = async (roomId: string): Promise<RoomResponse> => {
   return data
 }
 
-export const createPairedRoom = async (friendUserId: string): Promise<RoomResponse> => {
+export const createPairedRoom = async (
+  friendUserId: string,
+  title?: string
+): Promise<RoomResponse> => {
   const { data } = await apiClient.post<RoomResponse>('/api/v1/rooms/paired', {
     inviteMode: 'FRIEND',
     friendUserId,
+    ...(title ? { title } : {}),
   })
   return data
 }
 
-export const createPairedLinkRoom = async (): Promise<RoomResponse> => {
+export const createPairedLinkRoom = async (title?: string): Promise<RoomResponse> => {
   const { data } = await apiClient.post<RoomResponse>('/api/v1/rooms/paired', {
     inviteMode: 'LINK',
+    ...(title ? { title } : {}),
   })
   return data
 }
@@ -84,4 +90,18 @@ export const createPairedLinkRoom = async (): Promise<RoomResponse> => {
 export const joinRoom = async (roomId: string): Promise<RoomResponse> => {
   const { data } = await apiClient.post<RoomResponse>(`/api/v1/rooms/${roomId}/join`)
   return data
+}
+
+export const renameRoom = async (
+  roomId: string,
+  title: string | null
+): Promise<RoomResponse> => {
+  const { data } = await apiClient.patch<RoomResponse>(`/api/v1/rooms/${roomId}`, {
+    title: title || '',
+  })
+  return data
+}
+
+export const deleteRoom = async (roomId: string): Promise<void> => {
+  await apiClient.delete(`/api/v1/rooms/${roomId}`)
 }

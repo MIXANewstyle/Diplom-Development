@@ -5,6 +5,7 @@ import com.diplom.chatservice.dto.CreateSoloRoomRequest;
 import com.diplom.chatservice.dto.EndDecision;
 import com.diplom.chatservice.dto.EndRespondRequest;
 import com.diplom.chatservice.dto.InviteMode;
+import com.diplom.chatservice.dto.RenameRoomRequest;
 import com.diplom.chatservice.dto.RoomResponse;
 import com.diplom.chatservice.dto.RoomSummaryResponse;
 import com.diplom.chatservice.dto.TurnResponse;
@@ -147,6 +148,7 @@ public class RoomService {
             .ownerUserId(callerId)
             .aiModel(defaultAiModel)
             .seedContextRoomId(seedContextRoomId)
+            .title(normalizeTitle(request.title()))
             .build();
         room = roomRepository.save(room);
 
@@ -201,6 +203,7 @@ public class RoomService {
             .aiModel(defaultAiModel)
             .phase(PHASE_A_COMPOSING)
             .startedAt(OffsetDateTime.now())
+            .title(normalizeTitle(request.title()))
             .build();
         room = roomRepository.save(room);
 
@@ -639,5 +642,56 @@ public class RoomService {
             new DialogueAbandonedEvent(roomId, "EXPIRED")
         );
         log.info("Expired room {} due to creation TTL", roomId);
+    }
+
+    // ==================== RENAME ====================
+
+    @Transactional
+    public RoomResponse renameRoom(UUID roomId, RenameRoomRequest request, Object principal) {
+        Room room = roomRepository.findById(roomId)
+            .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
+
+        com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
+
+        room.setTitle(normalizeTitle(request.title()));
+        room = roomRepository.save(room);
+
+        return roomMapper.toRoomResponse(room, participantRepository.findByRoomId(roomId));
+    }
+
+    // ==================== DELETE (HARD CASCADE) ====================
+
+    @Transactional
+    public void deleteRoom(UUID roomId, Object principal) {
+        Room room = roomRepository.findById(roomId).orElse(null);
+        if (room == null) return; // idempotent 204
+
+        com.diplom.chatservice.security.SecurityUtils.getParticipantOrThrow(principal, roomId, participantRepository);
+
+        // 1. Null out self-referencing FKs on this room
+        room.setCurrentFloorParticipantId(null);
+        room.setEndingProposedByParticipantId(null);
+        roomRepository.saveAndFlush(room);
+
+        // 2. Null out seed_context_room_id on OTHER rooms pointing to this one
+        roomRepository.nullifySeedContextReferences(roomId);
+
+        // 3. Delete children in FK-safe order
+        turnRepository.deleteByRoomId(roomId);
+        inviteRepository.deleteByRoomId(roomId);
+        participantRepository.deleteByRoomId(roomId);
+
+        // 4. Delete the room itself
+        roomRepository.deleteById(roomId);
+
+        log.info("Hard-deleted room {} and all related data", roomId);
+    }
+
+    // ==================== HELPERS ====================
+
+    private String normalizeTitle(String title) {
+        if (title == null) return null;
+        title = title.trim();
+        return title.isEmpty() ? null : title;
     }
 }

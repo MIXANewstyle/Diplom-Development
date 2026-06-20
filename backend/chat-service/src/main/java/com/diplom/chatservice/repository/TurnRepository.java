@@ -22,4 +22,6 @@ public interface TurnRepository extends JpaRepository<Turn, UUID> {
      * Used by the room-state snapshot on WebSocket subscribe.
      */
     List<Turn> findTop50ByRoomIdOrderBySeqDesc(UUID roomId);
+
+    void deleteByRoomId(UUID roomId);
 }

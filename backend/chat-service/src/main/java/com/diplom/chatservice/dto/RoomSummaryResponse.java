@@ -5,6 +5,7 @@ import java.util.UUID;
 
 public record RoomSummaryResponse(
     UUID id,
+    String title,
     String type,
     String status,
     String myRole,

@@ -18,4 +18,6 @@ public interface InviteRepository extends JpaRepository<Invite, UUID> {
     @Modifying
     @Query("UPDATE Invite i SET i.statusId = :newStatusId WHERE i.roomId = :roomId AND i.statusId = :currentStatusId")
     void updateStatusByRoomId(@Param("roomId") UUID roomId, @Param("currentStatusId") Integer currentStatusId, @Param("newStatusId") Integer newStatusId);
+
+    void deleteByRoomId(UUID roomId);
 }

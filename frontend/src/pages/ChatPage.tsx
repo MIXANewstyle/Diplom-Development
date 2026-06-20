@@ -15,14 +15,19 @@ export const ChatPage = () => {
   const createPairedRoomMutation = useCreatePairedRoom()
   const createPairedLinkRoomMutation = useCreatePairedLinkRoom()
   const [selectedFriendId, setSelectedFriendId] = useState('')
+  const [sessionTitle, setSessionTitle] = useState('')
+
+  const titleOrUndefined = sessionTitle.trim() || undefined
 
   const handleCreateRoom = () => {
-    createRoomMutation.mutate()
+    createRoomMutation.mutate(titleOrUndefined)
+    setSessionTitle('')
   }
 
   const handleCreatePairedRoom = () => {
     if (selectedFriendId) {
-      createPairedRoomMutation.mutate(selectedFriendId)
+      createPairedRoomMutation.mutate({ friendUserId: selectedFriendId, title: titleOrUndefined })
+      setSessionTitle('')
     }
   }
 
@@ -33,6 +38,16 @@ export const ChatPage = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <h1 className="text-3xl font-bold text-gray-900">Чат</h1>
         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+          {/* Session title input — shared across creation methods */}
+          <input
+            type="text"
+            value={sessionTitle}
+            onChange={(e) => setSessionTitle(e.target.value)}
+            maxLength={100}
+            placeholder="Название сессии (необязательно)"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none w-full md:w-56"
+          />
+
           <button
             onClick={handleCreateRoom}
             disabled={createRoomMutation.isPending}
@@ -73,7 +88,7 @@ export const ChatPage = () => {
               )}
             </div>
             <button
-              onClick={() => createPairedLinkRoomMutation.mutate()}
+              onClick={() => { createPairedLinkRoomMutation.mutate(titleOrUndefined); setSessionTitle('') }}
               disabled={createPairedLinkRoomMutation.isPending}
               className="w-full px-4 py-2 bg-white border border-blue-300 text-blue-700 rounded font-medium text-sm hover:bg-blue-100 disabled:opacity-50 transition-colors shadow-sm"
             >

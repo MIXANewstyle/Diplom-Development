@@ -9,7 +9,8 @@ export const useCreatePairedRoom = () => {
   const navigate = useNavigate()
 
   return useMutation({
-    mutationFn: (friendUserId: string) => createPairedRoom(friendUserId),
+    mutationFn: ({ friendUserId, title }: { friendUserId: string; title?: string }) =>
+      createPairedRoom(friendUserId, title),
     onSuccess: (room) => {
       queryClient.invalidateQueries({ queryKey: ['chat', 'rooms'] })
       navigate(`/chat/${room.id}`)

@@ -4,11 +4,14 @@ import { useJoinRoom } from '../hooks/useJoinRoom'
 import { useRoomSocket } from '../../../shared/ws/useRoomSocket'
 import { useAuthStore } from '../../../shared/stores/authStore'
 import { useGuestSessionStore } from '../../../shared/stores/guestSessionStore'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, useMutation } from '@tanstack/react-query'
 import { useTurns } from '../hooks/useTurns'
 import { DialogueTranscript } from './DialogueTranscript'
 import { PairedComposer } from './PairedComposer'
 import { InvitePanel } from './InvitePanel'
+import { Pencil, Check, X } from 'lucide-react'
+import { renameRoom } from '../api'
+import { getErrorMessage } from '../../../shared/lib/errors'
 import type { TurnResponse } from '../types'
 
 interface Props {
@@ -106,6 +109,29 @@ export const PairedRoomView = ({ roomId }: Props) => {
 
   const queryClient = useQueryClient()
 
+  // Rename inline editing
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const renameMutation = useMutation({
+    mutationFn: (newTitle: string | null) => renameRoom(roomId, newTitle),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat', 'room', roomId] })
+      queryClient.invalidateQueries({ queryKey: ['chat', 'rooms'] })
+      setIsEditingTitle(false)
+    },
+    onError: (err) => alert('Ошибка: ' + getErrorMessage(err)),
+  })
+
+  const startRename = () => {
+    setEditTitle(room?.title || '')
+    setIsEditingTitle(true)
+  }
+  const submitRename = () => {
+    const trimmed = editTitle.trim()
+    renameMutation.mutate(trimmed || null)
+  }
+  const cancelRename = () => setIsEditingTitle(false)
+
   // Sync REST state when room membership, consent, or messages change over WS
   useEffect(() => {
     const eventType = (lastEvent as { type?: string } | null)?.type
@@ -163,7 +189,27 @@ export const PairedRoomView = ({ roomId }: Props) => {
     <div className="max-w-4xl mx-auto h-[calc(100vh-80px)] flex flex-col py-4 px-2 md:px-4 gap-4 md:gap-6">
       <div className="flex justify-between items-start gap-2 pb-4 border-b shrink-0">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-gray-900">Парная сессия</h1>
+          {isEditingTitle ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                maxLength={100}
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') submitRename(); if (e.key === 'Escape') cancelRename(); }}
+                className="text-xl font-bold text-gray-900 border-b-2 border-blue-500 outline-none bg-transparent w-full min-w-0"
+                placeholder="Название сессии"
+              />
+              <button onClick={submitRename} disabled={renameMutation.isPending} className="p-1 text-green-600 hover:text-green-800 shrink-0"><Check size={18} /></button>
+              <button onClick={cancelRename} className="p-1 text-gray-400 hover:text-gray-600 shrink-0"><X size={18} /></button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 group/title">
+              <h1 className="text-xl font-bold text-gray-900">{room?.title || 'Парная сессия'}</h1>
+              <button onClick={startRename} className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover/title:opacity-100 focus:opacity-100 transition-opacity shrink-0" title="Переименовать"><Pencil size={14} /></button>
+            </div>
+          )}
           <div className="text-sm text-gray-500">Статус: {statusDisplay}</div>
         </div>
         <div className="flex flex-col items-end text-xs text-gray-500 shrink-0">
