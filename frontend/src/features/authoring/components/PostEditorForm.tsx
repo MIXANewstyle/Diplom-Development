@@ -5,6 +5,7 @@ import { useCreatePost, useUpdatePost } from '../hooks'
 import { editorContentToTextarea, textareaToEditorContentStr } from '../lib/content'
 import { wrapSelectionWithMark, type InlineMark } from '../lib/formatting'
 import { useTags } from '../../feed/hooks/useTags'
+import { resolveMediaUrl } from '../../../shared/lib/mediaUrl'
 import { getErrorMessage } from '../../../shared/lib/errors'
 import { ErrorText } from '../../../shared/components/ErrorText'
 import { PostView } from '../../posts/components/PostView'
@@ -216,7 +217,7 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
                 }`}
               >
                 <img
-                  src={url}
+                  src={resolveMediaUrl(url) || ''}
                   alt={`Изображение ${i + 1}`}
                   className="w-full h-full object-cover"
                 />
@@ -309,7 +310,7 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
         
         {showPreview ? (
           <div className="border border-gray-300 p-4 rounded min-h-[16rem] bg-gray-50 overflow-y-auto">
-            <PostView post={{
+            <PostView previewMode={true} post={{
               id: 'preview',
               authorId: 'preview',
               authorUsername: 'Автор',

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { MyProfile, PsychProfile } from '../types';
-import { parsePsychProfile, serializePsychProfile, psychProfileLength } from '../lib/psychProfile';
+import { parsePsychProfile, serializePsychProfile, psychProfileLength, psychProfileUserLength } from '../lib/psychProfile';
 import { useUpdateProfile } from '../hooks/useUpdateProfile';
 import { getErrorMessage } from '../../../shared/lib/errors';
 import { ErrorText } from '../../../shared/components/ErrorText';
@@ -20,8 +20,9 @@ export function OnboardingSection({ profile }: OnboardingSectionProps) {
     setForm(parsePsychProfile(profile.psychProfile));
   }, [profile.psychProfile]);
 
-  const currentLen = psychProfileLength(form);
-  const isOverLimit = currentLen > 1000;
+  const currentLen = psychProfileUserLength(form);
+  const serializedLen = psychProfileLength(form);
+  const isOverLimit = serializedLen > 1000;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +102,7 @@ export function OnboardingSection({ profile }: OnboardingSectionProps) {
         </div>
 
         <div className="flex items-center justify-between pt-4">
-          <div className={`text-sm ${isOverLimit ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
+          <div className="text-sm text-gray-500">
             Символов: {currentLen} / 1000
           </div>
           <button 
@@ -114,7 +115,7 @@ export function OnboardingSection({ profile }: OnboardingSectionProps) {
         </div>
         {isOverLimit && (
           <div className="text-red-600 text-sm mt-1 text-right">
-            Превышен лимит символов (1000). Пожалуйста, сократите текст.
+            Суммарный размер анкеты превышает лимит хранения. Пожалуйста, сократите текст.
           </div>
         )}
       </form>

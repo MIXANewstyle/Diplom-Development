@@ -1,5 +1,6 @@
 package com.diplom.chatservice.service;
 
+import com.diplom.chatservice.client.InternalUserBatchClient;
 import com.diplom.chatservice.config.ChatGuestProperties;
 import com.diplom.chatservice.config.ChatInviteProperties;
 import com.diplom.chatservice.dto.UserBatchResponse;
@@ -46,7 +47,9 @@ public class InviteService {
     private final JwtService jwtService;
     private final ProfileCacheService profileCacheService;
     private final ContextSnapshotService contextSnapshotService;
+    private final InternalUserBatchClient internalUserBatchClient;
     private final SecureRandom secureRandom = new SecureRandom();
+
 
     private static final int INVITE_STATUS_ACTIVE = 1;
     private static final int INVITE_STATUS_REVOKED = 2;
@@ -121,10 +124,22 @@ public class InviteService {
 
         String hostName = "Unknown Host";
         if (initiator != null && initiator.getUserId() != null) {
-            Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(List.of(initiator.getUserId()), null);
-            UserBatchResponse profile = profiles.get(initiator.getUserId());
-            if (profile != null) {
-                hostName = profile.getDisplayName();
+            try {
+                List<UserBatchResponse> profiles = internalUserBatchClient.batchGetProfiles(
+                        List.of(initiator.getUserId()));
+                if (profiles != null) {
+                    UserBatchResponse profile = profiles.stream()
+                            .filter(p -> p.id().equals(initiator.getUserId()))
+                            .findFirst()
+                            .orElse(null);
+                    if (profile != null) {
+                        hostName = profile.getDisplayName();
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Failed to fetch host profile for invite landing (userId={}): {}",
+                        initiator.getUserId(), e.getMessage());
+                // Graceful: keep hostName = "Unknown Host"
             }
         }
 

@@ -63,7 +63,7 @@ public class TurnWsController {
         if (authPrincipal instanceof CustomUserDetails user) {
             principalName = user.getUsername();
         } else if (authPrincipal instanceof com.diplom.chatservice.security.GuestPrincipal guest) {
-            principalName = "guest-" + guest.getParticipantId();
+            principalName = guest.getParticipantId().toString();
         }
         
         Long turnSeq = request != null ? request.turnSeq() : null;
@@ -138,8 +138,9 @@ public class TurnWsController {
         if (!buffer.isEmpty()) {
             long expectedSeq = headSeq + 1L;
             if (turnSeq == null || turnSeq != expectedSeq) {
-                log.info("FINISH_THOUGHT branch=IGNORED roomId={} expectedTurnSeq={} gotTurnSeq={}",
+                log.info("FINISH_THOUGHT branch=SEQ_MISMATCH roomId={} expectedTurnSeq={} gotTurnSeq={}",
                         roomId, expectedSeq, turnSeq);
+                wsErrorSender.send(principalName, WsError.seqMismatch(expectedSeq));
                 return;
             }
 

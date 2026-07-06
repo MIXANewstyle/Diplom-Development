@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { resolveMediaUrl } from '../shared/lib/mediaUrl'
 import { useAuthStore } from '../shared/stores/authStore'
 import { 
   useFriends, 
@@ -32,7 +33,7 @@ function UserRow({
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0">
           {user.avatarUrl ? (
-            <img src={user.avatarUrl} alt={user.username} className="w-10 h-10 rounded-full object-cover shrink-0" />
+            <img src={resolveMediaUrl(user.avatarUrl) || ''} alt={user.username} className="w-10 h-10 rounded-full object-cover shrink-0" />
           ) : (
             <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold shrink-0">
               {user.username.charAt(0).toUpperCase()}

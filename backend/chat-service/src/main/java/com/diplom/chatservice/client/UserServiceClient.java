@@ -11,6 +11,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -74,11 +75,19 @@ public class UserServiceClient {
             );
             UserBatchResponse[] arr = response.getBody();
             return arr == null ? List.of() : Arrays.asList(arr);
+        } catch (HttpClientErrorException ex) {
+            // 4xx — auth/contract error (e.g. 401 invalid JWT, 400 bad request)
+            log.error("Auth/contract error calling user-service for ids={}: {} {}",
+                ids, ex.getStatusCode(), ex.getMessage());
+            throw new UserServiceUnavailableException(
+                "User-service returned client error: " + ex.getStatusCode());
         } catch (RestClientException ex) {
-            log.error("Failed to fetch user profiles from user-service for ids={}",
+            // Connection refused, timeout, 5xx, etc.
+            log.error("Connection/timeout error fetching user profiles from user-service for ids={}",
                 ids, ex);
             throw new UserServiceUnavailableException(
                 "User-service is currently unavailable");
         }
     }
 }
+

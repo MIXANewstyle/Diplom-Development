@@ -211,7 +211,9 @@ public class UserService {
             return List.of();
         }
         
-        List<UserProfile> profiles = userProfileRepository.findTop20ByUsernameContainingIgnoreCaseOrderByUsernameAsc(username);
+        List<UserProfile> profiles = userProfileRepository.searchByUsernameOrFullName(
+                username.trim(),
+                org.springframework.data.domain.PageRequest.of(0, 20));
         
         return profiles.stream()
                 .filter(p -> !p.getId().equals(currentUserId))

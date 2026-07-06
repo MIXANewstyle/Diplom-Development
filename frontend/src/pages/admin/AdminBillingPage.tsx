@@ -4,6 +4,8 @@ import {
   useTransactions, useRefundTransaction,
   useGrantSubscription, useUserSearch
 } from '../../features/admin/hooks'
+import { useAuthStore } from '../../shared/stores/authStore'
+import { resolveMediaUrl } from '../../shared/lib/mediaUrl'
 import { formatDateTime } from '../../shared/lib/format'
 
 export function AdminBillingPage() {
@@ -344,7 +346,7 @@ function GrantSubscriptionSection() {
               onClick={() => setSelectedUserId(u.id)}
               className={`p-2 border rounded cursor-pointer flex items-center gap-2 ${selectedUserId === u.id ? 'bg-blue-50 border-blue-300' : 'hover:bg-gray-50'}`}
             >
-              <img src={u.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${u.id}`} alt="" className="w-6 h-6 rounded-full" />
+              <img src={resolveMediaUrl(u.avatarUrl) || `https://api.dicebear.com/7.x/identicon/svg?seed=${u.id}`} alt="" className="w-6 h-6 rounded-full" />
               <div className="text-sm">{u.username}</div>
               <div className="text-xs text-gray-400 ml-auto font-mono truncate w-24" title={u.id}>{u.id}</div>
             </div>

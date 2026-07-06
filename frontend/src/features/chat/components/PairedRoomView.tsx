@@ -13,6 +13,7 @@ import { Pencil, Check, X } from 'lucide-react'
 import { renameRoom } from '../api'
 import { getErrorMessage } from '../../../shared/lib/errors'
 import type { TurnResponse } from '../types'
+import { resolveMediaUrl } from '../../../shared/lib/mediaUrl'
 
 interface Props {
   roomId: string
@@ -67,13 +68,13 @@ export const PairedRoomView = ({ roomId }: Props) => {
   // server turn arrives (matched by seq) to avoid a blank gap in the transcript.
   const [pendingSentTurn, setPendingSentTurn] = useState<TurnResponse | null>(null)
 
-  // Seed maxSeq from history if not set
+  // Seed maxSeq from history
   useEffect(() => {
-    if (turnsPage?.items && maxSeq === 0) {
+    if (turnsPage?.items) {
       const highest = turnsPage.items.reduce((max, t) => Math.max(max, t.seq), 0)
-      if (highest > 0) setMaxSeq(highest)
+      setMaxSeq((prev) => Math.max(prev, highest))
     }
-  }, [turnsPage?.items, maxSeq, setMaxSeq])
+  }, [turnsPage?.items, setMaxSeq])
 
   // Drop the optimistic bubble once the authoritative server turn (same seq,
   // different id) appears in either live or history turns.
@@ -234,7 +235,7 @@ export const PairedRoomView = ({ roomId }: Props) => {
           return (
             <div key={p.id} className="flex-1 bg-white border border-gray-200 rounded-lg p-4 shadow-sm flex items-center gap-4 relative">
               {p.avatarUrl ? (
-                <img src={p.avatarUrl} alt={participantName} className="w-12 h-12 rounded-full object-cover" />
+                <img src={resolveMediaUrl(p.avatarUrl) || ''} alt={participantName} className="w-12 h-12 rounded-full object-cover" />
               ) : (
                 <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">
                   {participantName.charAt(0).toUpperCase()}
@@ -360,6 +361,7 @@ export const PairedRoomView = ({ roomId }: Props) => {
                   hasFloor={currentFloorParticipantId === myParticipantId}
                   aiThinking={aiThinking}
                   endPending={!!endProposerParticipantId}
+                  wsError={wsError}
                   onDraftUpsert={upsertDraft}
                   onSubmit={handleComposerSubmit}
                 />

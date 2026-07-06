@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useAuthStore } from '../../../shared/stores/authStore'
 import { canEngage } from '../../../shared/lib/roles'
 import { formatDate } from '../../../shared/lib/format'
+import { resolveMediaUrl } from '../../../shared/lib/mediaUrl'
 import { useUpvote } from '../hooks/useUpvote'
 import type { Post } from '../types'
 
@@ -21,7 +22,7 @@ export function PostCard({ post }: { post: Post }) {
       {previewImage && (
         <div className="relative w-full aspect-[16/9] bg-gray-100">
           <img
-            src={previewImage}
+            src={resolveMediaUrl(previewImage) || ''}
             alt={post.title}
             className="w-full h-full object-cover"
           />

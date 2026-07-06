@@ -3,7 +3,7 @@ import { useState } from 'react'
 interface ComposerProps {
   isActive: boolean
   isPending: boolean
-  onSubmit: (text: string) => void
+  onSubmit: (text: string, restoreText: () => void) => void
 }
 
 export const Composer = ({ isActive, isPending, onSubmit }: ComposerProps) => {
@@ -12,8 +12,9 @@ export const Composer = ({ isActive, isPending, onSubmit }: ComposerProps) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!text.trim() || !isActive || isPending) return
-    onSubmit(text)
+    const currentText = text
     setText('')
+    onSubmit(currentText, () => setText(currentText))
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

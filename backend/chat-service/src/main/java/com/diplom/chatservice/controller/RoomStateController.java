@@ -60,10 +60,17 @@ public class RoomStateController {
     ) {
         UsernamePasswordAuthenticationToken auth =
                 (UsernamePasswordAuthenticationToken) headerAccessor.getUser();
-        CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
+        Object principal = auth.getPrincipal();
+        
+        String principalId = "unknown";
+        if (principal instanceof CustomUserDetails user) {
+            principalId = user.getId().toString();
+        } else if (principal instanceof com.diplom.chatservice.security.GuestPrincipal guest) {
+            principalId = "guest-" + guest.getParticipantId();
+        }
 
-        log.debug("Room state snapshot requested by userId={} for roomId={}",
-                userDetails.getId(), roomId);
+        log.debug("Room state snapshot requested by principalId={} for roomId={}",
+                principalId, roomId);
 
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RoomNotFoundException("Room not found: " + roomId));
@@ -78,8 +85,8 @@ public class RoomStateController {
         if (jwt != null) {
             participantResponses = participantEnrichmentService.enrichParticipants(participants, jwt);
         } else {
-            log.warn("No JWT in STOMP session attributes for userId={}, skipping enrichment",
-                    userDetails.getId());
+            log.warn("No JWT in STOMP session attributes for principalId={}, skipping enrichment",
+                    principalId);
             participantResponses = participants.stream()
                     .map(roomMapper::toParticipantResponse)
                     .toList();

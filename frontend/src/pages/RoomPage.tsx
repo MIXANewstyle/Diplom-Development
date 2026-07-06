@@ -145,7 +145,11 @@ const SoloRoomView = ({ id, room }: { id: string, room: any }) => {
         <Composer
           isActive={isActive}
           isPending={isPending}
-          onSubmit={(text) => submitTurnMutation.mutate(text)}
+          onSubmit={(text, restoreText) => {
+            submitTurnMutation.mutate(text, {
+              onError: () => restoreText()
+            })
+          }}
         />
       </div>
     </div>

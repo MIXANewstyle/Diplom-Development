@@ -6,6 +6,7 @@ interface Props {
   hasFloor: boolean
   aiThinking: boolean
   endPending: boolean
+  wsError?: string | null
   onDraftUpsert: (bubbleId: string, text: string) => void
   onSubmit: (text: string, bubbleId: string) => void
 }
@@ -16,6 +17,7 @@ export const PairedComposer = ({
   hasFloor,
   aiThinking,
   endPending,
+  wsError,
   onDraftUpsert,
   onSubmit,
 }: Props) => {
@@ -29,6 +31,15 @@ export const PairedComposer = ({
       setIsSubmitting(false)
     }
   }, [aiThinking])
+
+  // Submit timeout to prevent infinite hang
+  useEffect(() => {
+    if (!isSubmitting) return
+    const timer = setTimeout(() => {
+      setIsSubmitting(false)
+    }, 10000)
+    return () => clearTimeout(timer)
+  }, [isSubmitting])
 
   // Debounce draft upsert — only while holding the floor
   useEffect(() => {
@@ -77,15 +88,18 @@ export const PairedComposer = ({
           className="w-full h-20 md:h-24 p-2 text-sm border-0 focus:ring-0 resize-none outline-none disabled:bg-gray-50 disabled:text-gray-500 bg-transparent font-mono"
           placeholder={placeholder}
         />
-        <div className="flex flex-wrap justify-between items-center gap-2">
-          <div className="text-xs text-gray-400">{text.length} / 2000</div>
-          <button
-            type="submit"
-            disabled={isDisabled || !text.trim()}
-            className="w-full sm:w-auto px-6 py-2 bg-blue-600 text-white rounded font-medium text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {isSubmitting ? 'Отправка...' : 'Отправить'}
-          </button>
+        <div className="flex flex-col gap-2">
+          {wsError && <div className="text-xs text-red-500 text-right">{wsError}</div>}
+          <div className="flex flex-wrap justify-between items-center gap-2">
+            <div className="text-xs text-gray-400">{text.length} / 2000</div>
+            <button
+              type="submit"
+              disabled={isDisabled || !text.trim()}
+              className="w-full sm:w-auto px-6 py-2 bg-blue-600 text-white rounded font-medium text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {isSubmitting ? 'Отправка...' : 'Отправить'}
+            </button>
+          </div>
         </div>
       </form>
     </div>

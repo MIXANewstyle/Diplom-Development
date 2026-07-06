@@ -1,5 +1,6 @@
 package com.diplom.chatservice.service;
 
+import com.diplom.chatservice.client.InternalUserBatchClient;
 import com.diplom.chatservice.client.PsychProfileClient;
 import com.diplom.chatservice.dto.UserBatchResponse;
 import com.diplom.chatservice.entity.Room;
@@ -16,6 +17,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Captures context_snapshot for registered participants at dialogue start.
@@ -34,6 +37,7 @@ public class ContextSnapshotService {
     private final RoomParticipantRepository participantRepository;
     private final PsychProfileClient psychProfileClient;
     private final ProfileCacheService profileCacheService;
+    private final InternalUserBatchClient internalUserBatchClient;
     private final ObjectMapper objectMapper;
 
     /**
@@ -70,8 +74,17 @@ public class ContextSnapshotService {
                     .map(RoomParticipant::getUserId)
                     .toList();
 
-            // Fetch display names from the profile cache
-            Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(userIds, callerJwt);
+            // Fetch display names — use JWT if available, fall back to internal client
+            Map<UUID, UserBatchResponse> profiles;
+            if (callerJwt != null) {
+                profiles = profileCacheService.getProfiles(userIds, callerJwt);
+            } else {
+                log.debug("captureForRoom: no JWT, using internal client for profile lookup");
+                List<UserBatchResponse> fetched = internalUserBatchClient.batchGetProfiles(userIds);
+                profiles = fetched != null
+                        ? fetched.stream().collect(Collectors.toMap(UserBatchResponse::id, Function.identity()))
+                        : Map.of();
+            }
 
             // Fetch about text from the psych_profile endpoint (service-authenticated)
             Map<UUID, String> aboutMap = new LinkedHashMap<>();

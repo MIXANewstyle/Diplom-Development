@@ -26,3 +26,10 @@ export function serializePsychProfile(p: PsychProfile): string {
 export function psychProfileLength(p: PsychProfile): number {
   return serializePsychProfile(p).length;
 }
+
+export function psychProfileUserLength(p: PsychProfile): number {
+  return (p.about_self?.trim()?.length ?? 0) +
+         (p.reason?.trim()?.length ?? 0) +
+         (p.goals?.trim()?.length ?? 0) +
+         (p.prior_experience?.trim()?.length ?? 0);
+}

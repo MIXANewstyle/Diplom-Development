@@ -51,6 +51,7 @@ export interface TurnResponse {
   promptTokens: number | null
   completionTokens: number | null
   createdAt: string
+  optimistic?: boolean
 }
 
 export interface SubmitTurnResponse {

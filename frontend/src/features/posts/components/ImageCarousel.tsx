@@ -1,4 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { resolveMediaUrl } from '../../../shared/lib/mediaUrl'
 
 interface Props {
   images: string[]
@@ -71,7 +73,7 @@ export function ImageCarousel({ images, alt = '' }: Props) {
         {images.map((src, i) => (
           <div key={i} className="flex-shrink-0 w-full snap-start flex items-center justify-center bg-gray-50">
             <img
-              src={src}
+              src={resolveMediaUrl(src) || ''}
               alt={alt ? `${alt} — ${i + 1}` : `Изображение ${i + 1}`}
               className="w-full h-auto max-h-[70vh] object-contain"
               draggable={false}

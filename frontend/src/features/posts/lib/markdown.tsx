@@ -1,19 +1,20 @@
 import React from 'react'
 import type { EditorBlock } from '../../feed/types'
 
-const INLINE_PATTERN = /(\*\*.*?\*\*|__.*?__|~~.*?~~)/g
+const INLINE_PATTERN = /(\*\*[^*]+?\*\*|__[^_]+?__|~~[^~]+?~~)/g
 
 export function parseInline(text: string): React.ReactNode[] {
+  if (!text) return []
   const parts = text.split(INLINE_PATTERN)
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
-      return <strong key={i}>{parseInline(part.slice(2, -2))}</strong>
+      return <strong key={i}>{part.slice(2, -2)}</strong>
     }
     if (part.startsWith('__') && part.endsWith('__') && part.length >= 4) {
-      return <u key={i}>{parseInline(part.slice(2, -2))}</u>
+      return <u key={i}>{part.slice(2, -2)}</u>
     }
     if (part.startsWith('~~') && part.endsWith('~~') && part.length >= 4) {
-      return <s key={i}>{parseInline(part.slice(2, -2))}</s>
+      return <s key={i}>{part.slice(2, -2)}</s>
     }
     return <React.Fragment key={i}>{part}</React.Fragment>
   })

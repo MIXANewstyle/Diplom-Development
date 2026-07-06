@@ -5,6 +5,7 @@ import { useUpdateProfile } from '../hooks/useUpdateProfile';
 import { getErrorMessage } from '../../../shared/lib/errors';
 import { ErrorText } from '../../../shared/components/ErrorText';
 import { uploadImage } from '../../../shared/api/uploads';
+import { resolveMediaUrl } from '../../../shared/lib/mediaUrl';
 import axios from 'axios';
 
 interface ProfileEditFormProps {
@@ -138,7 +139,7 @@ export function ProfileEditForm({ profile, onCancel, onSaved }: ProfileEditFormP
           {avatarUrl && (
             <div className="flex items-center gap-3 mb-2">
               <img
-                src={avatarUrl}
+                src={previewUrl || resolveMediaUrl(avatarUrl) || ''}
                 alt="Предпросмотр аватара"
                 className="w-16 h-16 rounded-full object-cover border border-gray-200"
               />

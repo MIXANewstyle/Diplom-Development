@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom'
 import { useAuthStore } from '../shared/stores/authStore'
+import { resolveMediaUrl } from '../shared/lib/mediaUrl'
 import { useAuthorPosts } from '../features/authors/hooks/useAuthorPosts'
 import { useAuthorProfile } from '../features/authors/hooks/useAuthorProfile'
 import { PostCard } from '../features/feed/components/PostCard'
@@ -103,7 +104,7 @@ export function AuthorPage() {
           {/* Avatar */}
           {profile.avatarUrl ? (
             <img
-              src={profile.avatarUrl}
+              src={resolveMediaUrl(profile.avatarUrl) || ''}
               alt={displayName || profile.username}
               className="w-16 h-16 rounded-full object-cover border border-gray-200 shrink-0"
             />

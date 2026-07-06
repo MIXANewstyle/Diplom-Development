@@ -1,4 +1,5 @@
 import { formatDate } from '../../../shared/lib/format';
+import { resolveMediaUrl } from '../../../shared/lib/mediaUrl';
 import type { MyProfile } from '../types';
 import { GENDER_OPTIONS } from '../types';
 
@@ -23,7 +24,7 @@ export function ProfileView({ profile, onEdit }: ProfileViewProps) {
       {profile.avatarUrl && (
         <div>
           <img 
-            src={profile.avatarUrl} 
+            src={resolveMediaUrl(profile.avatarUrl) || ''} 
             alt="Аватар" 
             className="w-24 h-24 rounded-full object-cover border border-gray-200" 
           />

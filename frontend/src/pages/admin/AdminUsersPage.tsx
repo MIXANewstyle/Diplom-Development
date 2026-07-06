@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useAuthStore } from '../../shared/stores/authStore'
+import { resolveMediaUrl } from '../../shared/lib/mediaUrl'
 import { useUserSearch, useUpdateUserRole, useUpdateUserStatus } from '../../features/admin/hooks'
 import { ROLE_OPTIONS, STATUS_OPTIONS } from '../../features/admin/types'
 
@@ -80,7 +82,7 @@ function UserRow({ user }: { user: { id: string, username: string, avatarUrl?: s
     <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center p-4 border border-gray-200 rounded">
       <div className="flex items-center gap-3 flex-1 w-full">
         <img 
-          src={user.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${user.id}`} 
+          src={resolveMediaUrl(user.avatarUrl) || `https://api.dicebear.com/7.x/identicon/svg?seed=${user.id}`} 
           alt={user.username} 
           className="w-10 h-10 rounded-full"
         />

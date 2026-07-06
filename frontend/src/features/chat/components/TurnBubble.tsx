@@ -13,7 +13,7 @@ export const TurnBubble = ({ turn, isMine, displayName }: TurnBubbleProps) => {
   const label = displayName || (isUser ? 'Вы' : 'Ассистент')
 
   return (
-    <div className={`flex flex-col w-full mb-4 ${isMineEffective ? 'items-end' : 'items-start'}`}>
+    <div className={`flex flex-col w-full mb-4 ${isMineEffective ? 'items-end' : 'items-start'} ${turn.optimistic ? 'opacity-60' : ''}`}>
       <div
         className={`max-w-[80%] rounded-2xl px-4 py-2 ${
           isMineEffective

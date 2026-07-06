@@ -73,9 +73,7 @@ public class WsConsentEndController {
                 roomBroadcaster.broadcast(roomId,
                         DialogueStartedEvent.of(response.currentFloorParticipantId()));
                 String jwt = extractWsJwt(headerAccessor);
-                if (jwt != null) {
-                    contextSnapshotService.captureForRoom(roomId, jwt);
-                }
+                contextSnapshotService.captureForRoom(roomId, jwt);
             } else {
                 ParticipantResponse p = findParticipantResponse(response, caller.getId());
                 if (p != null) {

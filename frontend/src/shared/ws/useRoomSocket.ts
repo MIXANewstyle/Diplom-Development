@@ -129,6 +129,10 @@ export const useRoomSocket = (
       const errorsSub = stompClient.subscribe('/user/queue/errors', (msg) => {
         console.error('[WS Error]', msg)
         setError(msg?.message || 'Unknown WebSocket error')
+        if (msg?.errorType === 'SEQ_MISMATCH' && typeof msg?.expectedTurnSeq === 'number') {
+          setMaxSeq(msg.expectedTurnSeq - 1)
+          setAiThinking(false)
+        }
       })
       if (errorsSub) subscriptions.push(errorsSub)
 
@@ -207,6 +211,11 @@ export const useRoomSocket = (
       const stateSub = stompClient.subscribe(`/app/rooms/${roomId}/state`, (msg) => {
         const snap = msg as RoomStateSnapshot
         setSnapshot(snap)
+
+        if (snap.recentTurns?.length) {
+          const highest = snap.recentTurns.reduce((max, t) => Math.max(max, t.seq), 0)
+          setMaxSeq((prev) => Math.max(prev, highest))
+        }
 
         if (snap.onlineParticipantIds?.length) {
           applyPresenceSnapshot(snap.onlineParticipantIds.map(String))

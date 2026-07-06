@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuthStore } from '../../../shared/stores/authStore'
 import { canEngage } from '../../../shared/lib/roles'
 import { formatDate } from '../../../shared/lib/format'
+import { resolveMediaUrl } from '../../../shared/lib/mediaUrl'
 import {
   canDeleteComment,
   canEditComment,
@@ -79,8 +80,8 @@ export function CommentItem({
         <div className="w-8 h-8 rounded-full bg-gray-200 shrink-0 overflow-hidden flex items-center justify-center text-xs text-gray-500">
           {comment.authorAvatarUrl ? (
             <img
-              src={comment.authorAvatarUrl}
-              alt=""
+              src={resolveMediaUrl(comment.authorAvatarUrl) || ''}
+              alt={comment.authorUsername || ''}
               className="w-full h-full object-cover"
             />
           ) : (
