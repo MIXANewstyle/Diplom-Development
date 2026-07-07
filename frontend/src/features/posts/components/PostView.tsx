@@ -8,8 +8,6 @@ import type { Post, EditorBlock, EditorContent } from '../../feed/types'
 import { textareaToEditorContentStr } from '../../authoring/lib/content'
 import { ImageCarousel } from './ImageCarousel'
 import { renderBlock } from '../lib/markdown'
-import React from 'react'
-
 
 export function PostView({ post, previewMode = false }: { post: Post; previewMode?: boolean }) {
   const user = useAuthStore((s) => s.user)

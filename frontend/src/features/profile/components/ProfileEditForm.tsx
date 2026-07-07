@@ -139,7 +139,7 @@ export function ProfileEditForm({ profile, onCancel, onSaved }: ProfileEditFormP
           {avatarUrl && (
             <div className="flex items-center gap-3 mb-2">
               <img
-                src={previewUrl || resolveMediaUrl(avatarUrl) || ''}
+                src={resolveMediaUrl(avatarUrl) || ''}
                 alt="Предпросмотр аватара"
                 className="w-16 h-16 rounded-full object-cover border border-gray-200"
               />

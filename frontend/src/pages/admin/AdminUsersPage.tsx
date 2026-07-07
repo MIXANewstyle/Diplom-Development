@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useAuthStore } from '../../shared/stores/authStore'
 import { resolveMediaUrl } from '../../shared/lib/mediaUrl'
 import { useUserSearch, useUpdateUserRole, useUpdateUserStatus } from '../../features/admin/hooks'
 import { ROLE_OPTIONS, STATUS_OPTIONS } from '../../features/admin/types'
