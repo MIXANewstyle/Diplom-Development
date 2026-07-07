@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { submitTurn } from '../api'
 import { getErrorMessage } from '../../../shared/lib/errors'
-import type { TurnsPageResponse, TurnResponse } from '../types'
+import { appendOptimisticTurn, rollbackOptimisticTurn } from '../lib/optimisticTurns'
 
 export const useSubmitTurn = (roomId: string) => {
   const queryClient = useQueryClient()
@@ -11,32 +11,12 @@ export const useSubmitTurn = (roomId: string) => {
     mutationFn: (text: string) => submitTurn(roomId, text),
     onMutate: async (text) => {
       await queryClient.cancelQueries({ queryKey })
-      const previousTurns = queryClient.getQueryData<TurnsPageResponse>(queryKey)
-
-      if (previousTurns) {
-        const highestSeq = previousTurns.items.reduce((max, t) => Math.max(max, t.seq), 0)
-        const optimisticTurn: TurnResponse = {
-          id: `optimistic-${crypto.randomUUID()}`,
-          roomId,
-          seq: highestSeq + 1,
-          role: 'USER',
-          participantId: null,
-          content: text,
-          promptTokens: null,
-          completionTokens: null,
-          createdAt: new Date().toISOString(),
-          optimistic: true,
-        }
-        queryClient.setQueryData<TurnsPageResponse>(queryKey, {
-          ...previousTurns,
-          items: [...previousTurns.items, optimisticTurn],
-        })
-      }
-      return { previousTurns }
+      const ctx = appendOptimisticTurn(queryClient, roomId, text)
+      return ctx
     },
     onError: (error, _newText, context) => {
-      if (context?.previousTurns) {
-        queryClient.setQueryData(queryKey, context.previousTurns)
+      if (context?.snapshots) {
+        rollbackOptimisticTurn(queryClient, context.snapshots)
       }
       alert(getErrorMessage(error))
     },

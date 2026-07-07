@@ -54,7 +54,7 @@ export const useRoomSocket = (
     ownDraftBubbleIdsRef.current.delete(bubbleId)
     stompClient.publish(`/app/rooms/${roomId}/draft/delete`, { bubbleId })
   }
-  const finishThought = (turnSeq: number) => stompClient.publish(`/app/rooms/${roomId}/finish`, { turnSeq })
+  const finishThought = (turnSeq: number, text: string) => stompClient.publish(`/app/rooms/${roomId}/finish`, { turnSeq, text })
   const proposeEnd = () => stompClient.publish(`/app/rooms/${roomId}/end/propose`, {})
   const agreeEnd = () => stompClient.publish(`/app/rooms/${roomId}/end/agree`, {})
   const declineEnd = () => stompClient.publish(`/app/rooms/${roomId}/end/decline`, {})
@@ -175,6 +175,7 @@ export const useRoomSocket = (
           })
         } else if (msg?.type === 'AI_THINKING') {
           setAiThinking(true)
+          ownDraftBubbleIdsRef.current = new Set()
           if (msg.userTurn) {
             const turn = wsUserTurnToResponse(msg.userTurn, roomId)
             setMaxSeq(turn.seq)

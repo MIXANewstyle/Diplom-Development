@@ -41,6 +41,13 @@ export const PairedComposer = ({
     return () => clearTimeout(timer)
   }, [isSubmitting])
 
+  // Unfreeze immediately when a WS error arrives while submitting
+  useEffect(() => {
+    if (wsError && isSubmitting) {
+      setIsSubmitting(false)
+    }
+  }, [wsError])
+
   // Debounce draft upsert — only while holding the floor
   useEffect(() => {
     if (!hasFloor || !text.trim()) return

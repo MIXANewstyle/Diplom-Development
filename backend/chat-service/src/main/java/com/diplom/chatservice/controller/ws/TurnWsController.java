@@ -135,6 +135,21 @@ public class TurnWsController {
             return;
         }
 
+        if (buffer.isEmpty()) {
+            // Try fallback text from the request payload
+            String fallbackText = request != null && request.text() != null ? request.text().trim() : "";
+            if (!fallbackText.isEmpty()) {
+                if (fallbackText.length() > 2000) {
+                    log.info("FINISH_THOUGHT branch=REJECTED roomId={} reason=fallback_text_over_limit length={}",
+                            roomId, fallbackText.length());
+                    wsErrorSender.send(principalName, WsError.limit("Fallback text exceeds 2000 characters limit"));
+                    return;
+                }
+                buffer = List.of(new DraftBubble("fallback", fallbackText));
+                log.info("FINISH_THOUGHT using fallback text from request, length={}", fallbackText.length());
+            }
+        }
+
         if (!buffer.isEmpty()) {
             long expectedSeq = headSeq + 1L;
             if (turnSeq == null || turnSeq != expectedSeq) {
@@ -157,7 +172,8 @@ public class TurnWsController {
                 return;
             }
 
-            log.info("FINISH_THOUGHT branch=FRESH roomId={}", roomId);
+            boolean usedFallback = buffer.size() == 1 && "fallback".equals(buffer.get(0).bubbleId());
+            log.info("FINISH_THOUGHT branch={} roomId={}", usedFallback ? "FRESH_FALLBACK_TEXT" : "FRESH", roomId);
 
             Turn userTurn = turnPersistenceService.persistUserTurn(roomId, caller.getId(), joinedText);
             log.info("USER turn persisted roomId={} seq={}", roomId, userTurn.getSeq());
@@ -175,7 +191,7 @@ public class TurnWsController {
             return;
         }
 
-        // Buffer is empty (Step C)
+        // Buffer is empty AND no fallback text (Step C)
         List<Turn> allTurns = turnRepository.findByRoomIdOrderBySeqAsc(roomId, Pageable.unpaged()).getContent();
         if (!allTurns.isEmpty()) {
             Turn lastTurn = allTurns.get(allTurns.size() - 1);
@@ -193,6 +209,7 @@ public class TurnWsController {
         }
 
         log.info("FINISH_THOUGHT branch=NO_OP roomId={} callerParticipantId={}", roomId, caller.getId());
+        wsErrorSender.send(principalName, WsError.error("Nothing to submit"));
         } finally {
             MDC.remove("roomId");
         }

@@ -55,7 +55,6 @@ export const PairedRoomView = ({ roomId }: Props) => {
     sendConsentStart,
     sendConsentRevoke,
     upsertDraft,
-    deleteDraft,
     proposeEnd,
     agreeEnd,
     declineEnd,
@@ -102,10 +101,11 @@ export const PairedRoomView = ({ roomId }: Props) => {
       completionTokens: null,
       createdAt: new Date().toISOString(),
     })
-    // Clear the live "печатает…" draft on the other side.
-    deleteDraft(bubbleId)
-    // Trigger AI processing.
-    finishThought(maxSeq + 1)
+    // Trigger AI processing. The text is sent as a fallback in case the
+    // draft buffer was not yet populated when the server processes finish.
+    // The server clears the draft buffer itself after packaging, so we
+    // do NOT call deleteDraft here (that was the original race bug).
+    finishThought(maxSeq + 1, text)
   }
 
   const queryClient = useQueryClient()
