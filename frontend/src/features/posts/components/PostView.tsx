@@ -8,6 +8,7 @@ import type { Post, EditorBlock, EditorContent } from '../../feed/types'
 import { textareaToEditorContentStr } from '../../authoring/lib/content'
 import { ImageCarousel } from './ImageCarousel'
 import { renderBlock } from '../lib/markdown'
+import { renderTiptapDoc } from '../lib/tiptapRender'
 
 export function PostView({ post, previewMode = false }: { post: Post; previewMode?: boolean }) {
   const user = useAuthStore((s) => s.user)
@@ -53,26 +54,38 @@ export function PostView({ post, previewMode = false }: { post: Post; previewMod
       {post.content && (
         <div className="text-gray-800">
           {(() => {
-            let blocks: EditorBlock[] = []
-            if (typeof post.content === 'string') {
+            // Three-way shape detection:
+            // 1. TipTap JSON doc: { type: 'doc', content: [...] }
+            // 2. Legacy Editor.js blocks: { blocks: [...] }
+            // 3. Plain text fallback
+            let parsed: any = post.content
+
+            if (typeof parsed === 'string') {
               try {
-                // If it's valid JSON, it might already be blocks
-                const parsed = JSON.parse(post.content) as EditorContent
-                if (parsed.blocks) blocks = parsed.blocks
+                parsed = JSON.parse(parsed)
               } catch {
-                // Otherwise treat as plain string and parse it now
+                // Not valid JSON — try legacy textarea→blocks conversion as last resort
                 try {
-                  const contentObj = JSON.parse(textareaToEditorContentStr(post.content)) as EditorContent
-                  blocks = contentObj.blocks
+                  const contentObj = JSON.parse(textareaToEditorContentStr(parsed)) as EditorContent
+                  return contentObj.blocks.map((block: EditorBlock, i: number) => renderBlock(block, i))
                 } catch {
-                  // Fallback
-                  return <div className="whitespace-pre-wrap leading-relaxed">{post.content}</div>
+                  return <div className="whitespace-pre-wrap leading-relaxed">{post.content as string}</div>
                 }
               }
-            } else if (post.content.blocks) {
-              blocks = post.content.blocks
             }
-            return blocks.map((block, i) => renderBlock(block, i))
+
+            // TipTap doc shape
+            if (parsed && parsed.type === 'doc' && Array.isArray(parsed.content)) {
+              return renderTiptapDoc(parsed)
+            }
+
+            // Legacy Editor.js blocks shape
+            if (parsed && Array.isArray(parsed.blocks)) {
+              return (parsed.blocks as EditorBlock[]).map((block, i) => renderBlock(block, i))
+            }
+
+            // Final fallback: plain text
+            return <div className="whitespace-pre-wrap leading-relaxed">{String(post.content)}</div>
           })()}
         </div>
       )}

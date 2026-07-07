@@ -1,9 +1,6 @@
 import { useRef, useState } from 'react'
-import { Bold, Underline, Strikethrough } from 'lucide-react'
 import type { MyPost, PostFormValues } from '../types'
 import { useCreatePost, useUpdatePost } from '../hooks'
-import { editorContentToTextarea, textareaToEditorContentStr } from '../lib/content'
-import { wrapSelectionWithMark, type InlineMark } from '../lib/formatting'
 import { useTags } from '../../feed/hooks/useTags'
 import { resolveMediaUrl } from '../../../shared/lib/mediaUrl'
 import { getErrorMessage } from '../../../shared/lib/errors'
@@ -11,6 +8,7 @@ import { ErrorText } from '../../../shared/components/ErrorText'
 import { PostView } from '../../posts/components/PostView'
 import type { Post } from '../../feed/types'
 import { uploadCoverImage } from '../api'
+import { PostBodyEditor } from './PostBodyEditor'
 
 interface Props {
   initialPost?: MyPost
@@ -20,10 +18,11 @@ interface Props {
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_SIZE_BYTES = 5 * 1024 * 1024 // 5 MB
 const MAX_IMAGES = 10
+const MAX_CONTENT_BYTES = 102400 // 100 KB
 
 export function PostEditorForm({ initialPost, onClose }: Props) {
   const [title, setTitle] = useState(initialPost?.title || '')
-  const [body, setBody] = useState(() => editorContentToTextarea(initialPost?.content || null))
+  const [editorJson, setEditorJson] = useState<object | null>(null)
   const [imageUrls, setImageUrls] = useState<string[]>(initialPost?.imageUrls ?? [])
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(initialPost?.tags.map(t => t.id) || [])
   const [keywordsStr, setKeywordsStr] = useState(initialPost?.keywords.join(', ') || '')
@@ -33,8 +32,6 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
   const [uploadError, setUploadError] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const [selection, setSelection] = useState<{ start: number; end: number } | null>(null)
 
   const { data: tagsPage } = useTags()
   const allTags = tagsPage?.content ?? []
@@ -128,9 +125,17 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
       return
     }
 
+    const contentStr = editorJson ? JSON.stringify(editorJson) : ''
+
+    // 100 KB guard
+    if (new Blob([contentStr]).size > MAX_CONTENT_BYTES) {
+      setErrorMsg('Содержание поста превышает допустимый размер (100 КБ). Пожалуйста, сократите текст.')
+      return
+    }
+
     const payload: PostFormValues = {
       title: title.trim(),
-      content: textareaToEditorContentStr(body),
+      content: contentStr || undefined,
       imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
       tagIds: selectedTagIds,
       keywords,
@@ -155,35 +160,6 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
   }
 
   const isSubmitDisabled = isPending || isUploading
-
-  const updateSelection = () => {
-    const el = textareaRef.current
-    if (!el) return
-    const { selectionStart, selectionEnd } = el
-    if (selectionStart !== selectionEnd) {
-      setSelection({ start: selectionStart, end: selectionEnd })
-    } else {
-      setSelection(null)
-    }
-  }
-
-  const applyFormat = (mark: InlineMark) => {
-    if (!selection) return
-    const { text: newText, newStart, newEnd } = wrapSelectionWithMark(
-      body,
-      selection.start,
-      selection.end,
-      mark,
-    )
-    setBody(newText)
-    setSelection({ start: newStart, end: newEnd })
-    requestAnimationFrame(() => {
-      const el = textareaRef.current
-      if (!el) return
-      el.focus()
-      el.setSelectionRange(newStart, newEnd)
-    })
-  }
 
   return (
     <form onSubmit={handleSave} className="flex flex-col gap-4 bg-white p-6 rounded-lg shadow-sm border">
@@ -303,11 +279,6 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
             {showPreview ? 'Редактировать' : 'Предпросмотр'}
           </button>
         </div>
-        {!showPreview && (
-          <div className="text-xs text-gray-500 mb-1">
-            Поддерживается: <code># Заголовок · ## Подзаголовок · - список · 1. нумерация · &gt; цитата · **жирный** · __подчёркнутый__ · ~~зачёркнутый~~</code>
-          </div>
-        )}
         
         {showPreview ? (
           <div className="border border-gray-300 p-4 rounded min-h-[16rem] bg-gray-50 overflow-y-auto">
@@ -317,7 +288,7 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
               authorUsername: 'Автор',
               authorAvatarUrl: null,
               title: title.trim() || 'Без названия',
-              content: textareaToEditorContentStr(body),
+              content: editorJson ? JSON.stringify(editorJson) : null,
               coverImageUrl: imageUrls.length > 0 ? imageUrls[0] : null,
               imageUrls: imageUrls,
               status: 'DRAFT',
@@ -332,49 +303,10 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
             } as Post} />
           </div>
         ) : (
-          <div className="relative">
-            {selection && (
-              <div className="flex items-center gap-1 mb-2 p-1 bg-white border border-gray-300 rounded shadow-sm w-fit">
-                <button
-                  type="button"
-                  title="Жирный"
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={() => applyFormat('bold')}
-                  className="p-1.5 rounded hover:bg-gray-100 text-gray-700"
-                >
-                  <Bold className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  title="Подчёркнутый"
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={() => applyFormat('underline')}
-                  className="p-1.5 rounded hover:bg-gray-100 text-gray-700"
-                >
-                  <Underline className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  title="Зачёркнутый"
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={() => applyFormat('strikethrough')}
-                  className="p-1.5 rounded hover:bg-gray-100 text-gray-700"
-                >
-                  <Strikethrough className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-            <textarea
-              ref={textareaRef}
-              value={body}
-              onChange={e => setBody(e.target.value)}
-              onSelect={updateSelection}
-              onMouseUp={updateSelection}
-              onKeyUp={updateSelection}
-              className="border border-gray-300 p-2 rounded h-64 w-full font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-              placeholder={"# Заголовок\n\nТекст абзаца..."}
-            />
-          </div>
+          <PostBodyEditor
+            initialContent={initialPost?.content || null}
+            onChange={setEditorJson}
+          />
         )}
       </div>
 

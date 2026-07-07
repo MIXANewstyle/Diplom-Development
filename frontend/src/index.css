@@ -1,3 +1,56 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── TipTap / ProseMirror editor surface ──────────────────────────── */
+.ProseMirror {
+  outline: none;
+}
+
+.ProseMirror p {
+  @apply mb-3 leading-relaxed;
+}
+
+.ProseMirror h1 {
+  @apply text-2xl font-bold mt-6 mb-3;
+}
+.ProseMirror h2 {
+  @apply text-xl font-semibold mt-5 mb-2;
+}
+.ProseMirror h3 {
+  @apply text-lg font-semibold mt-4 mb-2;
+}
+
+.ProseMirror ul {
+  @apply pl-6 mb-3 space-y-1 list-disc;
+}
+.ProseMirror ol {
+  @apply pl-6 mb-3 space-y-1 list-decimal;
+}
+
+.ProseMirror blockquote {
+  @apply border-l-4 pl-4 italic text-gray-600 mb-3;
+}
+
+.ProseMirror code {
+  @apply bg-gray-100 text-pink-600 px-1.5 py-0.5 rounded text-sm font-mono;
+}
+
+.ProseMirror pre {
+  @apply bg-gray-100 rounded p-3 mb-3 overflow-x-auto font-mono text-sm;
+}
+.ProseMirror pre code {
+  @apply bg-transparent text-inherit p-0;
+}
+
+.ProseMirror a {
+  @apply text-blue-600 underline;
+}
+
+/* Placeholder */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  @apply text-gray-400 pointer-events-none;
+  float: left;
+  height: 0;
+}

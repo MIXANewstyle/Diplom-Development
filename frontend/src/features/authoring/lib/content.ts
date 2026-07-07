@@ -1,36 +1,9 @@
-import type { EditorContent, EditorBlock } from '../../feed/types'
+import type { EditorBlock } from '../../feed/types'
 
-export function editorContentToTextarea(content: EditorContent | string | null): string {
-  if (!content) return ''
-  if (typeof content === 'string') {
-    try {
-      const parsed = JSON.parse(content) as EditorContent
-      if (parsed.blocks) return parsed.blocks.map(blockToText).join('\n\n')
-    } catch {
-      return content // Fallback to raw string if it's not valid JSON
-    }
-  } else if (content.blocks) {
-    return content.blocks.map(blockToText).join('\n\n')
-  }
-  return ''
-}
-
-function blockToText(b: EditorBlock): string {
-  if (b.type === 'header') return '#'.repeat(b.data.level || 2) + ' ' + b.data.text
-  if (b.type === 'paragraph') return b.data.text
-  if (b.type === 'list') {
-    if (b.data.style === 'ordered') {
-      return b.data.items.map((it, idx) => `${idx + 1}. ${it}`).join('\n')
-    } else {
-      return b.data.items.map(it => `- ${it}`).join('\n')
-    }
-  }
-  if (b.type === 'quote') {
-    return b.data.text.split('\n').map(line => `> ${line}`).join('\n')
-  }
-  return ''
-}
-
+/**
+ * Convert plain-text (legacy textarea content) into Editor.js-style block JSON string.
+ * Still used by PostView as a last-resort fallback for posts stored as plain strings.
+ */
 export function textareaToEditorContentStr(text: string): string {
   if (!text) return ''
   const lines = text.split(/\r?\n/)
