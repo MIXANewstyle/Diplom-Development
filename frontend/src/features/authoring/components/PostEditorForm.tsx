@@ -45,9 +45,10 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
 
   // ── Multi-image upload ────────────────────────────────────────────────────
   const handleFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
+    // Copy before clearing the input — FileList is live and empties when value is reset.
+    const selectedFiles = e.target.files ? Array.from(e.target.files) : []
     if (fileInputRef.current) fileInputRef.current.value = ''
-    if (!files || files.length === 0) return
+    if (selectedFiles.length === 0) return
 
     setUploadError('')
 
@@ -57,8 +58,8 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
       return
     }
 
-    const filesToUpload = Array.from(files).slice(0, remaining)
-    if (files.length > remaining) {
+    const filesToUpload = selectedFiles.slice(0, remaining)
+    if (selectedFiles.length > remaining) {
       setUploadError(`Можно добавить ещё ${remaining}. Лишние файлы пропущены.`)
     }
 

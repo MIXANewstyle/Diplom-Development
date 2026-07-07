@@ -4,7 +4,6 @@ import {
   useTransactions, useRefundTransaction,
   useGrantSubscription, useUserSearch
 } from '../../features/admin/hooks'
-import { useAuthStore } from '../../shared/stores/authStore'
 import { resolveMediaUrl } from '../../shared/lib/mediaUrl'
 import { formatDateTime } from '../../shared/lib/format'
 

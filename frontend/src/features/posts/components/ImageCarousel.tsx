@@ -1,5 +1,4 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { resolveMediaUrl } from '../../../shared/lib/mediaUrl'
 
 interface Props {
