@@ -36,6 +36,10 @@ import java.util.concurrent.RejectedExecutionException;
 @RequiredArgsConstructor
 public class TurnWsController {
 
+    /** Sentinel bubble id for finish requests that carry inline text instead of a draft buffer. */
+    private static final UUID FALLBACK_BUBBLE_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000001");
+
     private final RoomRepository roomRepository;
     private final TurnRepository turnRepository;
     private final RoomParticipantRepository participantRepository;
@@ -145,7 +149,7 @@ public class TurnWsController {
                     wsErrorSender.send(principalName, WsError.limit("Fallback text exceeds 2000 characters limit"));
                     return;
                 }
-                buffer = List.of(new DraftBubble("fallback", fallbackText));
+                buffer = List.of(new DraftBubble(FALLBACK_BUBBLE_ID, fallbackText));
                 log.info("FINISH_THOUGHT using fallback text from request, length={}", fallbackText.length());
             }
         }
@@ -172,7 +176,7 @@ public class TurnWsController {
                 return;
             }
 
-            boolean usedFallback = buffer.size() == 1 && "fallback".equals(buffer.get(0).bubbleId());
+            boolean usedFallback = buffer.size() == 1 && FALLBACK_BUBBLE_ID.equals(buffer.get(0).bubbleId());
             log.info("FINISH_THOUGHT branch={} roomId={}", usedFallback ? "FRESH_FALLBACK_TEXT" : "FRESH", roomId);
 
             Turn userTurn = turnPersistenceService.persistUserTurn(roomId, caller.getId(), joinedText);
