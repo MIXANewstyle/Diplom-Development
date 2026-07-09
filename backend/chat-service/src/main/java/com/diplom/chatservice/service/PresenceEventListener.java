@@ -4,12 +4,13 @@ import com.diplom.chatservice.dto.ws.PresenceSnapshot;
 import com.diplom.chatservice.dto.ws.PresenceUpdated;
 import com.diplom.chatservice.entity.RoomParticipant;
 import com.diplom.chatservice.repository.RoomParticipantRepository;
-import com.diplom.chatservice.security.CustomUserDetails;
+import com.diplom.chatservice.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
@@ -92,17 +93,16 @@ public class PresenceEventListener {
             return;
         }
 
-        CustomUserDetails userDetails = extractUserDetails(accessor);
-        if (userDetails == null) {
+        if (accessor.getUser() == null) {
             log.warn("No authenticated principal on SessionSubscribeEvent for destination={}", destination);
             return;
         }
 
-        UUID userId = userDetails.getId();
-        RoomParticipant participant = roomParticipantRepository.findByRoomIdAndUserId(roomId, userId)
-                .orElse(null);
+        Object principal = ((UsernamePasswordAuthenticationToken) accessor.getUser()).getPrincipal();
+        RoomParticipant participant =
+                SecurityUtils.getParticipantOrNull(principal, roomId, roomParticipantRepository);
         if (participant == null) {
-            log.warn("User {} subscribed to room {} but is not a participant", userId, roomId);
+            log.warn("Principal subscribed to room {} but is not a participant", roomId);
             return;
         }
 
@@ -129,7 +129,7 @@ public class PresenceEventListener {
         // 4. Send current presence snapshot to the newcomer only
         Set<UUID> onlineSet = presenceService.getOnlineParticipants(roomId);
         messagingTemplate.convertAndSendToUser(
-                userDetails.getUsername(),        // principal name = email
+                accessor.getUser().getName(),
                 "/queue/presence",
                 PresenceSnapshot.of(roomId, onlineSet)
         );
@@ -176,23 +176,6 @@ public class PresenceEventListener {
 
             log.debug("Presence OFFLINE: sessionId={}, roomId={}, participantId={}",
                     sessionId, roomId, participantId);
-        }
-    }
-
-    /**
-     * Extract the {@link CustomUserDetails} from a STOMP message header.
-     */
-    private CustomUserDetails extractUserDetails(SimpMessageHeaderAccessor accessor) {
-        if (accessor.getUser() == null) {
-            return null;
-        }
-        try {
-            var auth = (org.springframework.security.authentication.UsernamePasswordAuthenticationToken)
-                    accessor.getUser();
-            return (CustomUserDetails) auth.getPrincipal();
-        } catch (ClassCastException e) {
-            log.warn("Unexpected principal type on STOMP session", e);
-            return null;
         }
     }
 

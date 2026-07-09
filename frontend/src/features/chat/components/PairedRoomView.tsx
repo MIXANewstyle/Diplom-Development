@@ -227,7 +227,9 @@ export const PairedRoomView = ({ roomId }: Props) => {
           const participantName = p.displayName || p.guestDisplayName || '?'
           const hasConsented = !!consentByParticipant[p.id] || !!p.consentStartAt
           const isFloorHolder = currentFloorParticipantId === p.id
-          const hasJoined = p.joinedAt !== null || (p.userId == null && !!p.guestDisplayName)
+          const hasJoined = p.joinedAt !== null
+            || !!p.consentStartAt
+            || (p.userId == null && !!p.guestDisplayName)
           const isOnline = hasJoined && (
             (isMe && wsStatus === 'connected') || onlineParticipants.has(p.id)
           )

@@ -171,6 +171,7 @@ public class InviteService {
         newParticipant.setRoomId(room.getId());
         newParticipant.setUserId(userId);
         newParticipant.setRoleId(ROLE_INVITEE);
+        newParticipant.setJoinedAt(OffsetDateTime.now());
         participantRepository.save(newParticipant);
 
         // Mirror the FRIEND join flow: once the invitee is attached, move the room to WAITING_CONSENT
@@ -213,6 +214,7 @@ public class InviteService {
         guestParticipant.setRoleId(ROLE_INVITEE);
         guestParticipant.setGuestDisplayName(request.displayName());
         guestParticipant.setGuestAge(request.age());
+        guestParticipant.setJoinedAt(OffsetDateTime.now());
         participantRepository.save(guestParticipant);
 
         String genderLabel = "не указан";
