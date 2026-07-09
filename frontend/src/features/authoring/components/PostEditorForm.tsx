@@ -5,8 +5,6 @@ import { useTags } from '../../feed/hooks/useTags'
 import { resolveMediaUrl } from '../../../shared/lib/mediaUrl'
 import { getErrorMessage } from '../../../shared/lib/errors'
 import { ErrorText } from '../../../shared/components/ErrorText'
-import { PostView } from '../../posts/components/PostView'
-import type { Post } from '../../feed/types'
 import { uploadCoverImage } from '../api'
 import { PostBodyEditor } from './PostBodyEditor'
 
@@ -27,7 +25,6 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(initialPost?.tags.map(t => t.id) || [])
   const [keywordsStr, setKeywordsStr] = useState(initialPost?.keywords.join(', ') || '')
   const [errorMsg, setErrorMsg] = useState('')
-  const [showPreview, setShowPreview] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
 
@@ -136,7 +133,7 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
     const payload: PostFormValues = {
       title: title.trim(),
       content: contentStr || undefined,
-      imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+      imageUrls: imageUrls,
       tagIds: selectedTagIds,
       keywords,
     }
@@ -269,45 +266,12 @@ export function PostEditorForm({ initialPost, onClose }: Props) {
       </div>
 
       <div className="flex flex-col gap-1">
-        <div className="flex justify-between items-end mb-1">
-          <label className="text-sm font-medium">Содержание</label>
-          <button
-            type="button"
-            onClick={() => setShowPreview(!showPreview)}
-            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-          >
-            {showPreview ? 'Редактировать' : 'Предпросмотр'}
-          </button>
-        </div>
+        <label className="text-sm font-medium">Содержание</label>
         
-        {showPreview ? (
-          <div className="border border-gray-300 p-4 rounded min-h-[16rem] bg-gray-50 overflow-y-auto">
-            <PostView previewMode={true} post={{
-              id: 'preview',
-              authorId: 'preview',
-              authorUsername: 'Автор',
-              authorAvatarUrl: null,
-              title: title.trim() || 'Без названия',
-              content: editorJson ? JSON.stringify(editorJson) : null,
-              coverImageUrl: imageUrls.length > 0 ? imageUrls[0] : null,
-              imageUrls: imageUrls,
-              status: 'DRAFT',
-              publishedAt: null,
-              updatedAt: new Date().toISOString(),
-              viewsCount: 0,
-              upvotesCount: 0,
-              commentsCount: 0,
-              tags: allTags.filter(t => selectedTagIds.includes(t.id)),
-              keywords: keywordsStr.split(',').map(k => k.trim()).filter(Boolean),
-              version: 1
-            } as Post} />
-          </div>
-        ) : (
-          <PostBodyEditor
-            initialContent={initialPost?.content || null}
-            onChange={setEditorJson}
-          />
-        )}
+        <PostBodyEditor
+          initialContent={initialPost?.content || null}
+          onChange={setEditorJson}
+        />
       </div>
 
       <div className="flex flex-col gap-1">

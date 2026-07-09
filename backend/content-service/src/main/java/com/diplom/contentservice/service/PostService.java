@@ -97,10 +97,6 @@ public class PostService {
             throw new InvalidPostStateException("Moderated posts cannot be edited");
         }
 
-        if (status == PostStatus.PUBLISHED && request.imageUrls() != null) {
-            throw new InvalidPostStateException("Images cannot be edited after publication");
-        }
-
         if (request.title() != null) {
             post.setTitle(request.title().trim());
         }
@@ -109,6 +105,7 @@ public class PostService {
         }
         if (request.imageUrls() != null) {
             post.setImageUrls(new java.util.ArrayList<>(request.imageUrls()));
+            post.setCoverImageUrl(request.imageUrls().isEmpty() ? null : request.imageUrls().get(0));
         }
         if (request.tagIds() != null) {
             post.setTags(resolveTagsOrThrow(request.tagIds()));

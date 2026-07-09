@@ -2,12 +2,23 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
+import TipTapBold from '@tiptap/extension-bold'
+import TipTapItalic from '@tiptap/extension-italic'
+import TipTapStrike from '@tiptap/extension-strike'
+import TipTapCode from '@tiptap/extension-code'
+import TipTapUnderline from '@tiptap/extension-underline'
 import { useEffect, useState, useCallback } from 'react'
 import {
-  Bold, Italic, Underline, Strikethrough, Code, Link as LinkIcon, X,
+  Bold, Italic, Underline, Strikethrough, Code, Link as LinkIcon, ArrowLeft, Check,
 } from 'lucide-react'
 import { legacyToTiptapDoc } from '../lib/legacyToTiptap'
 import type { EditorContent as FeedEditorContent } from '../../feed/types'
+
+const NonStickyBold = TipTapBold.extend({ inclusive: false })
+const NonStickyItalic = TipTapItalic.extend({ inclusive: false })
+const NonStickyStrike = TipTapStrike.extend({ inclusive: false })
+const NonStickyCode = TipTapCode.extend({ inclusive: false })
+const NonStickyUnderline = TipTapUnderline.extend({ inclusive: false })
 
 interface Props {
   initialContent: string | FeedEditorContent | null
@@ -22,6 +33,10 @@ export function PostBodyEditor({ initialContent, onChange }: Props) {
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
+        bold: false,
+        italic: false,
+        strike: false,
+        code: false,
         // Link is bundled in v3 StarterKit — configure it here
         link: {
           openOnClick: false,
@@ -34,6 +49,11 @@ export function PostBodyEditor({ initialContent, onChange }: Props) {
           },
         },
       }),
+      NonStickyBold,
+      NonStickyItalic,
+      NonStickyStrike,
+      NonStickyCode,
+      NonStickyUnderline,
       Placeholder.configure({
         placeholder: 'Текст поста… Выдели текст, чтобы отформатировать',
       }),
@@ -65,8 +85,8 @@ export function PostBodyEditor({ initialContent, onChange }: Props) {
 
   const toggleLink = () => {
     if (editor.isActive('link')) {
-      editor.chain().focus().unsetLink().run()
-      setLinkInputVisible(false)
+      setLinkUrl(editor.getAttributes('link').href || '')
+      setLinkInputVisible(true)
       return
     }
     setLinkUrl('')
@@ -97,88 +117,98 @@ export function PostBodyEditor({ initialContent, onChange }: Props) {
         <BubbleMenu
           editor={editor}
         >
-          <div className="flex items-center gap-0.5 bg-white border border-gray-300 rounded-lg shadow-lg p-1">
-            <button
-              type="button"
-              title="Жирный (Ctrl+B)"
-              onMouseDown={e => e.preventDefault()}
-              onClick={() => editor.chain().focus().toggleBold().run()}
-              className={btnClass(editor.isActive('bold'))}
-            >
-              <Bold className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              title="Курсив (Ctrl+I)"
-              onMouseDown={e => e.preventDefault()}
-              onClick={() => editor.chain().focus().toggleItalic().run()}
-              className={btnClass(editor.isActive('italic'))}
-            >
-              <Italic className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              title="Подчёркнутый (Ctrl+U)"
-              onMouseDown={e => e.preventDefault()}
-              onClick={() => editor.chain().focus().toggleUnderline().run()}
-              className={btnClass(editor.isActive('underline'))}
-            >
-              <Underline className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              title="Зачёркнутый (Ctrl+Shift+S)"
-              onMouseDown={e => e.preventDefault()}
-              onClick={() => editor.chain().focus().toggleStrike().run()}
-              className={btnClass(editor.isActive('strike'))}
-            >
-              <Strikethrough className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              title="Код"
-              onMouseDown={e => e.preventDefault()}
-              onClick={() => editor.chain().focus().toggleCode().run()}
-              className={btnClass(editor.isActive('code'))}
-            >
-              <Code className="w-4 h-4" />
-            </button>
-            <div className="w-px h-5 bg-gray-300 mx-0.5" />
-            <button
-              type="button"
-              title="Ссылка"
-              onMouseDown={e => e.preventDefault()}
-              onClick={toggleLink}
-              className={btnClass(editor.isActive('link'))}
-            >
-              <LinkIcon className="w-4 h-4" />
-            </button>
-
-            {linkInputVisible && (
-              <>
-                <input
-                  type="url"
-                  value={linkUrl}
-                  onChange={e => setLinkUrl(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') { e.preventDefault(); applyLink() }
-                    if (e.key === 'Escape') { setLinkInputVisible(false); editor.chain().focus().run() }
-                  }}
-                  placeholder="https://…"
-                  autoFocus
-                  className="ml-1 px-2 py-1 text-sm border border-gray-300 rounded w-48 outline-none focus:border-blue-500"
-                />
-                <button
-                  type="button"
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={() => { setLinkInputVisible(false); editor.chain().focus().run() }}
-                  className="p-1 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </>
-            )}
-          </div>
+          {linkInputVisible ? (
+            <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-lg shadow-lg p-1">
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => { setLinkInputVisible(false); editor.chain().focus().run() }}
+                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                title="Отмена (Esc)"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <input
+                type="url"
+                value={linkUrl}
+                onChange={e => setLinkUrl(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.preventDefault(); applyLink() }
+                  if (e.key === 'Escape') { setLinkInputVisible(false); editor.chain().focus().run() }
+                }}
+                placeholder="https://…"
+                autoFocus
+                className="px-2 py-1 text-sm border border-gray-300 rounded w-48 outline-none focus:border-blue-500"
+              />
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={applyLink}
+                className="p-1.5 bg-blue-600 text-white hover:bg-blue-700 rounded"
+                title="Подтвердить (Enter)"
+              >
+                <Check className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-0.5 bg-white border border-gray-300 rounded-lg shadow-lg p-1">
+              <button
+                type="button"
+                title="Жирный (Ctrl+B)"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => editor.chain().focus().toggleBold().run()}
+                className={btnClass(editor.isActive('bold'))}
+              >
+                <Bold className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                title="Курсив (Ctrl+I)"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+                className={btnClass(editor.isActive('italic'))}
+              >
+                <Italic className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                title="Подчёркнутый (Ctrl+U)"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => editor.chain().focus().toggleUnderline().run()}
+                className={btnClass(editor.isActive('underline'))}
+              >
+                <Underline className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                title="Зачёркнутый (Ctrl+Shift+S)"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => editor.chain().focus().toggleStrike().run()}
+                className={btnClass(editor.isActive('strike'))}
+              >
+                <Strikethrough className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                title="Код"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => editor.chain().focus().toggleCode().run()}
+                className={btnClass(editor.isActive('code'))}
+              >
+                <Code className="w-4 h-4" />
+              </button>
+              <div className="w-px h-5 bg-gray-300 mx-0.5" />
+              <button
+                type="button"
+                title="Ссылка"
+                onMouseDown={e => e.preventDefault()}
+                onClick={toggleLink}
+                className={btnClass(editor.isActive('link'))}
+              >
+                <LinkIcon className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </BubbleMenu>
       )}
 
