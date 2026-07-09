@@ -1,6 +1,13 @@
 import { useState } from 'react'
 import { resolveMediaUrl } from '../../shared/lib/mediaUrl'
-import { useAdminUserSearch, useAdminUserDetails, useUpdateUserRole, useUpdateUserStatus } from '../../features/admin/hooks'
+import { PasswordInput } from '../../shared/components/PasswordInput'
+import {
+  useAdminUserSearch,
+  useAdminUserDetails,
+  useUpdateUserRole,
+  useUpdateUserStatus,
+  useResetUserPassword,
+} from '../../features/admin/hooks'
 import { ROLE_OPTIONS, STATUS_OPTIONS, type AdminUserSummary } from '../../features/admin/types'
 
 export function AdminUsersPage() {
@@ -149,9 +156,11 @@ function UserDetailsPanel({ userId }: { userId: string }) {
   const { data: details, isLoading, error } = useAdminUserDetails(userId)
   const updateRole = useUpdateUserRole()
   const updateStatus = useUpdateUserStatus()
+  const resetPassword = useResetUserPassword()
 
   const [roleId, setRoleId] = useState<number | null>(null)
   const [statusId, setStatusId] = useState<number | null>(null)
+  const [newPassword, setNewPassword] = useState('')
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
   if (isLoading) return <div className="text-sm p-2 text-gray-500">Загрузка данных...</div>
@@ -174,6 +183,21 @@ function UserDetailsPanel({ userId }: { userId: string }) {
       setMessage({ type: 'success', text: 'Статус обновлен' })
     } catch (err: any) {
       setMessage({ type: 'error', text: err?.response?.data?.message || 'Ошибка обновления статуса' })
+    }
+  }
+
+  const handleResetPassword = async () => {
+    const password = newPassword.trim()
+    if (password.length < 8) {
+      setMessage({ type: 'error', text: 'Пароль должен быть не короче 8 символов' })
+      return
+    }
+    try {
+      await resetPassword.mutateAsync({ userId, password })
+      setNewPassword('')
+      setMessage({ type: 'success', text: 'Пароль сброшен. Передайте новый пароль пользователю.' })
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.response?.data?.message || 'Ошибка сброса пароля' })
     }
   }
 
@@ -249,6 +273,28 @@ function UserDetailsPanel({ userId }: { userId: string }) {
                 className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm disabled:opacity-50"
               >
                 Сохранить
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1 border-t pt-4">
+            <label className="text-gray-500 text-xs font-medium uppercase tracking-wider">Сброс пароля</label>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <PasswordInput
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Новый пароль (мин. 8 символов)"
+                  autoComplete="new-password"
+                  className="border-gray-300 rounded px-2 py-1.5 text-sm"
+                />
+              </div>
+              <button
+                onClick={handleResetPassword}
+                disabled={resetPassword.isPending || newPassword.trim().length < 8}
+                className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded text-sm disabled:opacity-50 whitespace-nowrap"
+              >
+                Сбросить
               </button>
             </div>
           </div>

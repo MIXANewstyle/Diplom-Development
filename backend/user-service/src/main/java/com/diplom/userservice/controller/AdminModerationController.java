@@ -1,5 +1,6 @@
 package com.diplom.userservice.controller;
 
+import com.diplom.userservice.dto.PasswordResetRequest;
 import com.diplom.userservice.dto.RoleUpdateRequest;
 import com.diplom.userservice.dto.StatusUpdateRequest;
 import com.diplom.userservice.service.UserService;
@@ -39,6 +40,14 @@ public class AdminModerationController {
             @PathVariable UUID userId,
             @Valid @RequestBody StatusUpdateRequest request) {
         userService.updateUserStatus(userId, request.statusId());
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/{userId}/password")
+    public ResponseEntity<Void> resetPassword(
+            @PathVariable UUID userId,
+            @Valid @RequestBody PasswordResetRequest request) {
+        userService.resetUserPassword(userId, request.password());
         return ResponseEntity.ok().build();
     }
 

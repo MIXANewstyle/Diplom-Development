@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { adminSearchUsers, getAdminUserDetails, getTags, updateUserRole, updateUserStatus, createTag, deleteTag, listPromos, createPromo, updatePromo, listTransactions, getTransaction, refundTransaction, grantSubscription } from '../api'
+import { adminSearchUsers, getAdminUserDetails, getTags, updateUserRole, updateUserStatus, resetUserPassword, createTag, deleteTag, listPromos, createPromo, updatePromo, listTransactions, getTransaction, refundTransaction, grantSubscription } from '../api'
 import type { PromoCreateRequest, PromoUpdateRequest, AdminTransactionFilters, GrantRequest } from '../types'
 
 export function useTransaction(id: string) {
@@ -42,6 +42,13 @@ export function useUpdateUserStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
     }
+  })
+}
+
+export function useResetUserPassword() {
+  return useMutation({
+    mutationFn: ({ userId, password }: { userId: string; password: string }) =>
+      resetUserPassword(userId, password),
   })
 }
 

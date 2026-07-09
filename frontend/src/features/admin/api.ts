@@ -33,6 +33,10 @@ export async function updateUserStatus(userId: string, statusId: number): Promis
   await apiClient.put(`/api/v1/admin/users/${userId}/status`, { statusId })
 }
 
+export async function resetUserPassword(userId: string, password: string): Promise<void> {
+  await apiClient.put(`/api/v1/admin/users/${userId}/password`, { password })
+}
+
 export async function createTag(name: string): Promise<{ id: string; name: string }> {
   const { data } = await apiClient.post<{ id: string; name: string }>('/internal/v1/admin/tags', { name })
   return data

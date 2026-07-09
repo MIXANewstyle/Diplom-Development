@@ -163,6 +163,14 @@ public class UserService {
         userOutboxEventRepository.save(event);
     }
 
+    @Transactional
+    public void resetUserPassword(UUID userId, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User " + userId + " not found"));
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
     @Transactional(readOnly = true)
     public List<UserBatchResponse> getBatchProfiles(List<UUID> ids) {
         List<UUID> dedupedIds = ids.stream().distinct().toList();
