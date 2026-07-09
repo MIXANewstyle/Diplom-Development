@@ -3,7 +3,7 @@ import { submitTurn } from '../api'
 import { getErrorMessage } from '../../../shared/lib/errors'
 import { appendOptimisticTurn, rollbackOptimisticTurn } from '../lib/optimisticTurns'
 
-export const useSubmitTurn = (roomId: string) => {
+export const useSubmitTurn = (roomId: string, participantId?: string | null) => {
   const queryClient = useQueryClient()
   const queryKey = ['chat', 'turns', roomId]
 
@@ -11,7 +11,7 @@ export const useSubmitTurn = (roomId: string) => {
     mutationFn: (text: string) => submitTurn(roomId, text),
     onMutate: async (text) => {
       await queryClient.cancelQueries({ queryKey })
-      const ctx = appendOptimisticTurn(queryClient, roomId, text)
+      const ctx = appendOptimisticTurn(queryClient, roomId, text, participantId)
       return ctx
     },
     onError: (error, _newText, context) => {

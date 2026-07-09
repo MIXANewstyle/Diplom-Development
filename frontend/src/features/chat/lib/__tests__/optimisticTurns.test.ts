@@ -34,7 +34,7 @@ describe('appendOptimisticTurn', () => {
     }
     qc.setQueryData(fullKey, seedData)
 
-    const { snapshots, optimisticId } = appendOptimisticTurn(qc, 'r1', 'world')
+    const { snapshots, optimisticId } = appendOptimisticTurn(qc, 'r1', 'world', 'p1')
 
     // The cache should now have 2 items
     const updated = qc.getQueryData<TurnsPageResponse>(fullKey)!
@@ -44,6 +44,7 @@ describe('appendOptimisticTurn', () => {
     expect(last.seq).toBe(4)
     expect(last.role).toBe('USER')
     expect(last.content).toBe('world')
+    expect(last.participantId).toBe('p1')
     expect(last.optimistic).toBe(true)
     expect(last.id).toBe(optimisticId)
 

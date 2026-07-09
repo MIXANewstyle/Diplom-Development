@@ -45,8 +45,9 @@ export const RoomPage = () => {
 
 const SoloRoomView = ({ id, room }: { id: string, room: any }) => {
   const { data: turnsPage, isLoading: isTurnsLoading } = useTurns(id)
-  
-  const submitTurnMutation = useSubmitTurn(id)
+  const myParticipantId = room.participants?.[0]?.id as string | undefined
+
+  const submitTurnMutation = useSubmitTurn(id, myParticipantId)
   const endRoomMutation = useEndSoloRoom(id)
 
   const transcriptContainerRef = useRef<HTMLDivElement>(null)
@@ -143,7 +144,7 @@ const SoloRoomView = ({ id, room }: { id: string, room: any }) => {
           otherDrafts={{}}
           aiThinking={isPending}
           participants={room.participants || []}
-          myParticipantId={room.participants?.[0]?.id}
+          myParticipantId={myParticipantId}
         />
       </div>
 

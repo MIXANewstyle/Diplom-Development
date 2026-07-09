@@ -18,6 +18,7 @@ export function appendOptimisticTurn(
   queryClient: QueryClient,
   roomId: string,
   text: string,
+  participantId?: string | null,
 ): AppendResult {
   const prefixKey = ['chat', 'turns', roomId]
   const entries = queryClient.getQueriesData<TurnsPageResponse>({ queryKey: prefixKey })
@@ -38,7 +39,7 @@ export function appendOptimisticTurn(
     roomId,
     seq: highestSeq + 1,
     role: 'USER',
-    participantId: null,
+    participantId: participantId ?? null,
     content: text,
     promptTokens: null,
     completionTokens: null,
