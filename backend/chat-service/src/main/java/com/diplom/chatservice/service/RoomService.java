@@ -485,13 +485,14 @@ public class RoomService {
         }
 
         // Batch-fetch all other-participant profiles at once
-        java.util.Map<UUID, com.diplom.chatservice.dto.UserBatchResponse> profiles;
+        java.util.Map<UUID, com.diplom.chatservice.dto.UserBatchResponse> fetchedProfiles;
         try {
-            profiles = profileCacheService.getProfiles(otherUserIds);
+            fetchedProfiles = profileCacheService.getProfiles(otherUserIds);
         } catch (Exception e) {
             log.warn("Failed to fetch profiles for room list. Falling back to un-enriched rooms.", e);
-            profiles = java.util.Map.of();
+            fetchedProfiles = java.util.Map.of();
         }
+        java.util.Map<UUID, com.diplom.chatservice.dto.UserBatchResponse> profiles = fetchedProfiles;
 
         return rooms.stream()
             .map(room -> {

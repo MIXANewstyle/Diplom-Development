@@ -41,13 +41,14 @@ public class ParticipantEnrichmentService {
             .toList();
 
         // Batch-fetch profiles via cache-aside
-        Map<UUID, UserBatchResponse> profiles;
+        Map<UUID, UserBatchResponse> fetchedProfiles;
         try {
-            profiles = profileCacheService.getProfiles(registeredUserIds);
+            fetchedProfiles = profileCacheService.getProfiles(registeredUserIds);
         } catch (Exception e) {
             log.warn("Failed to fetch profiles for room with {} participants. Falling back to base participants.", participants.size(), e);
-            profiles = Map.of();
+            fetchedProfiles = Map.of();
         }
+        Map<UUID, UserBatchResponse> profiles = fetchedProfiles;
 
         return participants.stream()
             .map(p -> {

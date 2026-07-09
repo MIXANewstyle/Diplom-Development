@@ -17,14 +17,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
 import java.time.OffsetDateTime;
-import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -59,8 +57,7 @@ public class WsConsentEndController {
     @MessageMapping("/rooms/{roomId}/consent/start")
     public void consentStart(
             @DestinationVariable UUID roomId,
-            Principal principal,
-            SimpMessageHeaderAccessor headerAccessor
+            Principal principal
     ) {
         Object authPrincipal = extractAuthPrincipal(principal);
         String principalName = getPrincipalName(authPrincipal);
@@ -72,8 +69,7 @@ public class WsConsentEndController {
             if ("ACTIVE".equals(response.status())) {
                 roomBroadcaster.broadcast(roomId,
                         DialogueStartedEvent.of(response.currentFloorParticipantId()));
-                String jwt = extractWsJwt(headerAccessor);
-                contextSnapshotService.captureForRoom(roomId, jwt);
+                contextSnapshotService.captureForRoom(roomId);
             } else {
                 ParticipantResponse p = findParticipantResponse(response, caller.getId());
                 if (p != null) {
@@ -99,14 +95,6 @@ public class WsConsentEndController {
             return "guest-" + guest.getParticipantId();
         }
         return "unknown";
-    }
-
-    private String extractWsJwt(SimpMessageHeaderAccessor headerAccessor) {
-        Map<String, Object> sessionAttrs = headerAccessor.getSessionAttributes();
-        if (sessionAttrs != null && sessionAttrs.containsKey("jwt")) {
-            return (String) sessionAttrs.get("jwt");
-        }
-        return null;
     }
 
     @MessageMapping("/rooms/{roomId}/consent/revoke")
