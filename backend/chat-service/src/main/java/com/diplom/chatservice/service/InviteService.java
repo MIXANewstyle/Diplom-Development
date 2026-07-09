@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import com.diplom.chatservice.ws.RoomBroadcaster;
 import com.diplom.chatservice.dto.ws.ParticipantJoinedEvent;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -51,7 +50,6 @@ public class InviteService {
     private final ChatInviteProperties inviteProperties;
     private final ChatGuestProperties guestProperties;
     private final JwtService jwtService;
-    private final ProfileCacheService profileCacheService;
     private final ContextSnapshotService contextSnapshotService;
     private final InternalUserBatchClient internalUserBatchClient;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -59,7 +57,6 @@ public class InviteService {
 
     private static final int INVITE_STATUS_ACTIVE = 1;
     private static final int INVITE_STATUS_REVOKED = 2;
-    private static final int INVITE_STATUS_REDEEMED = 3;
 
     private static final int ROOM_STATUS_CREATED = 1;
     private static final int ROOM_STATUS_WAITING_CONSENT = 2;
@@ -186,7 +183,8 @@ public class InviteService {
             throw new InviteInvalidException("Invite is no longer active");
         }
 
-        ParticipantJoinedEvent event = ParticipantJoinedEvent.of(newParticipant.getId(), OffsetDateTime.now(), room.getStatusId());
+        ParticipantJoinedEvent event = ParticipantJoinedEvent.of(
+                newParticipant.getId(), OffsetDateTime.now(), "WAITING_CONSENT");
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
@@ -244,7 +242,8 @@ public class InviteService {
 
         String token = jwtService.mintRoomScopedToken(guestParticipant.getId(), room.getId());
 
-        ParticipantJoinedEvent event = ParticipantJoinedEvent.of(guestParticipant.getId(), OffsetDateTime.now(), room.getStatusId());
+        ParticipantJoinedEvent event = ParticipantJoinedEvent.of(
+                guestParticipant.getId(), OffsetDateTime.now(), "WAITING_CONSENT");
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
