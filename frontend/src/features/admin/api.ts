@@ -1,13 +1,29 @@
 import { apiClient } from '../../shared/api/client'
-import { searchUsers } from '../social/api'
+import type { Page } from '../feed/types'
 import type { 
+  AdminUserSummary, AdminUserDetails,
   PromoResponse, PromoCreateRequest, PromoUpdateRequest,
   AdminTransactionResponse, AdminTransactionPageResponse, AdminTransactionFilters,
   GrantRequest, SubscriptionResponse
 } from './types'
 import { getTags } from '../feed/api'
 
-export { searchUsers, getTags }
+export { getTags }
+
+export async function adminSearchUsers(query: string, page = 0, size = 20): Promise<Page<AdminUserSummary>> {
+  const params = new URLSearchParams()
+  if (query) params.append('query', query)
+  params.append('page', page.toString())
+  params.append('size', size.toString())
+
+  const { data } = await apiClient.get<Page<AdminUserSummary>>(`/api/v1/admin/users?${params.toString()}`)
+  return data
+}
+
+export async function getAdminUserDetails(userId: string): Promise<AdminUserDetails> {
+  const { data } = await apiClient.get<AdminUserDetails>(`/api/v1/admin/users/${userId}`)
+  return data
+}
 
 export async function updateUserRole(userId: string, roleId: number): Promise<void> {
   await apiClient.put(`/api/v1/admin/users/${userId}/role`, { roleId })

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   usePromos, useCreatePromo, useUpdatePromo,
   useTransactions, useRefundTransaction,
-  useGrantSubscription, useUserSearch
+  useGrantSubscription, useAdminUserSearch
 } from '../../features/admin/hooks'
 import { resolveMediaUrl } from '../../shared/lib/mediaUrl'
 import { formatDateTime } from '../../shared/lib/format'
@@ -289,8 +289,8 @@ function TransactionsSection() {
 function GrantSubscriptionSection() {
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  
-  const { data: users, isLoading } = useUserSearch(debouncedSearch)
+  const { data: pageData, isLoading } = useAdminUserSearch(debouncedSearch, 0, 10)
+  const users = pageData?.content || []
   const grantSub = useGrantSubscription()
 
   const [selectedUserId, setSelectedUserId] = useState('')
@@ -339,7 +339,7 @@ function GrantSubscriptionSection() {
         
         {isLoading && <div className="text-sm">Загрузка...</div>}
         <div className="space-y-2 max-h-64 overflow-y-auto">
-          {users?.map(u => (
+          {users.map(u => (
             <div 
               key={u.id} 
               onClick={() => setSelectedUserId(u.id)}

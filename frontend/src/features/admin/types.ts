@@ -12,6 +12,37 @@ export const STATUS_OPTIONS = [
   { id: 3, label: 'Удалён' },
 ]
 
+export interface AdminUserSummary {
+  id: string
+  email: string
+  username: string | null
+  fullName: string | null
+  avatarUrl: string | null
+  roleId: number
+  statusId: number
+  createdAt: string
+}
+
+export interface AdminUserDetails {
+  id: string
+  email: string
+  roleId: number
+  statusId: number
+  createdAt: string
+  fullName: string | null
+  username: string | null
+  bio: string | null
+  avatarUrl: string | null
+  contactInfo: string | null
+  birthDate: string | null
+  genderId: number | null
+  profileUpdatedAt: string | null
+  psychProfileFilled: boolean
+  friendsCount: number
+  followersCount: number
+  followingCount: number
+}
+
 export interface PromoResponse {
   id: string
   code: string

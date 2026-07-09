@@ -17,4 +17,7 @@ public interface AuthorFollowRepository extends JpaRepository<AuthorFollow, Auth
     void deleteByFollowerIdAndAuthorId(UUID followerId, UUID authorId);
 
     List<AuthorFollow> findAllByFollowerId(UUID followerId);
+
+    long countByFollowerId(UUID followerId);
+    long countByAuthorId(UUID authorId);
 }

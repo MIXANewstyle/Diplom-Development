@@ -18,4 +18,7 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Friendsh
     void deleteByRequesterIdAndAddresseeId(UUID requesterId, UUID addresseeId);
 
     List<Friendship> findAllByRequesterIdOrAddresseeId(UUID requesterId, UUID addresseeId);
+
+    long countByRequesterIdAndStatusId(UUID requesterId, Integer statusId);
+    long countByAddresseeIdAndStatusId(UUID addresseeId, Integer statusId);
 }

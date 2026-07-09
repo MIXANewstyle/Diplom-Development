@@ -32,6 +32,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+import com.diplom.userservice.dto.AdminUserSummaryResponse;
+import com.diplom.userservice.dto.AdminUserDetailsResponse;
+import com.diplom.userservice.repository.FriendshipRepository;
+import com.diplom.userservice.repository.AuthorFollowRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -41,6 +49,8 @@ public class UserService {
     private final UserOutboxEventRepository userOutboxEventRepository;
     private final UserProfileRepository userProfileRepository;
     private final OutboxEventFactory outboxEventFactory;
+    private final FriendshipRepository friendshipRepository;
+    private final AuthorFollowRepository authorFollowRepository;
 
     @Transactional
     public UserResponse registerUser(UserRegistrationRequest request) {
@@ -219,5 +229,77 @@ public class UserService {
                 .filter(p -> !p.getId().equals(currentUserId))
                 .map(p -> new UserBatchResponse(p.getId(), p.getUsername(), p.getFullName(), p.getAvatarUrl()))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AdminUserSummaryResponse> searchAdminUsers(String query, int page, int size) {
+        PageRequest pageRequest = PageRequest.of(page, Math.min(size, 50), Sort.by(Sort.Direction.DESC, "createdAt"));
+        
+        if (query == null || query.trim().isEmpty()) {
+            return userRepository.findAll(pageRequest).map(this::toAdminSummary);
+        }
+        
+        String trimmedQuery = query.trim();
+        try {
+            UUID id = UUID.fromString(trimmedQuery);
+            return userRepository.findById(id)
+                    .map(u -> new org.springframework.data.domain.PageImpl<>(List.of(toAdminSummary(u)), pageRequest, 1))
+                    .orElseGet(() -> new org.springframework.data.domain.PageImpl<>(List.of(), pageRequest, 0));
+        } catch (IllegalArgumentException e) {
+            // Not a UUID, do string search
+            return userRepository.searchUsers(trimmedQuery, pageRequest).map(this::toAdminSummary);
+        }
+    }
+
+    private AdminUserSummaryResponse toAdminSummary(User user) {
+        UserProfile profile = user.getProfile();
+        return new AdminUserSummaryResponse(
+                user.getId(),
+                user.getEmail(),
+                profile != null ? profile.getUsername() : null,
+                profile != null ? profile.getFullName() : null,
+                profile != null ? profile.getAvatarUrl() : null,
+                user.getRoleId(),
+                user.getStatusId(),
+                user.getCreatedAt()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public AdminUserDetailsResponse getAdminUserDetails(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User " + userId + " not found"));
+        
+        UserProfile profile = user.getProfile();
+        
+        long friendsCount = friendshipRepository.countByRequesterIdAndStatusId(userId, 2) + 
+                            friendshipRepository.countByAddresseeIdAndStatusId(userId, 2);
+        long followersCount = authorFollowRepository.countByAuthorId(userId);
+        long followingCount = authorFollowRepository.countByFollowerId(userId);
+        
+        boolean psychFilled = false;
+        if (profile != null && profile.getPsychProfile() != null && !profile.getPsychProfile().trim().isEmpty() && !profile.getPsychProfile().equals("{}")) {
+            psychFilled = true;
+        }
+
+        return new AdminUserDetailsResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getRoleId(),
+                user.getStatusId(),
+                user.getCreatedAt(),
+                profile != null ? profile.getFullName() : null,
+                profile != null ? profile.getUsername() : null,
+                profile != null ? profile.getBio() : null,
+                profile != null ? profile.getAvatarUrl() : null,
+                profile != null ? profile.getContactInfo() : null,
+                profile != null ? profile.getBirthDate() : null,
+                profile != null ? profile.getGenderId() : null,
+                profile != null ? profile.getUpdatedAt() : null,
+                psychFilled,
+                friendsCount,
+                followersCount,
+                followingCount
+        );
     }
 }
