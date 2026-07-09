@@ -3,7 +3,7 @@ import { useRoom } from '../features/chat/hooks/useRoom'
 import { useTurns } from '../features/chat/hooks/useTurns'
 import { useSubmitTurn } from '../features/chat/hooks/useSubmitTurn'
 import { useEndSoloRoom } from '../features/chat/hooks/useEndSoloRoom'
-import { Transcript } from '../features/chat/components/Transcript'
+import { DialogueTranscript } from '../features/chat/components/DialogueTranscript'
 import { Composer } from '../features/chat/components/Composer'
 import { PairedRoomView } from '../features/chat/components/PairedRoomView'
 import { useEffect, useRef, useState } from 'react'
@@ -137,7 +137,14 @@ const SoloRoomView = ({ id, room }: { id: string, room: any }) => {
         ref={transcriptContainerRef}
         className="flex-1 overflow-y-auto bg-gray-50 p-4 rounded-b-none rounded-t-lg"
       >
-        <Transcript turns={turnsPage?.items || []} />
+        <DialogueTranscript 
+          historyTurns={turnsPage?.items || []} 
+          liveTurns={[]}
+          otherDrafts={{}}
+          aiThinking={isPending}
+          participants={room.participants || []}
+          myParticipantId={room.participants?.[0]?.id}
+        />
       </div>
 
       {/* Composer Area */}

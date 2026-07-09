@@ -88,14 +88,16 @@ export const DialogueTranscript = ({
 
       {/* AI Thinking Indicator */}
       {aiThinking && (
-        <div className="flex justify-start w-full">
-          <div className="max-w-[80%] bg-gray-100 border border-gray-200 text-gray-600 p-3 rounded-lg rounded-tl-none shadow-sm">
-            <div className="text-xs font-bold mb-1">Ассистент</div>
-            <div className="flex gap-1 items-center italic text-sm">
-              <span className="animate-bounce">И</span>
-              <span className="animate-bounce" style={{ animationDelay: '0.1s' }}>И</span>
-              <span> думает...</span>
+        <div className="flex flex-col w-full mb-4 items-start">
+          <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-gray-100 text-gray-800 rounded-tl-sm border border-gray-200">
+            <div className="flex items-center gap-1.5 h-4">
+              <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
             </div>
+          </div>
+          <div className="text-xs text-gray-500 mt-1 px-1 text-left">
+            Собеседник
           </div>
         </div>
       )}
