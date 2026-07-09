@@ -1,6 +1,6 @@
 package com.diplom.chatservice.service;
 
-import com.diplom.chatservice.client.UserServiceClient;
+import com.diplom.chatservice.client.InternalUserBatchClient;
 import com.diplom.chatservice.dto.UserBatchResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +33,7 @@ public class ProfileCacheService {
     private static final String KEY_SUFFIX = ":profile";
 
     private final RedisTemplate<String, Object> redisTemplate;
-    private final UserServiceClient userServiceClient;
+    private final InternalUserBatchClient internalUserBatchClient;
 
     /**
      * Fetch profiles for the given ids. Cache hits served from Redis;
@@ -42,9 +42,8 @@ public class ProfileCacheService {
      * Missing users (deleted in user-service) are absent from the map.
      *
      * @param ids the user IDs to look up
-     * @param jwt the raw JWT token to forward to user-service
      */
-    public Map<UUID, UserBatchResponse> getProfiles(Collection<UUID> ids, String jwt) {
+    public Map<UUID, UserBatchResponse> getProfiles(Collection<UUID> ids) {
         if (ids == null || ids.isEmpty()) return Map.of();
 
         Set<UUID> distinct = new HashSet<>(ids);
@@ -64,7 +63,7 @@ public class ProfileCacheService {
 
         // 2. Single batched fetch for misses.
         if (!misses.isEmpty()) {
-            List<UserBatchResponse> fetched = userServiceClient.batchGetProfiles(misses, jwt);
+            List<UserBatchResponse> fetched = internalUserBatchClient.batchGetProfiles(misses);
             for (UserBatchResponse profile : fetched) {
                 String key = KEY_PREFIX + profile.id() + KEY_SUFFIX;
                 redisTemplate.opsForValue().set(key, profile, TTL);

@@ -44,9 +44,8 @@ public class ContextSnapshotService {
      * Capture context_snapshot for all registered participants whose snapshot is still null.
      *
      * @param roomId    the room that just became ACTIVE
-     * @param callerJwt the JWT to use for profile cache lookups
      */
-    public void captureForRoom(UUID roomId, String callerJwt) {
+    public void captureForRoom(UUID roomId) {
         try {
             Room room = roomRepository.findById(roomId).orElse(null);
             if (room == null) {
@@ -74,16 +73,13 @@ public class ContextSnapshotService {
                     .map(RoomParticipant::getUserId)
                     .toList();
 
-            // Fetch display names — use JWT if available, fall back to internal client
+            // Fetch display names
             Map<UUID, UserBatchResponse> profiles;
-            if (callerJwt != null) {
-                profiles = profileCacheService.getProfiles(userIds, callerJwt);
-            } else {
-                log.debug("captureForRoom: no JWT, using internal client for profile lookup");
-                List<UserBatchResponse> fetched = internalUserBatchClient.batchGetProfiles(userIds);
-                profiles = fetched != null
-                        ? fetched.stream().collect(Collectors.toMap(UserBatchResponse::id, Function.identity()))
-                        : Map.of();
+            try {
+                profiles = profileCacheService.getProfiles(userIds);
+            } catch (Exception e) {
+                log.warn("captureForRoom: failed to fetch profiles for room {}, proceeding without display names", roomId, e);
+                profiles = Map.of();
             }
 
             // Fetch about text from the psych_profile endpoint (service-authenticated)

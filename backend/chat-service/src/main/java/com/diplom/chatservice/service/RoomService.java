@@ -449,30 +449,26 @@ public class RoomService {
 
     /**
      * List rooms with identity enrichment for the other participant.
-     * Called from the controller where the JWT is available.
      */
     @Transactional(readOnly = true)
     public List<RoomSummaryResponse> listRoomsEnriched(UUID callerId, int page, int size,
-                                                        String jwt,
                                                         ProfileCacheService profileCacheService,
                                                         RoomMapper mapper) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Room> roomPage = roomRepository.findRoomsByParticipantUserId(callerId, pageable);
-        return enrichRoomPage(roomPage, callerId, jwt, profileCacheService, mapper);
+        return enrichRoomPage(roomPage, callerId, profileCacheService, mapper);
     }
 
     @Transactional(readOnly = true)
     public List<RoomSummaryResponse> listSeedEligibleRooms(UUID callerId, int page, int size,
-                                                           String jwt,
                                                            ProfileCacheService profileCacheService,
                                                            RoomMapper mapper) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Room> roomPage = roomRepository.findSeedEligibleRooms(callerId, pageable);
-        return enrichRoomPage(roomPage, callerId, jwt, profileCacheService, mapper);
+        return enrichRoomPage(roomPage, callerId, profileCacheService, mapper);
     }
 
     private List<RoomSummaryResponse> enrichRoomPage(Page<Room> roomPage, UUID callerId,
-                                                     String jwt,
                                                      ProfileCacheService profileCacheService,
                                                      RoomMapper mapper) {
         // Collect all other-participant user IDs across all rooms for a single batch lookup
@@ -489,8 +485,13 @@ public class RoomService {
         }
 
         // Batch-fetch all other-participant profiles at once
-        java.util.Map<UUID, com.diplom.chatservice.dto.UserBatchResponse> profiles =
-            profileCacheService.getProfiles(otherUserIds, jwt);
+        java.util.Map<UUID, com.diplom.chatservice.dto.UserBatchResponse> profiles;
+        try {
+            profiles = profileCacheService.getProfiles(otherUserIds);
+        } catch (Exception e) {
+            log.warn("Failed to fetch profiles for room list. Falling back to un-enriched rooms.", e);
+            profiles = java.util.Map.of();
+        }
 
         return rooms.stream()
             .map(room -> {

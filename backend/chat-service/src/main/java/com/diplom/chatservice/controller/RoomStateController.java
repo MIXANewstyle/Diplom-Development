@@ -77,20 +77,7 @@ public class RoomStateController {
 
         List<RoomParticipant> participants = roomParticipantRepository.findByRoomId(roomId);
 
-        // Retrieve the raw JWT stored during STOMP CONNECT
-        Map<String, Object> sessionAttributes = headerAccessor.getSessionAttributes();
-        String jwt = sessionAttributes != null ? (String) sessionAttributes.get("jwt") : null;
-
-        List<ParticipantResponse> participantResponses;
-        if (jwt != null) {
-            participantResponses = participantEnrichmentService.enrichParticipants(participants, jwt);
-        } else {
-            log.warn("No JWT in STOMP session attributes for principalId={}, skipping enrichment",
-                    principalId);
-            participantResponses = participants.stream()
-                    .map(roomMapper::toParticipantResponse)
-                    .toList();
-        }
+        List<ParticipantResponse> participantResponses = participantEnrichmentService.enrichParticipants(participants);
 
         // Last 50 turns by seq ascending (fetch desc, then reverse)
         List<Turn> turns = turnRepository.findTop50ByRoomIdOrderBySeqDesc(roomId);

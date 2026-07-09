@@ -67,12 +67,11 @@ public class RoomController {
     @PreAuthorize("hasRole('BASIC')")
     public ResponseEntity<RoomResponse> createSoloRoom(
         @AuthenticationPrincipal CustomUserDetails user,
-        @Valid @RequestBody CreateSoloRoomRequest request,
-        HttpServletRequest httpRequest
+        @Valid @RequestBody CreateSoloRoomRequest request
     ) {
         RoomResponse response = roomService.createSoloRoom(request, user.getId());
         // Solo room is ACTIVE immediately — capture context snapshot outside the tx
-        contextSnapshotService.captureForRoom(response.id(), extractJwt(httpRequest));
+        contextSnapshotService.captureForRoom(response.id());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -88,13 +87,12 @@ public class RoomController {
     @PostMapping("/{roomId}/consent/start")
     public ResponseEntity<RoomResponse> consentStart(
         @AuthenticationPrincipal Object principal,
-        @PathVariable UUID roomId,
-        HttpServletRequest httpRequest
+        @PathVariable UUID roomId
     ) {
         RoomResponse response = roomService.consentStart(roomId, principal);
         // If this consent caused WAITING_CONSENT → ACTIVE, capture context snapshots
         if ("ACTIVE".equals(response.status())) {
-            contextSnapshotService.captureForRoom(roomId, extractJwt(httpRequest));
+            contextSnapshotService.captureForRoom(roomId);
         }
         return ResponseEntity.ok(response);
     }
@@ -140,12 +138,10 @@ public class RoomController {
     public ResponseEntity<List<RoomSummaryResponse>> listRooms(
         @AuthenticationPrincipal CustomUserDetails user,
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size,
-        HttpServletRequest httpRequest
+        @RequestParam(defaultValue = "20") int size
     ) {
-        String jwt = extractJwt(httpRequest);
         List<RoomSummaryResponse> response = roomService.listRoomsEnriched(
-            user.getId(), page, size, jwt, profileCacheService, roomMapper);
+            user.getId(), page, size, profileCacheService, roomMapper);
         return ResponseEntity.ok(response);
     }
 
@@ -154,14 +150,12 @@ public class RoomController {
         @AuthenticationPrincipal CustomUserDetails user,
         @RequestParam(defaultValue = "false") boolean seedEligible,
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size,
-        HttpServletRequest httpRequest
+        @RequestParam(defaultValue = "20") int size
     ) {
-        String jwt = extractJwt(httpRequest);
         List<RoomSummaryResponse> response;
         if (seedEligible) {
             response = roomService.listSeedEligibleRooms(
-                user.getId(), page, size, jwt, profileCacheService, roomMapper);
+                user.getId(), page, size, profileCacheService, roomMapper);
         } else {
             // Future-proofing: if they want just archived rooms without seedEligible, we can fall back to a different method.
             // For now, if not seedEligible, return empty list or support it if requested. The spec focuses on seedEligible=true.
@@ -173,15 +167,13 @@ public class RoomController {
     @GetMapping("/{roomId}")
     public ResponseEntity<RoomResponse> getRoom(
         @AuthenticationPrincipal Object principal,
-        @PathVariable UUID roomId,
-        HttpServletRequest httpRequest
+        @PathVariable UUID roomId
     ) {
         RoomResponse base = roomService.getRoom(roomId, principal);
-        String jwt = extractJwt(httpRequest);
 
         // Enrich the participant list with display names
         List<RoomParticipant> participants = roomParticipantRepository.findByRoomId(roomId);
-        List<ParticipantResponse> enriched = participantEnrichmentService.enrichParticipants(participants, jwt);
+        List<ParticipantResponse> enriched = participantEnrichmentService.enrichParticipants(participants);
 
         RoomResponse enrichedResponse = new RoomResponse(
             base.id(), base.title(), base.type(), base.status(), base.phase(),
@@ -221,13 +213,7 @@ public class RoomController {
         return ResponseEntity.ok(response);
     }
 
-    private String extractJwt(HttpServletRequest request) {
-        String auth = request.getHeader("Authorization");
-        if (auth != null && auth.startsWith("Bearer ")) {
-            return auth.substring(7);
-        }
-        throw new IllegalStateException("No bearer token in current request");
-    }
+
 
     @PatchMapping("/{roomId}")
     public ResponseEntity<RoomResponse> renameRoom(

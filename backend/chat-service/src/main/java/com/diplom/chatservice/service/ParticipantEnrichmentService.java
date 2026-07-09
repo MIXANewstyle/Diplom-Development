@@ -31,10 +31,9 @@ public class ParticipantEnrichmentService {
      * and avatars resolved from user-service.
      *
      * @param participants the raw participant entities
-     * @param jwt          the raw JWT to forward to user-service
      * @return enriched participant response list
      */
-    public List<ParticipantResponse> enrichParticipants(List<RoomParticipant> participants, String jwt) {
+    public List<ParticipantResponse> enrichParticipants(List<RoomParticipant> participants) {
         // Collect registered user IDs (skip guests)
         List<UUID> registeredUserIds = participants.stream()
             .map(RoomParticipant::getUserId)
@@ -42,7 +41,13 @@ public class ParticipantEnrichmentService {
             .toList();
 
         // Batch-fetch profiles via cache-aside
-        Map<UUID, UserBatchResponse> profiles = profileCacheService.getProfiles(registeredUserIds, jwt);
+        Map<UUID, UserBatchResponse> profiles;
+        try {
+            profiles = profileCacheService.getProfiles(registeredUserIds);
+        } catch (Exception e) {
+            log.warn("Failed to fetch profiles for room with {} participants. Falling back to base participants.", participants.size(), e);
+            profiles = Map.of();
+        }
 
         return participants.stream()
             .map(p -> {
