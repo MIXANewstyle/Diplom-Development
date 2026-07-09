@@ -13,6 +13,10 @@ import java.util.UUID;
 public interface InviteRepository extends JpaRepository<Invite, UUID> {
     java.util.Optional<Invite> findByToken(String token);
     
+    @Modifying
+    @Query("update Invite i set i.statusId = 3 where i.id = :id and i.statusId = 1")
+    int redeem(@Param("id") UUID id);
+    
     java.util.List<Invite> findByRoomIdAndStatusId(UUID roomId, Integer statusId);
 
     @Modifying

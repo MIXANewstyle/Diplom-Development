@@ -12,8 +12,16 @@ import org.springframework.stereotype.Repository;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
+import java.util.Optional;
+
 @Repository
 public interface RoomRepository extends JpaRepository<Room, UUID> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from Room r where r.id = :id")
+    Optional<Room> findWithLockById(@Param("id") UUID id);
 
     @Query("""
         SELECT r FROM Room r

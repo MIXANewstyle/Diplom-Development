@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useJoinInviteGuest } from '../hooks/useInvites'
 import {
@@ -25,6 +25,8 @@ export const GuestJoinForm = ({ inviteToken, roomId }: Props) => {
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
+  const submittingRef = useRef(false)
+
   const validate = (): boolean => {
     const next: Record<string, string> = {}
     const trimmedName = displayName.trim()
@@ -48,9 +50,12 @@ export const GuestJoinForm = ({ inviteToken, roomId }: Props) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submittingRef.current) return
+    
     setError(null)
     if (!validate()) return
 
+    submittingRef.current = true
     try {
       const response = await joinGuestMutation.mutateAsync({
         displayName: displayName.trim(),
@@ -75,6 +80,8 @@ export const GuestJoinForm = ({ inviteToken, roomId }: Props) => {
       navigate(`/chat/${roomId}`)
     } catch (err) {
       setError(getErrorMessage(err))
+    } finally {
+      submittingRef.current = false
     }
   }
 

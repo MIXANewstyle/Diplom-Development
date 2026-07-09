@@ -17,6 +17,8 @@ public interface RoomParticipantRepository extends JpaRepository<RoomParticipant
 
     List<RoomParticipant> findByRoomId(UUID roomId);
 
+    long countByRoomId(UUID roomId);
+
     Optional<RoomParticipant> findByRoomIdAndUserId(UUID roomId, UUID userId);
 
     boolean existsByRoomIdAndUserId(UUID roomId, UUID userId);

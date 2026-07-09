@@ -12,12 +12,18 @@ import { useQueryClient, useMutation } from '@tanstack/react-query'
 import { Pencil, Check, X } from 'lucide-react'
 import { renameRoom } from '../features/chat/api'
 import { getErrorMessage } from '../shared/lib/errors'
+import { useAuthStore } from '../shared/stores/authStore'
+import { useGuestSessionStore } from '../shared/stores/guestSessionStore'
 
 export const RoomPage = () => {
   const { roomId } = useParams<{ roomId: string }>()
   const id = roomId || ''
 
-  const { data: room, isLoading: isRoomLoading, isError: isRoomError } = useRoom(id)
+  const guestSession = useGuestSessionStore((s) => s.getSession(id))
+  const userToken = useAuthStore((s) => s.token)
+  const guestToken = !userToken && guestSession ? guestSession.token : undefined
+
+  const { data: room, isLoading: isRoomLoading, isError: isRoomError } = useRoom(id, guestToken)
   
   if (isRoomError) {
     return (

@@ -13,7 +13,7 @@ export default function InvitePage() {
   const authToken = useAuthStore((s) => s.token)
   const isAuthenticated = !!authToken && !isTokenExpired(authToken)
 
-  const { data: landing, isLoading, isError, error } = useInviteLanding(token)
+  const { data: landing, isLoading, isError } = useInviteLanding(token)
   const joinMutation = useJoinInvite(token)
   const [joinError, setJoinError] = useState<string | null>(null)
 
@@ -62,7 +62,7 @@ export default function InvitePage() {
         {isError && (
           <div className="text-center space-y-4">
             <p className="text-red-600 font-medium">
-              {getErrorMessage(error) || 'Приглашение недействительно или истекло.'}
+              Ссылка недействительна или уже использована. Попросите у собеседника новую ссылку.
             </p>
             <Link
               to="/"

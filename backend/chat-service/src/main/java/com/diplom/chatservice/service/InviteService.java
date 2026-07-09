@@ -34,6 +34,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.diplom.chatservice.ws.RoomBroadcaster;
+import com.diplom.chatservice.dto.ws.ParticipantJoinedEvent;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -42,6 +47,7 @@ public class InviteService {
     private final InviteRepository inviteRepository;
     private final RoomRepository roomRepository;
     private final RoomParticipantRepository participantRepository;
+    private final RoomBroadcaster roomBroadcaster;
     private final ChatInviteProperties inviteProperties;
     private final ChatGuestProperties guestProperties;
     private final JwtService jwtService;
@@ -149,7 +155,7 @@ public class InviteService {
     @Transactional
     public void joinRegistered(String rawToken, UUID userId) {
         Invite invite = getValidInvite(rawToken);
-        Room room = roomRepository.findById(invite.getRoomId())
+        Room room = roomRepository.findWithLockById(invite.getRoomId())
                 .orElseThrow(() -> new InviteInvalidException("Room not found"));
 
         if (room.getStatusId() != 1 && room.getStatusId() != 2) { // CREATED or WAITING_CONSENT
@@ -158,6 +164,10 @@ public class InviteService {
 
         if (participantRepository.existsByRoomIdAndUserId(room.getId(), userId)) {
             throw new InvalidRoomStateException("You are already a participant in this room");
+        }
+
+        if (participantRepository.countByRoomId(room.getId()) >= 2) {
+            throw new InviteInvalidException("Room is full");
         }
 
         RoomParticipant newParticipant = new RoomParticipant();
@@ -172,18 +182,31 @@ public class InviteService {
             roomRepository.save(room);
         }
 
-        invite.setStatusId(INVITE_STATUS_REDEEMED);
-        inviteRepository.save(invite);
+        if (inviteRepository.redeem(invite.getId()) == 0) {
+            throw new InviteInvalidException("Invite is no longer active");
+        }
+
+        ParticipantJoinedEvent event = ParticipantJoinedEvent.of(newParticipant.getId(), OffsetDateTime.now(), room.getStatusId());
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                roomBroadcaster.broadcast(room.getId(), event);
+            }
+        });
     }
 
     @Transactional
     public JoinInviteResponse joinGuest(String rawToken, GuestJoinRequest request) {
         Invite invite = getValidInvite(rawToken);
-        Room room = roomRepository.findById(invite.getRoomId())
+        Room room = roomRepository.findWithLockById(invite.getRoomId())
                 .orElseThrow(() -> new InviteInvalidException("Room not found"));
 
         if (room.getStatusId() != 1 && room.getStatusId() != 2) { // CREATED or WAITING_CONSENT
             throw new InviteInvalidException("Room is no longer accepting participants");
+        }
+
+        if (participantRepository.countByRoomId(room.getId()) >= 2) {
+            throw new InviteInvalidException("Room is full");
         }
 
         RoomParticipant guestParticipant = new RoomParticipant();
@@ -215,10 +238,20 @@ public class InviteService {
             roomRepository.save(room);
         }
 
-        invite.setStatusId(INVITE_STATUS_REDEEMED);
-        inviteRepository.save(invite);
+        if (inviteRepository.redeem(invite.getId()) == 0) {
+            throw new InviteInvalidException("Invite is no longer active");
+        }
 
         String token = jwtService.mintRoomScopedToken(guestParticipant.getId(), room.getId());
+
+        ParticipantJoinedEvent event = ParticipantJoinedEvent.of(guestParticipant.getId(), OffsetDateTime.now(), room.getStatusId());
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                roomBroadcaster.broadcast(room.getId(), event);
+            }
+        });
+
         return new JoinInviteResponse(token);
     }
 
