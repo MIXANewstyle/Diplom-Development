@@ -55,6 +55,8 @@ export class StompClientWrapper {
           Authorization: `Bearer ${token}`,
         },
         reconnectDelay: 3000,
+        heartbeatIncoming: 10000,
+        heartbeatOutgoing: 10000,
         // debug: (msg) => console.log('[STOMP]', msg),
         onConnect: () => {
           if (!resolved) {

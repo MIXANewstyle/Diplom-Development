@@ -134,7 +134,7 @@ public class PresenceEventListener {
                 PresenceSnapshot.of(roomId, onlineSet)
         );
 
-        log.debug("Presence ONLINE: sessionId={}, roomId={}, participantId={}",
+        log.info("Presence ONLINE: sessionId={}, roomId={}, participantId={}",
                 sessionId, roomId, participantId);
     }
 
@@ -158,24 +158,28 @@ public class PresenceEventListener {
         for (SessionRoomEntry entry : entries) {
             UUID roomId = entry.roomId();
             UUID participantId = entry.participantId();
+            try {
+                // Remove from Redis presence
+                presenceService.removePresence(roomId, participantId);
 
-            // Remove from Redis presence
-            presenceService.removePresence(roomId, participantId);
+                // Clear draft buffer (ephemeral, cleared on disconnect — §3.4)
+                draftService.clearBuffer(roomId, participantId);
 
-            // Clear draft buffer (ephemeral, cleared on disconnect — §3.4)
-            draftService.clearBuffer(roomId, participantId);
+                // Update lastSeenAt
+                roomParticipantRepository.updateLastSeenAt(roomId, participantId, OffsetDateTime.now());
 
-            // Update lastSeenAt
-            roomParticipantRepository.updateLastSeenAt(roomId, participantId, OffsetDateTime.now());
+                // Broadcast OFFLINE
+                roomBroadcaster.broadcast(
+                        roomId,
+                        PresenceUpdated.offline(participantId)
+                );
 
-            // Broadcast OFFLINE
-            roomBroadcaster.broadcast(
-                    roomId,
-                    PresenceUpdated.offline(participantId)
-            );
-
-            log.debug("Presence OFFLINE: sessionId={}, roomId={}, participantId={}",
-                    sessionId, roomId, participantId);
+                log.info("Presence OFFLINE: sessionId={}, roomId={}, participantId={}",
+                        sessionId, roomId, participantId);
+            } catch (Exception e) {
+                log.error("Failed to process presence OFFLINE for sessionId={}, roomId={}, participantId={}",
+                        sessionId, roomId, participantId, e);
+            }
         }
     }
 

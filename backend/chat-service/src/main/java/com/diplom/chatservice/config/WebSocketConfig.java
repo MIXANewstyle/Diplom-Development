@@ -3,9 +3,11 @@ package com.diplom.chatservice.config;
 import com.diplom.chatservice.security.AuthChannelInterceptor;
 import com.diplom.chatservice.service.WsSessionRegistry;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
@@ -41,6 +43,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private final AuthChannelInterceptor authChannelInterceptor;
     private final WsSessionRegistry wsSessionRegistry;
 
+    @Bean
+    public ThreadPoolTaskScheduler wsHeartbeatScheduler() {
+        ThreadPoolTaskScheduler s = new ThreadPoolTaskScheduler();
+        s.setPoolSize(1);
+        s.setThreadNamePrefix("ws-heartbeat-");
+        return s;
+    }
+
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // TODO: restrict allowed origins before production deployment
@@ -51,7 +61,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        registry.enableSimpleBroker("/topic", "/queue");
+        registry.enableSimpleBroker("/topic", "/queue")
+                .setTaskScheduler(wsHeartbeatScheduler())
+                .setHeartbeatValue(new long[]{10000, 10000});
         registry.setApplicationDestinationPrefixes("/app");
         registry.setUserDestinationPrefix("/user");
     }
