@@ -63,7 +63,13 @@ public interface RoomRepository extends JpaRepository<Room, UUID> {
     @Query("SELECT r FROM Room r WHERE r.statusId IN (1, 2) AND r.createdAt < :threshold")
     Page<Room> findExpiredCandidates(@Param("threshold") OffsetDateTime threshold, Pageable pageable);
 
-    @Query("SELECT r FROM Room r WHERE r.statusId IN (3, 4)")
+    /**
+     * ENDING rooms only (status 4). ACTIVE (3) is excluded so a dialogue where
+     * participants are merely away (tab hidden / brief disconnect) is not
+     * abandoned after {@code chat.sweeps.abandonment-timeout}; guest recovery
+     * then remains possible until the guest JWT / room end.
+     */
+    @Query("SELECT r FROM Room r WHERE r.statusId = 4")
     Page<Room> findAbandonedCandidates(Pageable pageable);
 
     @Modifying

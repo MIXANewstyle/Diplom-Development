@@ -32,10 +32,10 @@ export function AppShell({ children }: Props) {
   return (
     <div className="min-h-screen flex flex-col text-gray-700">
       <header className="bg-gray-100 border-b border-gray-300">
-        <div className="max-w-5xl mx-auto px-4 md:px-6 h-14 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 md:px-6 h-14 flex items-center justify-between gap-3">
           <NavLink to="/feed" className="font-bold text-lg shrink-0">Claudium</NavLink>
 
-          <nav className="hidden md:flex gap-6">
+          <nav className="hidden lg:flex flex-1 min-w-0 justify-center gap-3 xl:gap-5 text-sm whitespace-nowrap">
             <NavLink to="/feed" className={navLinkClass}>Лента</NavLink>
             <NavLink to="/search" className={navLinkClass}>Поиск</NavLink>
             <NavLink to="/friends" className={navLinkClass}>Друзья</NavLink>
@@ -50,10 +50,10 @@ export function AppShell({ children }: Props) {
             )}
           </nav>
 
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-3 shrink-0">
             {user && (
-              <div className="text-sm text-right leading-tight">
-                <div>{user.email}</div>
+              <div className="text-sm text-right leading-tight min-w-0 max-w-[9rem] xl:max-w-[14rem]">
+                <div className="truncate">{user.email}</div>
                 <div className="text-xs text-gray-500">{user.role}</div>
               </div>
             )}
@@ -66,7 +66,7 @@ export function AppShell({ children }: Props) {
           </div>
 
           <button
-            className="md:hidden p-2 rounded hover:bg-gray-200 transition-colors"
+            className="lg:hidden p-2 rounded hover:bg-gray-200 transition-colors"
             onClick={() => setMenuOpen((v) => !v)}
             aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
           >
@@ -83,7 +83,7 @@ export function AppShell({ children }: Props) {
         </div>
 
         {menuOpen && (
-          <div className="md:hidden bg-gray-100 border-t border-gray-200 px-4">
+          <div className="lg:hidden bg-gray-100 border-t border-gray-200 px-4">
             <nav className="flex flex-col">
               <NavLink to="/feed" className={mobileNavLinkClass} onClick={() => setMenuOpen(false)}>Лента</NavLink>
               <NavLink to="/search" className={mobileNavLinkClass} onClick={() => setMenuOpen(false)}>Поиск</NavLink>
@@ -99,16 +99,16 @@ export function AppShell({ children }: Props) {
               )}
             </nav>
 
-            <div className="py-3 flex items-center justify-between border-t border-gray-200">
+            <div className="py-3 flex items-center justify-between gap-3 border-t border-gray-200">
               {user && (
-                <div className="text-sm leading-tight">
-                  <div className="font-medium">{user.email}</div>
+                <div className="text-sm leading-tight min-w-0">
+                  <div className="font-medium truncate">{user.email}</div>
                   <div className="text-xs text-gray-500">{user.role}</div>
                 </div>
               )}
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm"
+                className="shrink-0 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm"
               >
                 Выйти
               </button>

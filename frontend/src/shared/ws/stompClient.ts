@@ -1,4 +1,4 @@
-import { Client } from '@stomp/stompjs'
+import { Client, TickerStrategy } from '@stomp/stompjs'
 import type { StompSubscription } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 import { useAuthStore } from '../stores/authStore'
@@ -57,6 +57,7 @@ export class StompClientWrapper {
         reconnectDelay: 3000,
         heartbeatIncoming: 10000,
         heartbeatOutgoing: 10000,
+        heartbeatStrategy: TickerStrategy.Worker,
         // debug: (msg) => console.log('[STOMP]', msg),
         onConnect: () => {
           if (!resolved) {
@@ -88,6 +89,10 @@ export class StompClientWrapper {
     })
 
     return this.connectionPromise
+  }
+
+  isConnected(): boolean {
+    return !!this.client?.connected
   }
 
   disconnect() {

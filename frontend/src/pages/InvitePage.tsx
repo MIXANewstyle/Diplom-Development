@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useRef, useState } from 'react'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import { useInviteLanding, useJoinInvite } from '../features/chat/hooks/useInvites'
 import { GuestJoinForm } from '../features/chat/components/GuestJoinForm'
 import { useAuthStore } from '../shared/stores/authStore'
+import { useGuestSessionStore, type GuestSession } from '../shared/stores/guestSessionStore'
 import { getErrorMessage } from '../shared/lib/errors'
 import { isTokenExpired } from '../shared/lib/jwt'
 
@@ -13,9 +14,30 @@ export default function InvitePage() {
   const authToken = useAuthStore((s) => s.token)
   const isAuthenticated = !!authToken && !isTokenExpired(authToken)
 
-  const { data: landing, isLoading, isError } = useInviteLanding(token)
+  // Resolve invite-link re-entry once before any landing UI.
+  // Cross-device recovery (initiator-issued reconnect link) is future work.
+  const recoveryRef = useRef<{ session: GuestSession | null; hadExpired: boolean } | null>(null)
+  if (recoveryRef.current === null && token) {
+    const rawMatch = Object.values(useGuestSessionStore.getState().sessions).find(
+      (s) => s.inviteToken === token
+    )
+    const hadExpired = !!rawMatch && isTokenExpired(rawMatch.token)
+    const session = useGuestSessionStore.getState().findSessionByInviteToken(token)
+    recoveryRef.current = { session, hadExpired }
+  }
+
+  const reentrySession = recoveryRef.current?.session ?? null
+  const hadExpiredGuestSession = recoveryRef.current?.hadExpired ?? false
+
+  const { data: landing, isLoading, isError } = useInviteLanding(
+    reentrySession ? undefined : token
+  )
   const joinMutation = useJoinInvite(token)
   const [joinError, setJoinError] = useState<string | null>(null)
+
+  if (reentrySession) {
+    return <Navigate to={`/chat/${reentrySession.roomId}`} replace />
+  }
 
   const returnUrl = `/invite/${token ?? ''}`
 
@@ -62,7 +84,9 @@ export default function InvitePage() {
         {isError && (
           <div className="text-center space-y-4">
             <p className="text-red-600 font-medium">
-              Ссылка недействительна или уже использована. Попросите у собеседника новую ссылку.
+              {hadExpiredGuestSession
+                ? 'Ваша гостевая сессия истекла. Попросите у собеседника новую ссылку.'
+                : 'Ссылка недействительна или уже использована. Попросите у собеседника новую ссылку.'}
             </p>
             <Link
               to="/"

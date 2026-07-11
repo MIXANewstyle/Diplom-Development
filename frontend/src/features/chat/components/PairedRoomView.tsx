@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRoom } from '../hooks/useRoom'
 import { useJoinRoom } from '../hooks/useJoinRoom'
 import { useRoomSocket } from '../../../shared/ws/useRoomSocket'
@@ -23,7 +23,13 @@ export const PairedRoomView = ({ roomId }: Props) => {
   const me = useAuthStore((s) => s.user)
   const authToken = useAuthStore((s) => s.token)
   const myId = me?.id
-  const guestSession = useGuestSessionStore((s) => s.getSession(roomId))
+  const guestSessionLive = useGuestSessionStore((s) => s.getSession(roomId))
+  const clearGuestSession = useGuestSessionStore((s) => s.clearSession)
+  // Mount-stable copy: hygiene clears localStorage on archive without dropping
+  // in-memory auth for the rest of this view.
+  const guestCredsRef = useRef(guestSessionLive)
+  if (guestSessionLive) guestCredsRef.current = guestSessionLive
+  const guestSession = guestSessionLive ?? guestCredsRef.current
   const isGuest = !authToken && !!guestSession
   const guestAuthToken = isGuest ? guestSession?.token : undefined
 
@@ -62,6 +68,14 @@ export const PairedRoomView = ({ roomId }: Props) => {
   } = useRoomSocket(roomId, myParticipantId, guestAuthToken)
 
   const { data: turnsPage } = useTurns(roomId, 0, 50, guestAuthToken)
+
+  // Drop guest JWT from localStorage once the room has ended (no re-entry needed).
+  useEffect(() => {
+    if (!isGuest) return
+    if (archived || room?.status === 'ARCHIVED') {
+      clearGuestSession(roomId)
+    }
+  }, [isGuest, archived, room?.status, roomId, clearGuestSession])
 
   // Optimistic "sent" bubble: created immediately on submit, replaced once the
   // server turn arrives (matched by seq) to avoid a blank gap in the transcript.

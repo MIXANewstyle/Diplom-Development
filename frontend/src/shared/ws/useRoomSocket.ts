@@ -46,6 +46,10 @@ export const useRoomSocket = (
 
   const sendConsentStart = () => stompClient.publish(`/app/rooms/${roomId}/consent/start`, {})
   const sendConsentRevoke = () => stompClient.publish(`/app/rooms/${roomId}/consent/revoke`, {})
+  const sendPresence = (away: boolean) => {
+    if (!stompClient.isConnected()) return
+    stompClient.publish(`/app/rooms/${roomId}/presence`, { away })
+  }
   const upsertDraft = (bubbleId: string, text: string) => {
     ownDraftBubbleIdsRef.current.add(bubbleId)
     stompClient.publish(`/app/rooms/${roomId}/draft/upsert`, { bubbleId, text })
@@ -243,8 +247,21 @@ export const useRoomSocket = (
     const unsubscribeReconnect = stompClient.onReconnect(() => {
       if (isMounted) {
         setupSubscriptions()
+        // handleSubscribe always broadcasts ONLINE; correct if this tab is hidden
+        if (document.hidden) {
+          sendPresence(true)
+        }
       }
     })
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        sendPresence(true)
+      } else {
+        sendPresence(false)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     const connect = async () => {
       try {
@@ -263,6 +280,7 @@ export const useRoomSocket = (
 
     return () => {
       isMounted = false
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       unsubscribeReconnect()
       clearSubscriptions()
       offlineTimers.forEach((timer) => clearTimeout(timer))

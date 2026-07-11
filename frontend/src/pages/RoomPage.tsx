@@ -19,7 +19,11 @@ export const RoomPage = () => {
   const { roomId } = useParams<{ roomId: string }>()
   const id = roomId || ''
 
-  const guestSession = useGuestSessionStore((s) => s.getSession(id))
+  const guestSessionLive = useGuestSessionStore((s) => s.getSession(id))
+  const guestCredsRef = useRef(guestSessionLive)
+  if (guestSessionLive) guestCredsRef.current = guestSessionLive
+  const guestSession = guestSessionLive ?? guestCredsRef.current
+
   const userToken = useAuthStore((s) => s.token)
   const guestToken = !userToken && guestSession ? guestSession.token : undefined
 

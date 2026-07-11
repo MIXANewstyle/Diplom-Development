@@ -21,6 +21,11 @@ import java.util.UUID;
 
 /**
  * Background sweeps for ABANDONED and EXPIRED rooms (§2.2).
+ *
+ * <p>Abandonment candidates are ENDING rooms only — ACTIVE dialogues are not
+ * auto-abandoned after {@code abandonment-timeout}, so brief absence / tab-hide
+ * does not destroy an in-progress conversation (guest recovery remains possible
+ * until the guest JWT expires or the room is ended).
  */
 @Slf4j
 @Service

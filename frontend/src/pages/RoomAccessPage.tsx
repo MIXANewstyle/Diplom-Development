@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
+import { useRef } from 'react'
 import { ProtectedRoute } from '../shared/components/ProtectedRoute'
 import { AppShell } from '../shared/layouts/AppShell'
 import { GuestRoomLayout } from '../shared/layouts/GuestRoomLayout'
@@ -12,7 +13,13 @@ export const RoomAccessPage = () => {
   const id = roomId || ''
 
   const authToken = useAuthStore((s) => s.token)
-  const guestSession = useGuestSessionStore((s) => s.getSession(id))
+  const guestSessionLive = useGuestSessionStore((s) => s.getSession(id))
+  // Keep mount-stable credentials so clearing the store on room end does not
+  // kick the guest out of the archived dialogue view mid-session.
+  const guestCredsRef = useRef(guestSessionLive)
+  if (guestSessionLive) guestCredsRef.current = guestSessionLive
+  const guestSession = guestSessionLive ?? guestCredsRef.current
+
   const expiredGuestSession = useGuestSessionStore((s) => {
     const raw = s.getSessionRaw(id)
     if (!raw || !isTokenExpired(raw.token)) return null

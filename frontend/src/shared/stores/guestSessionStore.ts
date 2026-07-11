@@ -15,6 +15,13 @@ interface GuestSessionState {
   setSession: (session: GuestSession) => void
   getSession: (roomId: string) => GuestSession | null
   getSessionRaw: (roomId: string) => GuestSession | null
+  /**
+   * Re-entry via the same invite link (same browser). Returns a non-expired session
+   * whose inviteToken matches; clears a matching but expired entry and returns null.
+   * Cross-device recovery (initiator-issued reconnect link bound to the same
+   * participantId) is future work — do not re-mint a new guest identity here.
+   */
+  findSessionByInviteToken: (inviteToken: string) => GuestSession | null
   clearSession: (roomId: string) => void
 }
 
@@ -45,6 +52,15 @@ export const useGuestSessionStore = create<GuestSessionState>()(
         return session
       },
       getSessionRaw: (roomId) => get().sessions[roomId] ?? null,
+      findSessionByInviteToken: (inviteToken) => {
+        const match = Object.values(get().sessions).find((s) => s.inviteToken === inviteToken)
+        if (!match) return null
+        if (isTokenExpired(match.token)) {
+          get().clearSession(match.roomId)
+          return null
+        }
+        return match
+      },
       clearSession: (roomId) =>
         set((state) => {
           const next = { ...state.sessions }
@@ -54,7 +70,9 @@ export const useGuestSessionStore = create<GuestSessionState>()(
     }),
     {
       name: 'guest-sessions',
-      storage: createJSONStorage(() => sessionStorage),
+      // localStorage so the guest JWT survives tab close / browser restart.
+      // sessionStorage was dropping the only client-side copy of the token.
+      storage: createJSONStorage(() => localStorage),
     }
   )
 )

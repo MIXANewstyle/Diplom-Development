@@ -51,7 +51,7 @@ chat:
     ttl: PT24H
     public-base-url: "${PUBLIC_BASE_URL:http://localhost:8080}"
   guest:
-    token-ttl: PT12H
+    token-ttl: PT24H
     gender-labels:
       1: "мужской"
       2: "женский"
