@@ -51,7 +51,6 @@ public class PresenceEventListener {
 
     /**
      * Maps STOMP sessionId → set of {roomId, participantId} pairs the session subscribed to.
-     * // TODO: move to Redis for multi-instance in Phase 4
      */
     private final Map<String, Set<SessionRoomEntry>> sessionRoomMap = new ConcurrentHashMap<>();
 

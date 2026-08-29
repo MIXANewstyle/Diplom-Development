@@ -1,6 +1,15 @@
 package com.diplom.chatservice.controller.ws;
 
-import com.diplom.chatservice.dto.ws.*;
+import com.diplom.chatservice.dto.ws.AiErrorEvent;
+import com.diplom.chatservice.dto.ws.AiResponseEvent;
+import com.diplom.chatservice.dto.ws.AiThinkingEvent;
+import com.diplom.chatservice.dto.ws.AssistantTurnDto;
+import com.diplom.chatservice.dto.ws.DraftBubble;
+import com.diplom.chatservice.dto.ws.FinishRequest;
+import com.diplom.chatservice.dto.ws.LimitEvent;
+import com.diplom.chatservice.dto.ws.TurnChangedEvent;
+import com.diplom.chatservice.dto.ws.UserTurnDto;
+import com.diplom.chatservice.dto.ws.WsError;
 import com.diplom.chatservice.entity.Room;
 import com.diplom.chatservice.entity.RoomParticipant;
 import com.diplom.chatservice.entity.Turn;

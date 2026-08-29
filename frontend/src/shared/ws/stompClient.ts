@@ -58,7 +58,6 @@ export class StompClientWrapper {
         heartbeatIncoming: 10000,
         heartbeatOutgoing: 10000,
         heartbeatStrategy: TickerStrategy.Worker,
-        // debug: (msg) => console.log('[STOMP]', msg),
         onConnect: () => {
           if (!resolved) {
             resolved = true

@@ -23,7 +23,6 @@ public class WsSessionRegistry {
         this.messagingTemplate = messagingTemplate;
     }
 
-    // TODO: move to Redis + a "terminate userId" pub/sub for multi-instance in Phase 4f
     private final Map<UUID, Set<String>> userIdToSessions = new ConcurrentHashMap<>();
     private final Map<String, WebSocketSession> sessionIdToSession = new ConcurrentHashMap<>();
 

@@ -17,7 +17,8 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.Map;
 
-import static org.springframework.http.HttpStatus.*;
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.PAYLOAD_TOO_LARGE;
 
 @RestController
 @RequestMapping("/api/v1/uploads")

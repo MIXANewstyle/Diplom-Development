@@ -73,8 +73,6 @@ public class AdminRoomService {
                 new DialogueArchivedEvent("DIALOGUE_ARCHIVED", roomId, room.getEndedAt(), "ADMIN")
         );
 
-        // TODO: Enqueue summary job (Phase 4c-2a). Skipped intentionally for admin termination.
-
         List<RoomParticipant> participants = participantRepository.findByRoomId(roomId);
         List<Turn> transcript = turnRepository.findByRoomIdOrderBySeqAsc(roomId);
 

@@ -11,8 +11,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 
 /**
  * Internal service-authenticated client for fetching a user's psych_profile.about
@@ -59,12 +62,12 @@ public class PsychProfileClient {
 
             HttpEntity<Void> request = new HttpEntity<>(headers);
 
-            @SuppressWarnings("rawtypes")
-            ResponseEntity<Map> response = restTemplate.exchange(
+            @SuppressWarnings("unchecked")
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     baseUrl + "/internal/v1/users/" + userId + "/psych-profile",
                     HttpMethod.GET,
                     request,
-                    Map.class
+                    (Class<Map<String, Object>>) (Class<?>) Map.class
             );
 
             log.debug("PsychProfile fetch userId={} httpStatus={}", userId, response.getStatusCode().value());
@@ -74,8 +77,8 @@ public class PsychProfileClient {
                 return null;
             }
 
-            Map<?, ?> body = response.getBody();
-            java.util.function.Function<Object, String> getTrimmed = (obj) -> {
+            Map<String, Object> body = response.getBody();
+            Function<Object, String> getTrimmed = (obj) -> {
                 if (obj == null) return null;
                 String s = obj.toString().trim();
                 return s.isBlank() ? null : s;
@@ -94,7 +97,7 @@ public class PsychProfileClient {
             else if ("some".equals(priorExp)) priorLabel = "немного";
             else if ("extensive".equals(priorExp)) priorLabel = "большой";
 
-            java.util.List<String> parts = new java.util.ArrayList<>();
+            List<String> parts = new ArrayList<>();
             if (aboutSelf != null) parts.add("О себе: " + aboutSelf + ".");
             if (reason != null) parts.add("Что привело: " + reason + ".");
             if (goals != null) parts.add("Хочет поработать над: " + goals + ".");

@@ -30,6 +30,4 @@ public class ModerationBlocklistService {
         Boolean result = stringRedisTemplate.opsForSet().isMember(KEY, userId.toString());
         return Boolean.TRUE.equals(result);
     }
-    
-    // TODO: rebuild-on-startup (Phase 4b-2)
 }
