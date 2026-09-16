@@ -15,5 +15,7 @@ public record RoomResponse(
     UUID ownerUserId,
     OffsetDateTime createdAt,
     OffsetDateTime startedAt,
-    List<ParticipantResponse> participants
+    List<ParticipantResponse> participants,
+    String soloMode,
+    java.time.LocalDate diaryDate
 ) {}

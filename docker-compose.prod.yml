@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: diplom-postgres-prod
     environment:
       POSTGRES_USER: admin
@@ -145,8 +145,15 @@ services:
       - USER_SERVICE_URL=http://user-service:8081
       - INTERNAL_API_KEY=${INTERNAL_API_KEY}
       - LLM_API_KEY=${LLM_API_KEY}
-      - LLM_BASE_URL=${LLM_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
-      - LLM_MODEL=${LLM_MODEL:-gemini-2.5-flash-lite}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://openrouter.ai/api/v1/}
+      - LLM_MODEL=${LLM_MODEL:-google/gemini-2.5-flash-lite}
+      - DIARY_LLM_MODEL=${DIARY_LLM_MODEL:-}
+      - SUMMARY_LLM_MODEL=${SUMMARY_LLM_MODEL:-}
+      - FACTS_LLM_MODEL=${FACTS_LLM_MODEL:-}
+      - EMBEDDINGS_BASE_URL=${EMBEDDINGS_BASE_URL:-}
+      - EMBEDDINGS_API_KEY=${EMBEDDINGS_API_KEY:-}
+      - EMBEDDINGS_MODEL=${EMBEDDINGS_MODEL:-openai/text-embedding-3-small}
+      - EMBEDDINGS_DIMS=${EMBEDDINGS_DIMS:-768}
       - PUBLIC_BASE_URL=http://${DOMAIN}
     depends_on:
       postgres:

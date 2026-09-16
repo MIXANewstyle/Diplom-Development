@@ -35,6 +35,8 @@ import java.util.stream.Collectors;
 public class SummarizationService {
 
     private static final int ROOM_TYPE_PAIRED = 1;
+    private static final int SOLO_MODE_DIARY = 2;
+    private static final int STATUS_ARCHIVED = 5;
 
     private final RoomRepository roomRepository;
     private final TurnRepository turnRepository;
@@ -43,6 +45,8 @@ public class SummarizationService {
     private final ChatLlmProperties llmProperties;
     private final ObjectMapper objectMapper;
     private final RateLimitService rateLimitService;
+    private final DiaryMemoryIndexer diaryMemoryIndexer;
+    private final DiaryMemoryFactService diaryMemoryFactService;
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
@@ -53,11 +57,18 @@ public class SummarizationService {
     @Async("summaryExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleRoomArchived(RoomArchivedInternalEvent event) {
-        if (event.typeId() != ROOM_TYPE_PAIRED) {
-            return; // Only summarize PAIRED rooms
-        }
-        // Archival summary covers the whole transcript
+        // Eligibility (PAIRED or DIARY) is decided on the reloaded room inside foldTurnsIntoSummary.
+        // Archival summary covers the whole transcript.
         foldTurnsIntoSummary(event.roomId(), Integer.MAX_VALUE);
+    }
+
+    /** PAIRED rooms and DIARY days are summarized; plain solo problem-solving rooms are not. */
+    static boolean isSummarizable(Room room) {
+        return room.getTypeId() == ROOM_TYPE_PAIRED || isDiary(room);
+    }
+
+    static boolean isDiary(Room room) {
+        return room.getSoloModeId() != null && room.getSoloModeId() == SOLO_MODE_DIARY;
     }
 
     /**
@@ -66,10 +77,11 @@ public class SummarizationService {
     public void foldTurnsIntoSummary(UUID roomId, int throughSeq) {
         Room room = roomRepository.findById(roomId).orElse(null);
         
-        if (room == null || room.getTypeId() != ROOM_TYPE_PAIRED) {
-            log.debug("Skipping fold for room {} (not paired or missing)", roomId);
+        if (room == null || !isSummarizable(room)) {
+            log.debug("Skipping fold for room {} (not summarizable or missing)", roomId);
             return;
         }
+        boolean diary = isDiary(room);
 
         int currentThroughSeq = room.getSummarizedThroughSeq() != null ? room.getSummarizedThroughSeq() : 0;
         if (currentThroughSeq >= throughSeq) {
@@ -90,7 +102,7 @@ public class SummarizationService {
         }
 
         List<RoomParticipant> participants = participantRepository.findByRoomId(roomId);
-        String transcript = buildTranscript(turnsToFold, participants);
+        String transcript = buildTranscript(turnsToFold, participants, diary);
         
         String userMessageContent;
         if (room.getRunningSummary() != null && !room.getRunningSummary().isBlank()) {
@@ -100,10 +112,11 @@ public class SummarizationService {
         }
 
         LlmRequest request = new LlmRequest(
-                llmProperties.prompts().summarization(),
+                diary ? llmProperties.prompts().diaryDaySummary() : llmProperties.prompts().summarization(),
                 List.of(new LlmMessage("user", userMessageContent)),
-                llmProperties.maxOutputTokens(),
-                0.3 // slightly lower temperature for summarization
+                diary ? llmProperties.diary().maxOutputTokens() : llmProperties.maxOutputTokens(),
+                0.3, // slightly lower temperature for summarization
+                diary ? llmProperties.models().summaryOrNull() : null
         );
 
         LlmResponse response = executeWithRetry(request, roomId);
@@ -117,14 +130,27 @@ public class SummarizationService {
             log.info("Fold successful for room {}. folded through seq {}, PromptTokens={} CompletionTokens={}", 
                     roomId, newSummarizedThroughSeq, response.promptTokens(), response.completionTokens());
             
-            // Phase 4d Token Accounting (attributed to the room's current floor holder, or creator if none)
-            UUID floorHolder = room.getCurrentFloorParticipantId();
-            if (floorHolder != null) {
-                rateLimitService.addDailyTokens(floorHolder, response.promptTokens() + response.completionTokens());
+            // Phase 4d Token Accounting — attributed to the room owner (a user id, matching isOverDailyBudget)
+            if (diary) {
+                rateLimitService.addDiaryDailyTokens(room.getOwnerUserId(), response.totalTokens());
+                afterDiaryDaySummary(roomId);
+            } else {
+                rateLimitService.addDailyTokens(room.getOwnerUserId(), response.totalTokens());
             }
         } else {
             log.warn("Fold failed permanently for room {}", roomId);
         }
+    }
+
+    /**
+     * A finished diary day (ARCHIVED) feeds the long-term memory: its summary is indexed for RAG and
+     * stable facts are extracted. Mid-day overflow folds skip this — the archive fold repeats it.
+     */
+    private void afterDiaryDaySummary(UUID roomId) {
+        Room room = roomRepository.findById(roomId).orElse(null);
+        if (room == null || room.getStatusId() != STATUS_ARCHIVED) return;
+        diaryMemoryIndexer.indexDaySummary(room);
+        diaryMemoryFactService.extractFromDay(roomId);
     }
 
     private LlmResponse executeWithRetry(LlmRequest request, UUID roomId) {
@@ -164,15 +190,15 @@ public class SummarizationService {
         }
     }
 
-    private String buildTranscript(List<Turn> turns, List<RoomParticipant> participants) {
+    private String buildTranscript(List<Turn> turns, List<RoomParticipant> participants, boolean diary) {
         StringBuilder sb = new StringBuilder();
         for (Turn t : turns) {
             if (t.getRoleId() == 3) continue; // skip SYSTEM
 
             if (t.getRoleId() == 2) { // ASSISTANT
-                sb.append("[Медиатор]: ").append(t.getContent()).append("\n\n");
+                sb.append(diary ? "[Собеседник]: " : "[Медиатор]: ").append(t.getContent()).append("\n\n");
             } else if (t.getRoleId() == 1) { // USER
-                String prefix = getIdentityPrefix(t.getParticipantId(), participants);
+                String prefix = diary ? "[Автор]: " : getIdentityPrefix(t.getParticipantId(), participants);
                 sb.append(prefix).append(t.getContent()).append("\n\n");
             }
         }

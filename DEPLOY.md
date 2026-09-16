@@ -18,7 +18,21 @@ This guide explains how to deploy the entire Diplom microservice application ont
    - `POSTGRES_PASSWORD`: Use a strong, secure password.
    - `JWT_SECRET`: Provide a secure HS256 JWT secret.
    - `INTERNAL_API_KEY`: A secure key for internal microservice communication.
-   - `LLM_API_KEY`: Your real LLM API key for the AI chat features.
+   - `LLM_API_KEY`: Your real LLM API key for the AI chat features (OpenRouter by default; see `.env.example`).
+   - `EMBEDDINGS_*` / `DIARY_LLM_MODEL`: diary memory settings (optional; defaults reuse `LLM_*`). `EMBEDDINGS_DIMS` is written into the database schema on first start and must not be changed afterwards.
+
+### Upgrading an existing deployment to the diary release (pgvector)
+
+The diary's semantic memory needs the `vector` extension, so the Postgres image changes from
+`postgres:16-alpine` to `pgvector/pgvector:pg16`. The data volume is reused as is (same major
+version), but the new image is glibc-based while the old one was musl-based, so Postgres will warn
+about a collation version mismatch. After the first start on the new image run once:
+```bash
+docker compose -f docker-compose.prod.yml exec postgres psql -U admin -d diplom_db \
+  -c "ALTER DATABASE diplom_db REFRESH COLLATION VERSION;" -c "REINDEX DATABASE diplom_db;"
+```
+For a local `infrastructure/docker-compose.yml` setup it is simpler to recreate the volume
+(`docker compose down -v`). The `V6__diary` migration creates the extension itself (`admin` is a superuser).
 
 ## 2. Build and Start the Services
 

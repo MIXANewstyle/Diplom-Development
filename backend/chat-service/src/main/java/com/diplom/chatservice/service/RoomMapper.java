@@ -36,6 +36,15 @@ public class RoomMapper {
         };
     }
 
+    public String soloModeName(Integer soloModeId) {
+        if (soloModeId == null) return null;
+        return switch (soloModeId) {
+            case 1 -> "PROBLEM_SOLVING";
+            case 2 -> "DIARY";
+            default -> "UNKNOWN";
+        };
+    }
+
     public String participantRoleName(Integer roleId) {
         return switch (roleId) {
             case 1 -> "INITIATOR";
@@ -70,7 +79,9 @@ public class RoomMapper {
             room.getOwnerUserId(),
             room.getCreatedAt(),
             room.getStartedAt(),
-            participantResponses
+            participantResponses,
+            soloModeName(room.getSoloModeId()),
+            room.getDiaryDate()
         );
     }
 

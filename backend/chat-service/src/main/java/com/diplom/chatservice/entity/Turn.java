@@ -12,6 +12,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -48,6 +49,10 @@ public class Turn {
 
     @Column(name = "completion_tokens")
     private Integer completionTokens;
+
+    /** Provider-reported cost of the assistant turn in USD (OpenRouter usage.cost); null when unknown. */
+    @Column(name = "cost_usd", precision = 12, scale = 6)
+    private BigDecimal costUsd;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;

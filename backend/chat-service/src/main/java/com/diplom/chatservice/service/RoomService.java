@@ -73,6 +73,7 @@ public class RoomService {
     private static final int ROLE_SOLO = 3;
 
     private static final int SOLO_MODE_PROBLEM_SOLVING = 1;
+    private static final int SOLO_MODE_DIARY = 2;
 
     private static final String PHASE_A_COMPOSING = "A_COMPOSING";
 
@@ -221,6 +222,42 @@ public class RoomService {
         room = roomRepository.save(room);
 
         return roomMapper.toRoomResponse(room, List.of(participant));
+    }
+
+    // ==================== CREATE DIARY DAY ====================
+
+    /**
+     * Creates the diary room for one calendar day. Diary days do not count against the
+     * concurrent-active-rooms limit (a user legitimately has today's and yesterday's day open).
+     * The partial unique index on (owner_user_id, diary_date) guards against duplicates; the caller
+     * handles the resulting {@code DataIntegrityViolationException} by re-selecting.
+     */
+    @Transactional
+    public Room createDiaryRoom(UUID callerId, java.time.LocalDate date) {
+        checkPassiveGates(callerId, true);
+        Room room = Room.builder()
+            .typeId(ROOM_TYPE_SOLO)
+            .soloModeId(SOLO_MODE_DIARY)
+            .statusId(STATUS_ACTIVE)
+            .ownerUserId(callerId)
+            .aiModel(defaultAiModel)
+            .phase(PHASE_A_COMPOSING)
+            .startedAt(OffsetDateTime.now())
+            .diaryDate(date)
+            .title(date.toString())
+            .build();
+        room = roomRepository.save(room);
+
+        RoomParticipant participant = RoomParticipant.builder()
+            .roomId(room.getId())
+            .userId(callerId)
+            .roleId(ROLE_SOLO)
+            .joinedAt(OffsetDateTime.now())
+            .build();
+        participant = participantRepository.save(participant);
+
+        room.setCurrentFloorParticipantId(participant.getId());
+        return roomRepository.save(room);
     }
 
     // ==================== JOIN ====================

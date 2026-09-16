@@ -23,5 +23,7 @@ public interface TurnRepository extends JpaRepository<Turn, UUID> {
      */
     List<Turn> findTop50ByRoomIdOrderBySeqDesc(UUID roomId);
 
+    long countByRoomId(UUID roomId);
+
     void deleteByRoomId(UUID roomId);
 }

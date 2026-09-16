@@ -1,7 +1,10 @@
 package com.diplom.chatservice.llm;
 
+import com.diplom.chatservice.config.ChatLlmProperties;
 import com.diplom.chatservice.exception.LlmUnavailableException;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
@@ -19,6 +22,7 @@ import org.springframework.web.client.RestTemplate;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -27,8 +31,18 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Generic OpenAI-compatible chat/completions client (OpenRouter, Gemini OpenAI-compat, OpenAI, ...).
+ *
+ * <p>Provider-independent {@link LlmRequest} cache boundaries are translated into
+ * {@code cache_control: {type: "ephemeral"}} content parts when {@code chat.llm.openrouter.cache-control}
+ * is enabled (OpenRouter passes them through to Anthropic models; other models ignore them).
+ * With {@code chat.llm.openrouter.usage-accounting}, the request asks for {@code usage.cost} and the
+ * cached-token breakdown, which are surfaced on {@link LlmResponse}.
+ */
 @Slf4j
 @Component
 public class OpenAiCompatibleLlmClient implements LlmClient {
@@ -36,6 +50,7 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
     private static final AtomicLong REQUEST_SEQ = new AtomicLong();
     private static final Path PAYLOAD_LOG_FILE = Path.of("llm-payload.log");
     private static final Object PAYLOAD_LOG_LOCK = new Object();
+    private static final Map<String, String> EPHEMERAL = Map.of("type", "ephemeral");
 
     private final RestTemplate restTemplate;
     private final MeterRegistry meterRegistry;
@@ -44,10 +59,13 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
     private final String apiKey;
     private final int maxRetries;
     private final boolean logPayload;
+    private final boolean usageAccounting;
+    private final boolean cacheControl;
+    private final String appTitle;
 
     public OpenAiCompatibleLlmClient(
             RestTemplateBuilder restTemplateBuilder,
-            com.diplom.chatservice.config.ChatLlmProperties properties,
+            ChatLlmProperties properties,
             MeterRegistry meterRegistry) {
 
         this.baseUrl = properties.baseUrl();
@@ -56,6 +74,10 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
         this.maxRetries = properties.maxRetries();
         this.logPayload = properties.logPayload();
         this.meterRegistry = meterRegistry;
+        ChatLlmProperties.OpenRouterProps or = properties.openrouter();
+        this.usageAccounting = or != null && or.usageAccounting();
+        this.cacheControl = or != null && or.cacheControl();
+        this.appTitle = or != null ? or.appTitle() : null;
 
         this.restTemplate = restTemplateBuilder
                 .setConnectTimeout(Duration.ofMillis(properties.requestTimeoutMs()))
@@ -76,26 +98,24 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
     @Override
     public LlmResponse complete(LlmRequest request) {
         String url = this.baseUrl + "chat/completions";
+        String effectiveModel = request.model() != null && !request.model().isBlank() ? request.model() : this.model;
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(this.apiKey);
+        if (appTitle != null && !appTitle.isBlank()) {
+            headers.set("X-Title", appTitle);
+        }
 
-        List<OpenAiMessage> openAiMessages = new ArrayList<>();
-        if (request.system() != null && !request.system().isBlank()) {
-            openAiMessages.add(new OpenAiMessage("system", request.system()));
-        }
-        if (request.messages() != null) {
-            for (LlmMessage m : request.messages()) {
-                openAiMessages.add(new OpenAiMessage(m.role(), m.content()));
-            }
-        }
+        boolean useParts = this.cacheControl && request.hasCacheBoundaries();
+        List<OpenAiMessage> openAiMessages = buildMessages(request, useParts);
 
         OpenAiRequest openAiRequest = new OpenAiRequest(
-                this.model,
+                effectiveModel,
                 request.maxOutputTokens(),
                 request.temperature(),
-                openAiMessages
+                openAiMessages,
+                this.usageAccounting ? Map.of("include", true) : null
         );
 
         HttpEntity<OpenAiRequest> entity = new HttpEntity<>(openAiRequest, headers);
@@ -136,7 +156,7 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
                         log.warn("LLM complete failed with 429 Too Many Requests: status={}, body={}", e.getStatusCode().value(), e.getResponseBodyAsString());
                         throw new com.diplom.chatservice.exception.LlmRateLimitedException("LLM rate limit exceeded. Try again in a moment.", retryAfterSeconds);
                     } else {
-                        log.error("LLM complete failed with 4xx error: status={}, model={}", e.getStatusCode().value(), this.model);
+                        log.error("LLM complete failed with 4xx error: status={}, model={}", e.getStatusCode().value(), effectiveModel);
                         throw new LlmUnavailableException("LLM provider client error: " + e.getStatusCode().value());
                     }
                 } catch (HttpServerErrorException e) {
@@ -175,6 +195,9 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
 
                 Integer promptTokens = body.usage() != null ? body.usage().promptTokens() : null;
                 Integer completionTokens = body.usage() != null ? body.usage().completionTokens() : null;
+                Integer cachedTokens = body.usage() != null && body.usage().promptTokensDetails() != null
+                        ? body.usage().promptTokensDetails().cachedTokens() : null;
+                BigDecimal cost = body.usage() != null ? body.usage().cost() : null;
 
                 if (promptTokens != null) {
                     meterRegistry.counter("chat.llm.tokens.input").increment(promptTokens);
@@ -182,15 +205,18 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
                 if (completionTokens != null) {
                     meterRegistry.counter("chat.llm.tokens.output").increment(completionTokens);
                 }
+                if (cachedTokens != null) {
+                    meterRegistry.counter("chat.llm.tokens.cached").increment(cachedTokens);
+                }
 
-                log.info("LLM complete success: model={}, latencyMs={}, promptTokens={}, completionTokens={}, status={}",
-                        this.model, latency, promptTokens, completionTokens, response.getStatusCode().value());
+                log.info("LLM complete success: model={}, latencyMs={}, promptTokens={}, cachedTokens={}, completionTokens={}, cost={}, status={}",
+                        effectiveModel, latency, promptTokens, cachedTokens, completionTokens, cost, response.getStatusCode().value());
 
                 if (this.logPayload) {
                     logLlmResponse(seq, content, promptTokens, completionTokens);
                 }
 
-                return new LlmResponse(content, promptTokens, completionTokens, finishReason);
+                return new LlmResponse(content, promptTokens, completionTokens, finishReason, cachedTokens, cost);
 
             } catch (HttpClientErrorException | HttpServerErrorException | ResourceAccessException e) {
                 // Caught above to handle retries and metrics, fall through to backoff
@@ -216,6 +242,50 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
         }
     }
 
+    /**
+     * Builds the wire messages. Without cache parts the system prompt is one plain string message
+     * (maximum provider compatibility). With cache parts, the system prompt and marked messages are
+     * sent as content arrays with {@code cache_control} on the boundary parts.
+     */
+    private List<OpenAiMessage> buildMessages(LlmRequest request, boolean useParts) {
+        List<OpenAiMessage> openAiMessages = new ArrayList<>();
+
+        if (!useParts) {
+            String systemText = request.systemText();
+            if (!systemText.isBlank()) {
+                openAiMessages.add(new OpenAiMessage("system", systemText));
+            }
+            if (request.messages() != null) {
+                for (LlmMessage m : request.messages()) {
+                    openAiMessages.add(new OpenAiMessage(m.role(), m.content()));
+                }
+            }
+            return openAiMessages;
+        }
+
+        if (request.system() != null && !request.system().isEmpty()) {
+            List<ContentPart> parts = new ArrayList<>();
+            for (LlmBlock b : request.system()) {
+                if (b.text() == null || b.text().isEmpty()) continue;
+                parts.add(new ContentPart("text", b.text(), b.cacheBoundary() ? EPHEMERAL : null));
+            }
+            if (!parts.isEmpty()) {
+                openAiMessages.add(new OpenAiMessage("system", parts));
+            }
+        }
+        if (request.messages() != null) {
+            for (LlmMessage m : request.messages()) {
+                if (m.cacheBoundary()) {
+                    openAiMessages.add(new OpenAiMessage(m.role(),
+                            List.of(new ContentPart("text", m.content(), EPHEMERAL))));
+                } else {
+                    openAiMessages.add(new OpenAiMessage(m.role(), m.content()));
+                }
+            }
+        }
+        return openAiMessages;
+    }
+
     private void logLlmRequestPayload(long seq, int attempt, String url, OpenAiRequest request) {
         StringBuilder sb = new StringBuilder();
         sb.append("=== LLM REQUEST #").append(seq)
@@ -225,7 +295,7 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
                 .append(" temp=").append(request.temperature())
                 .append(" ===\n");
         for (OpenAiMessage msg : request.messages()) {
-            String content = msg.content() != null ? msg.content() : "";
+            String content = msg.contentAsText();
             sb.append("[").append(msg.role()).append("] (").append(content.length()).append(" chars)\n");
             sb.append(content).append('\n');
         }
@@ -258,26 +328,65 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
         }
     }
 
-    private record OpenAiMessage(String role, String content) {}
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private record ContentPart(
+            String type,
+            String text,
+            @JsonProperty("cache_control") Map<String, String> cacheControl
+    ) {}
 
+    /** Request-side message: {@code content} is either a String or a List of {@link ContentPart}. */
+    private record OpenAiMessage(String role, Object content) {
+        @SuppressWarnings("unchecked")
+        String contentAsText() {
+            if (content == null) return "";
+            if (content instanceof String s) return s;
+            if (content instanceof List<?> parts) {
+                StringBuilder sb = new StringBuilder();
+                for (Object p : parts) {
+                    if (p instanceof ContentPart cp && cp.text() != null) {
+                        if (sb.length() > 0) sb.append('\n');
+                        sb.append(cp.text());
+                        if (cp.cacheControl() != null) sb.append("\n[cache_control: ephemeral]");
+                    }
+                }
+                return sb.toString();
+            }
+            return String.valueOf(content);
+        }
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private record OpenAiRequest(
             String model,
             @JsonProperty("max_tokens") Integer maxTokens,
             Double temperature,
-            List<OpenAiMessage> messages
+            List<OpenAiMessage> messages,
+            Map<String, Boolean> usage
     ) {}
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private record OpenAiResponse(
             List<Choice> choices,
             Usage usage
     ) {
+        @JsonIgnoreProperties(ignoreUnknown = true)
         public record Choice(
-                OpenAiMessage message,
+                ResponseMessage message,
                 @JsonProperty("finish_reason") String finishReason
         ) {}
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        public record ResponseMessage(String role, String content) {}
+        @JsonIgnoreProperties(ignoreUnknown = true)
         public record Usage(
                 @JsonProperty("prompt_tokens") Integer promptTokens,
-                @JsonProperty("completion_tokens") Integer completionTokens
+                @JsonProperty("completion_tokens") Integer completionTokens,
+                @JsonProperty("prompt_tokens_details") PromptTokensDetails promptTokensDetails,
+                BigDecimal cost
+        ) {}
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        public record PromptTokensDetails(
+                @JsonProperty("cached_tokens") Integer cachedTokens
         ) {}
     }
 }

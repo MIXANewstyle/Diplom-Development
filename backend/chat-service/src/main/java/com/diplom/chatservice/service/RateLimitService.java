@@ -95,6 +95,65 @@ public class RateLimitService {
         }
     }
 
+    // ==================== Diary ====================
+
+    /**
+     * Diary has its own daily token budget (its prompts are several times larger than a solo room's).
+     * Returns true if OVER or EQUAL to {@code chat.llm.diary.daily-token-budget}.
+     */
+    public boolean isOverDiaryDailyBudget(UUID userId, int diaryDailyTokenBudget) {
+        String key = getDiaryDailyTokenKey(userId);
+        String val = redisTemplate.opsForValue().get(key);
+        if (val == null) {
+            return false;
+        }
+        try {
+            boolean overLimit = Long.parseLong(val) >= diaryDailyTokenBudget;
+            if (overLimit) {
+                meterRegistry.counter("chat.ratelimit.hits.total", "limit", "diary_daily_tokens").increment();
+            }
+            return overLimit;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    public void addDiaryDailyTokens(UUID userId, int tokens) {
+        if (tokens <= 0 || userId == null) return;
+        String key = getDiaryDailyTokenKey(userId);
+        try {
+            Long newValue = redisTemplate.opsForValue().increment(key, tokens);
+            if (newValue != null && newValue == tokens) {
+                redisTemplate.expire(key, 48, TimeUnit.HOURS);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to increment diary daily tokens for user {}", userId, e);
+        }
+    }
+
+    /**
+     * Manual period-summary generation is an LLM call the user can trigger at will;
+     * bounded per user per hour. Returns true if OVER limit.
+     */
+    public boolean checkDiarySummaryRate(UUID userId) {
+        String key = "chat:rl:diary-summary:" + userId;
+        ValueOperations<String, String> ops = redisTemplate.opsForValue();
+        Long count = ops.increment(key);
+        if (count != null && count == 1L) {
+            redisTemplate.expire(key, 1, TimeUnit.HOURS);
+        }
+        boolean overLimit = count != null && count > limits.diarySummaryPerHour();
+        if (overLimit) {
+            meterRegistry.counter("chat.ratelimit.hits.total", "limit", "diary_summary_per_hour").increment();
+        }
+        return overLimit;
+    }
+
+    private String getDiaryDailyTokenKey(UUID userId) {
+        String dateStr = ZonedDateTime.now(ZoneOffset.UTC).format(DATE_FORMATTER);
+        return "chat:rl:diary-tokens:" + userId + ":" + dateStr;
+    }
+
     /**
      * Counts active (non-terminal) rooms for a user.
      */

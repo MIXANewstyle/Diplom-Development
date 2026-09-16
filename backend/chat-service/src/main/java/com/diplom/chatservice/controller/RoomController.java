@@ -178,7 +178,8 @@ public class RoomController {
         RoomResponse enrichedResponse = new RoomResponse(
             base.id(), base.title(), base.type(), base.status(), base.phase(),
             base.currentFloorParticipantId(), base.aiModel(), base.ownerUserId(),
-            base.createdAt(), base.startedAt(), enriched
+            base.createdAt(), base.startedAt(), enriched,
+            base.soloMode(), base.diaryDate()
         );
         return ResponseEntity.ok(enrichedResponse);
     }

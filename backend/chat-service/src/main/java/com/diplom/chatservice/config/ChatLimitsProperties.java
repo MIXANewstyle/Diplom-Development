@@ -6,5 +6,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record ChatLimitsProperties(
         int turnsPerMinute,
         int dailyTokenBudget,
-        int concurrentActiveRooms
+        int concurrentActiveRooms,
+        int diarySummaryPerHour
 ) {}

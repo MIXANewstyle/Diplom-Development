@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -25,7 +26,8 @@ public interface RoomRepository extends JpaRepository<Room, UUID> {
 
     @Query("""
         SELECT r FROM Room r
-        WHERE r.id IN (
+        WHERE (r.soloModeId IS NULL OR r.soloModeId <> 2)
+          AND r.id IN (
             SELECT rp.roomId FROM RoomParticipant rp WHERE rp.userId = :userId
         )
         ORDER BY r.createdAt DESC
@@ -44,6 +46,7 @@ public interface RoomRepository extends JpaRepository<Room, UUID> {
         SELECT r FROM Room r
         WHERE r.statusId = 5
           AND r.runningSummary IS NOT NULL
+          AND (r.soloModeId IS NULL OR r.soloModeId <> 2)
           AND r.id IN (
               SELECT rp.roomId FROM RoomParticipant rp WHERE rp.userId = :userId
           )
@@ -52,7 +55,9 @@ public interface RoomRepository extends JpaRepository<Room, UUID> {
     Page<Room> findSeedEligibleRooms(@Param("userId") UUID userId, Pageable pageable);
     @Query("""
         SELECT COUNT(r) FROM Room r
-        WHERE r.statusId IN (1, 2, 3, 4) AND r.id IN (
+        WHERE r.statusId IN (1, 2, 3, 4)
+          AND (r.soloModeId IS NULL OR r.soloModeId <> 2)
+          AND r.id IN (
             SELECT rp.roomId FROM RoomParticipant rp WHERE rp.userId = :userId
         )
         """)
@@ -75,4 +80,32 @@ public interface RoomRepository extends JpaRepository<Room, UUID> {
     @Modifying
     @Query("UPDATE Room r SET r.seedContextRoomId = null WHERE r.seedContextRoomId = :roomId")
     void nullifySeedContextReferences(@Param("roomId") UUID roomId);
+
+    // ==================== Diary (solo_mode_id = 2) ====================
+
+    Optional<Room> findByOwnerUserIdAndDiaryDate(UUID ownerUserId, LocalDate diaryDate);
+
+    java.util.List<Room> findByOwnerUserIdAndDiaryDateBetweenOrderByDiaryDateAsc(
+            UUID ownerUserId, LocalDate from, LocalDate to);
+
+    /** ACTIVE diary rooms whose date is at or before {@code threshold} — candidates for closing. */
+    @Query("SELECT r FROM Room r WHERE r.soloModeId = 2 AND r.statusId = 3 AND r.diaryDate <= :threshold ORDER BY r.diaryDate ASC")
+    Page<Room> findDiaryRoomsToArchive(@Param("threshold") LocalDate threshold, Pageable pageable);
+
+    /** ARCHIVED diary rooms that still have unsummarized turns (summary catch-up). */
+    @Query("""
+        SELECT r FROM Room r
+        WHERE r.soloModeId = 2 AND r.statusId = 5
+          AND EXISTS (
+              SELECT t FROM Turn t
+              WHERE t.roomId = r.id AND t.roleId <> 3
+                AND t.seq > COALESCE(r.summarizedThroughSeq, 0)
+          )
+        ORDER BY r.diaryDate ASC
+        """)
+    Page<Room> findArchivedDiaryRoomsNeedingSummary(Pageable pageable);
+
+    /** Distinct owners that have diary rooms dated inside [from, to]. */
+    @Query("SELECT DISTINCT r.ownerUserId FROM Room r WHERE r.soloModeId = 2 AND r.diaryDate BETWEEN :from AND :to")
+    java.util.List<UUID> findDiaryOwnersWithEntriesBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
 }

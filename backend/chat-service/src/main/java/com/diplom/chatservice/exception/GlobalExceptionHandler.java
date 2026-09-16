@@ -162,6 +162,20 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(body, HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
+    @ExceptionHandler(DiaryDayClosedException.class)
+    public ResponseEntity<Object> handleDiaryDayClosedException(DiaryDayClosedException ex) {
+        log.warn("DiaryDayClosedException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(DiaryPeriodEmptyException.class)
+    public ResponseEntity<Object> handleDiaryPeriodEmptyException(DiaryPeriodEmptyException ex) {
+        log.warn("DiaryPeriodEmptyException: {}", ex.getMessage());
+        Map<String, Object> body = createBody(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
     @ExceptionHandler(InviteInvalidException.class)
     public ResponseEntity<Object> handleInviteInvalidException(InviteInvalidException ex) {
         log.warn("InviteInvalidException: {}", ex.getMessage());

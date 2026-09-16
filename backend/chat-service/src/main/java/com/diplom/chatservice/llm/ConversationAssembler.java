@@ -5,6 +5,7 @@ import com.diplom.chatservice.entity.Room;
 import com.diplom.chatservice.entity.RoomParticipant;
 import com.diplom.chatservice.entity.Turn;
 import com.diplom.chatservice.repository.RoomRepository;
+import com.diplom.chatservice.service.DiaryContextService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -20,21 +21,48 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ConversationAssembler {
 
+    private static final int SOLO_MODE_DIARY = 2;
+
     private final ChatLlmProperties llmProperties;
     private final ObjectMapper objectMapper;
     private final RoomRepository roomRepository;
+    private final DiaryContextService diaryContextService;
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
     public LlmRequest assemble(Room room, List<RoomParticipant> participants, List<Turn> allTurns) {
-        boolean isPaired = room.getTypeId() == 1; // 1=PAIRED
-        String systemPromptBase = isPaired ? llmProperties.prompts().pairedSystem() : llmProperties.prompts().soloSystem();
+        return assemble(room, participants, allTurns, null);
+    }
 
-        String contextBlock = buildContextBlock(room, participants, isPaired);
+    /**
+     * @param ragBlock diary only: the volatile "[Память дневника]" block retrieved for the latest
+     *                 user message; prepended to that message so the cached prefix stays intact
+     */
+    public LlmRequest assemble(Room room, List<RoomParticipant> participants, List<Turn> allTurns, String ragBlock) {
+        boolean isPaired = room.getTypeId() == 1; // 1=PAIRED
+        boolean isDiary = isDiary(room);
+
+        String systemPromptBase;
+        String contextBlock;
+        int promptTokenBudget;
+        int maxOutputTokens;
+        String model = null;
+        if (isDiary) {
+            systemPromptBase = llmProperties.prompts().diarySystem();
+            contextBlock = buildDiaryContextBlock(room, participants);
+            promptTokenBudget = llmProperties.diary().promptTokenBudget();
+            maxOutputTokens = llmProperties.diary().maxOutputTokens();
+            model = llmProperties.models() != null ? llmProperties.models().diaryOrNull() : null;
+        } else {
+            systemPromptBase = isPaired ? llmProperties.prompts().pairedSystem() : llmProperties.prompts().soloSystem();
+            contextBlock = buildContextBlock(room, participants, isPaired);
+            promptTokenBudget = llmProperties.promptTokenBudget();
+            maxOutputTokens = llmProperties.maxOutputTokens();
+        }
         String finalSystemPrompt = systemPromptBase.replace("{context_block}", contextBlock);
 
         List<LlmMessage> messages = new ArrayList<>();
-        
+
         // Phase 4c-2b: Prepend THIS room's rolling summary if present
         if (room.getRunningSummary() != null && !room.getRunningSummary().isBlank()) {
             messages.add(new LlmMessage("assistant", "Ранее в этом диалоге: " + room.getRunningSummary()));
@@ -43,8 +71,9 @@ public class ConversationAssembler {
         int systemTokens = estimateTokens(finalSystemPrompt);
         // Estimate the rolling summary tokens
         int summaryTokens = room.getRunningSummary() != null ? estimateTokens(room.getRunningSummary()) : 0;
-        
-        int availableTokens = llmProperties.promptTokenBudget() - llmProperties.maxOutputTokens() - systemTokens - summaryTokens;
+        int ragTokens = ragBlock != null ? estimateTokens(ragBlock) : 0;
+
+        int availableTokens = promptTokenBudget - maxOutputTokens - systemTokens - summaryTokens - ragTokens;
 
         List<Turn> turnsToInclude = selectTurnsToFitBudget(allTurns, availableTokens, room.getSummarizedThroughSeq());
 
@@ -73,12 +102,64 @@ public class ConversationAssembler {
             }
         }
 
+        if (isDiary) {
+            attachRagToLastUserMessage(messages, ragBlock);
+            markCacheBoundaryBeforeLastUser(messages);
+            return new LlmRequest(
+                    List.of(LlmBlock.cached(finalSystemPrompt)),
+                    messages,
+                    maxOutputTokens,
+                    llmProperties.temperature(),
+                    model
+            );
+        }
+
         return new LlmRequest(
                 finalSystemPrompt,
                 messages,
-                llmProperties.maxOutputTokens(),
+                maxOutputTokens,
                 llmProperties.temperature()
         );
+    }
+
+    static boolean isDiary(Room room) {
+        return room.getSoloModeId() != null && room.getSoloModeId() == SOLO_MODE_DIARY;
+    }
+
+    /** The retrieved memory is volatile: it goes into the latest user message, after every cache boundary. */
+    static void attachRagToLastUserMessage(List<LlmMessage> messages, String ragBlock) {
+        if (ragBlock == null || ragBlock.isBlank()) return;
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            LlmMessage m = messages.get(i);
+            if ("user".equals(m.role())) {
+                messages.set(i, new LlmMessage("user", ragBlock + "\n\nЗапись:\n" + m.content(), m.cacheBoundary()));
+                return;
+            }
+        }
+    }
+
+    /** Second breakpoint: the last assistant message before the current user turn (stable history). */
+    static void markCacheBoundaryBeforeLastUser(List<LlmMessage> messages) {
+        int lastUser = -1;
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            if ("user".equals(messages.get(i).role())) { lastUser = i; break; }
+        }
+        for (int i = lastUser - 1; i >= 0; i--) {
+            LlmMessage m = messages.get(i);
+            if ("assistant".equals(m.role())) {
+                messages.set(i, new LlmMessage(m.role(), m.content(), true));
+                return;
+            }
+        }
+    }
+
+    private String buildDiaryContextBlock(Room room, List<RoomParticipant> participants) {
+        RoomParticipant author = participants.stream()
+                .filter(p -> p.getRoleId() == 3 || p.getRoleId() == 1)
+                .findFirst()
+                .orElse(null);
+        Map<String, Object> snapshot = parseSnapshot(author);
+        return diaryContextService.buildContextBlock(room, snapshotDisplayName(snapshot), snapshotAbout(snapshot));
     }
 
     private String buildContextBlock(Room room, List<RoomParticipant> participants, boolean isPaired) {
@@ -203,7 +284,7 @@ public class ConversationAssembler {
         }
 
         int currentSummarizedThrough = summarizedThroughSeq != null ? summarizedThroughSeq : 0;
-        
+
         // Filter out turns that are already summarized
         List<Turn> verbatimCandidates = new ArrayList<>();
         for (Turn t : allTurns) {
@@ -211,7 +292,7 @@ public class ConversationAssembler {
                 verbatimCandidates.add(t);
             }
         }
-        
+
         if (verbatimCandidates.isEmpty()) {
             return selected;
         }
@@ -219,9 +300,9 @@ public class ConversationAssembler {
         // We must always include the latest turn
         Turn lastTurn = verbatimCandidates.get(verbatimCandidates.size() - 1);
         selected.add(lastTurn);
-        
+
         int currentTokens = estimateTokens(lastTurn.getContent());
-        
+
         if (verbatimCandidates.size() > 1) {
             for (int i = verbatimCandidates.size() - 2; i >= 0; i--) {
                 Turn turn = verbatimCandidates.get(i);

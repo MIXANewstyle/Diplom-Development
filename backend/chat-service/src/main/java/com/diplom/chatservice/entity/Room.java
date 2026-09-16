@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -65,6 +66,10 @@ public class Room {
 
     @Column(name = "summarized_through_seq")
     private Integer summarizedThroughSeq;
+
+    /** Local calendar date of a diary entry; non-null only for solo_mode_id = 2 (DIARY). */
+    @Column(name = "diary_date")
+    private LocalDate diaryDate;
 
     @Builder.Default
     @Column(name = "created_at", nullable = false, updatable = false)

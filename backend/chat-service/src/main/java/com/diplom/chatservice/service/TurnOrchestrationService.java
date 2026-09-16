@@ -12,6 +12,7 @@ import com.diplom.chatservice.exception.LlmUnavailableException;
 import com.diplom.chatservice.exception.NotYourTurnException;
 import com.diplom.chatservice.exception.RateLimitExceededException;
 import com.diplom.chatservice.llm.ConversationAssembler;
+import com.diplom.chatservice.llm.EmbeddingClient;
 import com.diplom.chatservice.llm.LlmClient;
 import com.diplom.chatservice.llm.LlmRequest;
 import com.diplom.chatservice.llm.LlmResponse;
@@ -39,6 +40,11 @@ public class TurnOrchestrationService {
     private final ChatLlmProperties llmProperties;
     private final SummarizationService summarizationService;
     private final RateLimitService rateLimitService;
+    private final EmbeddingClient embeddingClient;
+    private final DiaryRetrievalService diaryRetrievalService;
+    private final DiaryMemoryIndexer diaryMemoryIndexer;
+
+    private static final int RAG_BLOCK_TOKENS = 2000;
 
     public SubmitTurnResponse submitTurn(UUID roomId, Object principal, SubmitTurnRequest request) {
         Room room = roomRepository.findById(roomId)
@@ -52,10 +58,7 @@ public class TurnOrchestrationService {
         if (rateLimitService.checkTurnRate(callerParticipant.getId())) {
             throw new RateLimitExceededException("Slow down");
         }
-        UUID userId = com.diplom.chatservice.security.SecurityUtils.getUserIdOrNull(principal);
-        if (userId != null && rateLimitService.isOverDailyBudget(userId)) {
-            throw new RateLimitExceededException("Daily usage limit reached");
-        }
+        checkDailyBudget(room, principal);
 
         // Transaction 1
         Turn userTurn = turnPersistenceService.persistUserTurn(roomId, callerParticipant.getId(), request.text());
@@ -79,10 +82,7 @@ public class TurnOrchestrationService {
         if (rateLimitService.checkTurnRate(callerParticipant.getId())) {
             throw new RateLimitExceededException("Slow down");
         }
-        UUID userId = com.diplom.chatservice.security.SecurityUtils.getUserIdOrNull(principal);
-        if (userId != null && rateLimitService.isOverDailyBudget(userId)) {
-            throw new RateLimitExceededException("Daily usage limit reached");
-        }
+        checkDailyBudget(room, principal);
 
         // Transaction 1r
         turnPersistenceService.setAiProcessing(roomId);
@@ -107,7 +107,25 @@ public class TurnOrchestrationService {
         // Reload room in case running_summary or summarized_through_seq was updated
         updatedRoom = roomRepository.findById(roomId).orElseThrow();
 
-        LlmRequest llmRequest = conversationAssembler.assemble(updatedRoom, participants, allTurns);
+        // Diary: embed the latest user message once — used for retrieval now and for indexing below.
+        boolean isDiary = isDiary(updatedRoom);
+        Turn lastUserTurn = null;
+        float[] queryVector = null;
+        String ragBlock = null;
+        if (isDiary) {
+            lastUserTurn = findLastUserTurn(allTurns);
+            if (lastUserTurn != null) {
+                try {
+                    queryVector = embeddingClient.embedOne(lastUserTurn.getContent());
+                    ragBlock = diaryRetrievalService.buildRagBlock(
+                            updatedRoom.getOwnerUserId(), updatedRoom.getDiaryDate(), queryVector, RAG_BLOCK_TOKENS * 4);
+                } catch (Exception e) {
+                    log.warn("Diary retrieval unavailable for room {} — continuing without memory block: {}", roomId, e.getMessage());
+                }
+            }
+        }
+
+        LlmRequest llmRequest = conversationAssembler.assemble(updatedRoom, participants, allTurns, ragBlock);
 
         LlmResponse llmResponse;
         try {
@@ -126,15 +144,48 @@ public class TurnOrchestrationService {
             throw e;
         }
 
-        // Phase 4d Token Accounting
+        // Phase 4d Token Accounting — by the owner's user id (the same key isOverDailyBudget reads)
         try {
-            rateLimitService.addDailyTokens(updatedRoom.getCurrentFloorParticipantId(), llmResponse.promptTokens() + llmResponse.completionTokens());
+            if (isDiary) {
+                rateLimitService.addDiaryDailyTokens(updatedRoom.getOwnerUserId(), llmResponse.totalTokens());
+            } else {
+                rateLimitService.addDailyTokens(updatedRoom.getOwnerUserId(), llmResponse.totalTokens());
+            }
         } catch (Exception e) {
-            log.warn("Failed to account tokens for user {} in room {}", updatedRoom.getCurrentFloorParticipantId(), roomId, e);
+            log.warn("Failed to account tokens for user {} in room {}", updatedRoom.getOwnerUserId(), roomId, e);
         }
 
         // Transaction 2s
-        return turnPersistenceService.persistAssistantTurn(roomId, llmResponse.content(), llmResponse.promptTokens(), llmResponse.completionTokens());
+        Turn assistantTurn = turnPersistenceService.persistAssistantTurn(roomId, llmResponse.content(),
+                llmResponse.promptTokens(), llmResponse.completionTokens(), llmResponse.costUsd());
+
+        // Diary: the author's message joins long-term memory (best-effort; catch-up sweep covers failures)
+        if (isDiary && lastUserTurn != null) {
+            diaryMemoryIndexer.indexUserTurn(updatedRoom, lastUserTurn, queryVector);
+        }
+        return assistantTurn;
+    }
+
+    private static boolean isDiary(Room room) {
+        return room.getSoloModeId() != null && room.getSoloModeId() == 2; // 2=DIARY
+    }
+
+    private static Turn findLastUserTurn(List<Turn> allTurns) {
+        for (int i = allTurns.size() - 1; i >= 0; i--) {
+            if (allTurns.get(i).getRoleId() == 1) return allTurns.get(i);
+        }
+        return null;
+    }
+
+    private void checkDailyBudget(Room room, Object principal) {
+        UUID userId = com.diplom.chatservice.security.SecurityUtils.getUserIdOrNull(principal);
+        if (userId == null) return;
+        boolean over = isDiary(room)
+                ? rateLimitService.isOverDiaryDailyBudget(userId, llmProperties.diary().dailyTokenBudget())
+                : rateLimitService.isOverDailyBudget(userId);
+        if (over) {
+            throw new RateLimitExceededException("Daily usage limit reached");
+        }
     }
 
     private void validateSubmitPreconditions(Room room, RoomParticipant callerParticipant) {
@@ -149,7 +200,8 @@ public class TurnOrchestrationService {
         }
 
         long turnCount = turnRepository.findByRoomIdOrderBySeqAsc(room.getId(), org.springframework.data.domain.Pageable.unpaged()).getTotalElements();
-        if (turnCount >= llmProperties.hardTurnCap()) {
+        int cap = isDiary(room) ? llmProperties.diary().hardTurnCap() : llmProperties.hardTurnCap();
+        if (turnCount >= cap) {
             throw new RateLimitExceededException("Hard turn cap reached");
         }
     }
@@ -175,7 +227,8 @@ public class TurnOrchestrationService {
     }
 
     private void handleOverflowFolding(Room room, List<RoomParticipant> participants, List<Turn> allTurns) {
-        if (room.getTypeId() != 1) { // Only PAIRED rooms
+        boolean diary = isDiary(room);
+        if (room.getTypeId() != 1 && !diary) { // PAIRED rooms and DIARY days
             return;
         }
 
@@ -203,7 +256,9 @@ public class TurnOrchestrationService {
         // system+context is roughly constant, we can add a flat 500 tokens buffer for system prompts and context block
         int totalEstimate = verbatimTokens + summaryTokens + 500;
         
-        int inputBudget = llmProperties.promptTokenBudget() - llmProperties.maxOutputTokens();
+        int inputBudget = diary
+                ? llmProperties.diary().promptTokenBudget() - llmProperties.diary().maxOutputTokens()
+                : llmProperties.promptTokenBudget() - llmProperties.maxOutputTokens();
 
         if (totalEstimate > inputBudget) {
             log.info("Room {} exceeded input budget (est: {}, budget: {}), triggering fold up to seq {}", 

@@ -54,6 +54,12 @@ public class TurnPersistenceService {
 
     @Transactional
     public Turn persistAssistantTurn(UUID roomId, String content, Integer promptTokens, Integer completionTokens) {
+        return persistAssistantTurn(roomId, content, promptTokens, completionTokens, null);
+    }
+
+    @Transactional
+    public Turn persistAssistantTurn(UUID roomId, String content, Integer promptTokens, Integer completionTokens,
+                                     java.math.BigDecimal costUsd) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
 
@@ -75,6 +81,7 @@ public class TurnPersistenceService {
                 .content(content)
                 .promptTokens(promptTokens)
                 .completionTokens(completionTokens)
+                .costUsd(costUsd)
                 .createdAt(OffsetDateTime.now())
                 .build();
         turn = turnRepository.save(turn);
