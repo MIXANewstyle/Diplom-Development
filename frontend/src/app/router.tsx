@@ -14,6 +14,8 @@ import { AuthorPage } from '../pages/AuthorPage'
 import { FriendsPage } from '../pages/FriendsPage'
 import { PostDetailPage } from '../pages/PostDetailPage'
 import { ChatPage } from '../pages/ChatPage'
+import { DiaryPage } from '../pages/DiaryPage'
+import { DiaryDayPage } from '../pages/DiaryDayPage'
 import { RoomAccessPage } from '../pages/RoomAccessPage'
 import { AdminLayout } from '../pages/admin/AdminLayout'
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage'
@@ -79,6 +81,14 @@ export const router = createBrowserRouter([
       {
         path: 'chat',
         element: <ChatPage />,
+      },
+      {
+        path: 'diary',
+        element: <DiaryPage />,
+      },
+      {
+        path: 'diary/:date',
+        element: <DiaryDayPage />,
       },
       {
         path: 'admin',

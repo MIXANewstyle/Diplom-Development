@@ -27,6 +27,8 @@ export interface RoomResponse {
   createdAt: string
   startedAt: string | null
   participants: ParticipantResponse[]
+  soloMode?: 'PROBLEM_SOLVING' | 'DIARY' | null
+  diaryDate?: string | null
 }
 
 export interface RoomSummaryResponse {

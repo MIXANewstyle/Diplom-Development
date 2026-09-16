@@ -147,6 +147,75 @@ A single user in dialogue with the AI. Reuses the AI pipeline (§6) and the turn
 - No consent handshake and no floor handoff: the single participant always "holds the floor." Composing, drafts, and `FINISH_THOUGHT` behave exactly as in §3.4, but every turn is followed by an AI response addressed to the one user.
 - Ending: `POST /api/v1/rooms/{roomId}/end` (single confirmation, no second party) → `ARCHIVED` immediately. **No resume path** — this is the explicit product rule for solo rooms. The transcript remains readable; no summary job is required for solo unless seeding is later extended to solo (§18).
 
+# 4a. Solo Diary Mode (DIARY)
+
+Supersedes decision §17 #12 for the `DIARY` solo mode only (`solo_modes` id 2). The `PROBLEM_SOLVING`
+mode keeps the narrowed MVP behaviour.
+
+## 4a.1. Day rooms
+
+- A diary entry is a SOLO room with `solo_mode_id = 2` and `rooms.diary_date` (partial unique index on
+  `(owner_user_id, diary_date)`). One room per author per local calendar day; the client sends its
+  local date, the server accepts creation/writing for `utc_today − 1 … utc_today + 1` (covers every
+  timezone) and answers 409 otherwise. Older days are read-only.
+- Turns use the regular `/api/v1/rooms/{roomId}/turns` pipeline (REST) and the WS state snapshot.
+- Diary rooms do not count against the concurrent-active-rooms limit, are hidden from the room list
+  and are never offered as paired seeds. Diary has its own daily token budget
+  (`chat.llm.diary.daily-token-budget`, Redis key `chat:rl:diary-tokens:{userId}:{yyyyMMdd}`)
+  and its own hard turn cap.
+- `DiarySweepService` (every `chat.sweeps.diary-interval`) archives ACTIVE diary rooms with
+  `diary_date <= utc_today − 2` through `RoomService.endSolo`, which triggers the archive fold.
+
+## 4a.2. Layered context (the "I am remembered" mechanism)
+
+Assembled by `ConversationAssembler` for diary rooms, stable → volatile so a provider prefix cache
+covers layers A–D for the whole day:
+
+| Layer | Content | Where |
+|---|---|---|
+| A | `chat.llm.prompts.diary-system` (reflective, non-sycophantic stance; memory rules; open threads) | system, cache boundary |
+| B | author's `about` (context_snapshot) + memory facts | `{context_block}` |
+| C | previous month (auto + author's own text), completed ISO weeks (auto + own text) | `{context_block}` |
+| D | day summaries of the last `recent-days` days (yesterday verbatim while unsummarized), "this day a year / a month ago" | `{context_block}` |
+| E | RAG: top-k chunks of past entries by cosine similarity to the latest message, dated, verbatim | prefix of the last `user` message |
+| F | today's turns verbatim (`running_summary` fold on overflow, as for paired rooms) | messages, second cache boundary on the last assistant turn |
+
+Budget `chat.llm.diary.prompt-token-budget` (24k) minus output; each layer has its own sub-budget
+(`DiaryContextService`). Fallback chain: month → weeks → days → verbatim.
+
+## 4a.3. Summaries, facts, RAG
+
+- **Day summary** = `rooms.running_summary`, produced by `SummarizationService` with
+  `diary-day-summary` (sections: Итог / Ключевые фразы / Состояние / Открытые нити). Only on the
+  archive fold: the summary is indexed for RAG and `diary-fact-extraction` updates
+  `diary_memory_facts` (line-based `+ / ~ / -` protocol, `MemoryFactParser`).
+- **Periods** (`diary_periods`, types WEEK = ISO Monday–Sunday, MONTH = calendar month) hold
+  `auto_summary` (generated from *day* summaries — ISO weeks straddle months) and `user_summary`
+  (author's own words). Generated on demand (`POST …/auto-summary`, rate limited
+  `chat.limits.diary-summary-per-hour`) and by the sweep once `period_end <= utc_today − 3`
+  (idempotent: `auto_summary_through = period_end`).
+- **RAG**: `diary_memory_chunks` (pgvector, no JPA entity, `DiaryMemoryChunkJdbcRepository`), sources
+  USER_TURN / DAY_SUMMARY / PERIOD_SUMMARY, embeddings from an OpenAI-compatible `/embeddings`
+  endpoint (`chat.llm.embeddings.*`, dimensions baked into V6 via Flyway placeholder). The latest user
+  message is embedded once per turn and reused for retrieval and indexing; retrieval excludes today,
+  applies `rag-min-score`, `rag-max-per-day`, `rag-top-k`. Exact scan (no HNSW) at MVP scale.
+- **Memory facts** are visible to the author (`GET/PATCH/DELETE /api/v1/diary/memory-facts`);
+  deletion is hard.
+
+## 4a.4. API (`/api/v1/diary`, BASIC+)
+
+`GET /calendar?month=YYYY-MM`, `PUT|GET|DELETE /days/{date}`, `GET /memories?date=`,
+`GET /periods?type=WEEK|MONTH&start=`, `PUT /periods/{type}/{start}/user-summary`,
+`POST /periods/{type}/{start}/auto-summary`, `GET|PATCH|DELETE /memory-facts[/{id}]`.
+Gateway route `chat-service-diary`.
+
+## 4a.5. Provider layer
+
+`LlmRequest` carries system blocks and messages with cache boundaries and an optional per-request
+model (`chat.llm.models.{diary,summary,facts}`). The OpenAI-compatible client renders boundaries as
+`cache_control` content parts and asks OpenRouter for `usage.cost` / cached tokens
+(`chat.llm.openrouter.*`); `turns.cost_usd` stores the reported cost. Default provider is OpenRouter.
+
 # 5. Guest Access and Invite Links
 
 Invite links let a paired room recruit a second participant who may be unauthenticated — used to lower the barrier to resolving a conflict quickly.
@@ -813,12 +882,18 @@ User errors (4xx) log at WARN; server errors (5xx) at ERROR. Stack traces and pr
 | 18 | Prompts contain no flagging/escalation/reporting; safety net (if any) is a static disclaimer/ToS, not model behavior. | Product-owner decision (§13.5), recorded explicitly; the base model's behavior is the floor. |
 | 19 | Credentials server-side only; the client never holds a provider key or calls the provider. | Non-negotiable security baseline for paid AI APIs. |
 | 20 | Only `PAIR_INVITE_SENT` and `ROOM_ARCHIVED` are platform events; per-turn/start events are WS-only. | Avoids event-bus noise; the future Notification/Billing/Analytics services need only these. |
+| 21 | Diary (`DIARY` solo mode) reopens the solo-diary scope: one room per local day, hierarchical summaries (day → ISO week → calendar month) plus RAG over past entries plus author-visible memory facts (§4a). | "Being remembered" needs verbatim detail (RAG, quotes with dates) as well as compressed canvas (summaries); summaries alone burn the formulations that psychological work relies on. |
+| 22 | Diary context is assembled stable → volatile with explicit cache boundaries; the retrieved memory goes into the last user message, never into the system prompt. | Keeps the provider prefix cache valid for the whole day; the system prompt stays byte-identical between turns. |
+| 23 | Token accounting is keyed by the owner's user id (previously a participant id, so the daily budget never tripped); diary has a separate daily budget and turn cap. | The budget must read and write the same key; diary prompts are several times larger than solo ones. |
+| 24 | pgvector inside the existing Postgres (image `pgvector/pgvector:pg16`), chunks managed via JDBC without a JPA entity, no HNSW at MVP scale. | One database, no new service; per-user corpora are small and always filtered by owner. |
+| 25 | OpenRouter is the default provider; the request model is provider-independent so an Anthropic-SDK adapter can be added without touching context assembly. | One key for chat and embeddings, per-request cost for future paid limits, Anthropic caching passed through. |
 
 # 18. Deferred Post-MVP
 
 - **Streaming AI responses** (token-by-token over SSE/WS) for a live "typing" effect; MVP delivers the full turn at once.
 - **Continuous rolling summarization** every N turns and per-tier model selection (cheap model for short turns, stronger for long ones).
 - **Solo seeding** (attach a prior dialogue as context to a solo room) and a **free solo-session quota** as an alternative to the BASIC gate.
+- **Diary follow-ups:** direct Anthropic SDK adapter (1h cache TTL, structured outputs for fact extraction, mid-conversation `system` messages for the memory block, Batch API for nightly summaries); per-user paid token limits and top-ups (billing-service) on top of `turns.cost_usd`; HNSW index once per-user corpora grow.
 - **Group rooms** (> 2 participants) — requires generalizing the turn engine.
 - **Un-friend consumer** once User Service emits a friendship-removed event (remove `friend_links` rows).
 - **Circuit breaker + degraded "assistant busy" mode** around the provider.

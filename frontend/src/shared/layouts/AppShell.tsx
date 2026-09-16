@@ -45,6 +45,7 @@ export function AppShell({ children }: Props) {
               <NavLink to="/authoring" className={navLinkClass}>Мои публикации</NavLink>
             )}
             <NavLink to="/chat" className={navLinkClass}>Чат</NavLink>
+            <NavLink to="/diary" className={navLinkClass}>Дневник</NavLink>
             {user && user.role === 'ADMIN' && (
               <NavLink to="/admin" className={navLinkClass}>Админка</NavLink>
             )}
@@ -94,6 +95,7 @@ export function AppShell({ children }: Props) {
                 <NavLink to="/authoring" className={mobileNavLinkClass} onClick={() => setMenuOpen(false)}>Мои публикации</NavLink>
               )}
               <NavLink to="/chat" className={mobileNavLinkClass} onClick={() => setMenuOpen(false)}>Чат</NavLink>
+              <NavLink to="/diary" className={mobileNavLinkClass} onClick={() => setMenuOpen(false)}>Дневник</NavLink>
               {user && user.role === 'ADMIN' && (
                 <NavLink to="/admin" className={mobileNavLinkClass} onClick={() => setMenuOpen(false)}>Админка</NavLink>
               )}

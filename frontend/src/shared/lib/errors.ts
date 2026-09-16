@@ -13,6 +13,11 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
   'Cannot upvote your own post': 'Нельзя оценивать собственный пост',
   'Cannot upvote a post that is not published': 'Оценивать можно только опубликованные посты',
   'LLM rate limit exceeded. Try again in a moment.': 'Лимит запросов к ИИ исчерпан — подождите минуту и попробуйте снова.',
+  'Diary day': 'Этот день уже закрыт для записи — писать можно только за сегодня и вчера.',
+  'No summarized days in this period yet': 'В этом периоде пока нет подведённых дней — итог появится после закрытия первого дня.',
+  'Period has not started yet': 'Этот период ещё не начался.',
+  'Too many summary generations': 'Слишком много запросов на формирование итога — попробуйте позже.',
+  'Daily usage limit reached': 'Дневной лимит ИИ исчерпан — продолжить можно завтра.',
 }
 
 export function getErrorMessage(error: unknown): string {

@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom'
+import { Navigate, useParams } from 'react-router-dom'
 import { useRoom } from '../features/chat/hooks/useRoom'
 import { useTurns } from '../features/chat/hooks/useTurns'
 import { useSubmitTurn } from '../features/chat/hooks/useSubmitTurn'
@@ -48,6 +48,10 @@ export const RoomPage = () => {
 
   if (room.type === 'PAIRED') {
     return <PairedRoomView roomId={id} />
+  }
+
+  if (room.soloMode === 'DIARY' && room.diaryDate) {
+    return <Navigate to={`/diary/${room.diaryDate}`} replace />
   }
 
   return <SoloRoomView id={id} room={room} />
