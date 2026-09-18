@@ -19,6 +19,8 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
   'Too many summary generations': 'Слишком много запросов на формирование итога — попробуйте позже.',
   'Daily usage limit reached': 'Дневной лимит ИИ исчерпан — продолжить можно завтра.',
   'An active subscription is required': 'Для этого действия нужна активная подписка BASIC или выше.',
+  'Diary day is already closed': 'Этот день уже закрыт.',
+  'Nothing to summarize': 'В этом дне пока нет записей — подводить итог нечего.',
 }
 
 export function getErrorMessage(error: unknown): string {

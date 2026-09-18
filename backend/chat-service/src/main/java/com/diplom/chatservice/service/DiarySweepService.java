@@ -39,30 +39,43 @@ public class DiarySweepService {
     private final DiaryPeriodService diaryPeriodService;
     private final DiaryDateService dates;
 
+    /** What one sweep pass did; returned to the admin API and logged. */
+    public record SweepResult(int closedDays, int summariesCaughtUp, int turnsIndexed, int periodSummariesGenerated) {}
+
     @Scheduled(fixedDelayString = "${chat.sweeps.diary-interval}", initialDelayString = "PT2M")
-    public void sweep() {
-        closeStaleDays();
-        catchUpDaySummaries();
+    public void scheduledSweep() {
+        sweep();
+    }
+
+    /** One full maintenance pass. Safe to call at any time (idempotent, bounded). */
+    public SweepResult sweep() {
+        int closed = closeStaleDays();
+        int caughtUp = catchUpDaySummaries();
+        int indexed = 0;
         try {
-            diaryMemoryIndexer.catchUp(INDEX_CATCHUP_BATCH);
+            indexed = diaryMemoryIndexer.catchUp(INDEX_CATCHUP_BATCH);
         } catch (Exception e) {
             log.warn("Diary index catch-up failed", e);
         }
+        int periods = 0;
         try {
-            int n = diaryPeriodService.generateDueSummaries(PERIOD_BATCH);
-            if (n > 0) log.info("Diary sweep generated {} period summar{}", n, n == 1 ? "y" : "ies");
+            periods = diaryPeriodService.generateDueSummaries(PERIOD_BATCH);
+            if (periods > 0) log.info("Diary sweep generated {} period summar{}", periods, periods == 1 ? "y" : "ies");
         } catch (Exception e) {
             log.warn("Diary period sweep failed", e);
         }
+        return new SweepResult(closed, caughtUp, indexed, periods);
     }
 
     /** Archive ACTIVE day rooms dated at or before today-2 (never a day that is still writable). */
-    void closeStaleDays() {
+    int closeStaleDays() {
         LocalDate threshold = dates.closeThreshold();
         Page<Room> candidates = roomRepository.findDiaryRoomsToArchive(threshold, PageRequest.of(0, CLOSE_BATCH));
+        int closed = 0;
         for (Room room : candidates.getContent()) {
             try {
                 roomService.endSolo(room.getId(), room.getOwnerUserId());
+                closed++;
                 log.info("Diary sweep closed day {} (room {})", room.getDiaryDate(), room.getId());
             } catch (ObjectOptimisticLockingFailureException e) {
                 log.debug("Room {} modified concurrently, skipping in diary sweep", room.getId());
@@ -70,17 +83,21 @@ public class DiarySweepService {
                 log.warn("Error closing diary room {}", room.getId(), e);
             }
         }
+        return closed;
     }
 
     /** Archived days whose turns were never fully folded into a summary. */
-    void catchUpDaySummaries() {
+    int catchUpDaySummaries() {
         Page<Room> pending = roomRepository.findArchivedDiaryRoomsNeedingSummary(PageRequest.of(0, SUMMARY_CATCHUP_BATCH));
+        int done = 0;
         for (Room room : pending.getContent()) {
             try {
                 summarizationService.foldTurnsIntoSummary(room.getId(), Integer.MAX_VALUE);
+                done++;
             } catch (Exception e) {
                 log.warn("Diary summary catch-up failed for room {}", room.getId(), e);
             }
         }
+        return done;
     }
 }

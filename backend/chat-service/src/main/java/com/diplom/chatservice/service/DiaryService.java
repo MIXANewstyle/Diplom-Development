@@ -7,6 +7,7 @@ import com.diplom.chatservice.dto.diary.DiaryPeriodResponse;
 import com.diplom.chatservice.entity.DiaryPeriod;
 import com.diplom.chatservice.entity.Room;
 import com.diplom.chatservice.exception.DiaryDayClosedException;
+import com.diplom.chatservice.exception.InvalidRoomStateException;
 import com.diplom.chatservice.exception.RoomNotFoundException;
 import com.diplom.chatservice.repository.RoomRepository;
 import com.diplom.chatservice.repository.TurnRepository;
@@ -77,6 +78,25 @@ public class DiaryService {
         Room room = roomRepository.findByOwnerUserIdAndDiaryDate(owner, date)
                 .orElseThrow(() -> new RoomNotFoundException("No diary entry for " + date));
         return toDayResponse(room);
+    }
+
+    /**
+     * Finish the day now instead of waiting for the sweep: the room is archived, which triggers the
+     * day summary, fact extraction and RAG indexing asynchronously. Works for any of the owner's
+     * ACTIVE days regardless of the writable window (the sweep and the admin API reuse it).
+     */
+    public DiaryDayResponse closeDay(UUID owner, LocalDate date) {
+        Room room = roomRepository.findByOwnerUserIdAndDiaryDate(owner, date)
+                .orElseThrow(() -> new RoomNotFoundException("No diary entry for " + date));
+        if (room.getStatusId() != STATUS_ACTIVE) {
+            throw new InvalidRoomStateException("Diary day is already closed");
+        }
+        if (turnRepository.countByRoomId(room.getId()) == 0) {
+            throw new InvalidRoomStateException("Nothing to summarize: the day has no entries");
+        }
+        roomService.endSolo(room.getId(), owner);
+        log.info("Diary day {} closed by user {} (room {})", date, owner, room.getId());
+        return toDayResponse(roomRepository.findById(room.getId()).orElseThrow());
     }
 
     public void deleteDay(UUID owner, LocalDate date, Object principal) {
@@ -159,7 +179,8 @@ public class DiaryService {
                 room.getRunningSummary(),
                 turnRepository.countByRoomId(room.getId()),
                 room.getTitle(),
-                room.getCreatedAt()
+                room.getCreatedAt(),
+                room.getEndedAt()
         );
     }
 

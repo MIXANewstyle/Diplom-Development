@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useDiaryDay, useDiaryMemories } from '../features/diary/hooks/useDiary'
+import { ChevronLeft, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react'
+import { isSummaryPending, useCloseDay, useDiaryDay, useDiaryMemories } from '../features/diary/hooks/useDiary'
 import { MemoryCard } from '../features/diary/components/MemoryCard'
 import { addDays, formatDayTitle, isFutureLocally, isWritableLocally, parseIsoDate, todayIso } from '../features/diary/lib/dates'
 import { useRoom } from '../features/chat/hooks/useRoom'
@@ -38,8 +38,13 @@ export const DiaryDayPage = () => {
         <div className="text-center min-w-0">
           <Link to="/diary" className="text-xs text-gray-400 hover:text-gray-600">Дневник</Link>
           <h1 className="text-lg md:text-xl font-bold text-gray-900 truncate">{formatDayTitle(date)}</h1>
-          {day && !day.writable && (
+          {day && !day.writable && !isSummaryPending(day) && (
             <div className="text-xs text-gray-500">День закрыт — только чтение</div>
+          )}
+          {day && isSummaryPending(day) && (
+            <div className="text-xs text-blue-600 inline-flex items-center gap-1">
+              <Loader2 size={12} className="animate-spin" /> Подвожу итог дня…
+            </div>
           )}
         </div>
         {nextDisabled ? (
@@ -63,28 +68,46 @@ export const DiaryDayPage = () => {
       )}
 
       {day && (
-        <DayConversation roomId={day.roomId} writable={day.writable} summary={day.summary} memories={memories?.items ?? []} />
+        <DayConversation
+          date={date}
+          roomId={day.roomId}
+          writable={day.writable}
+          summary={day.summary}
+          summaryPending={isSummaryPending(day)}
+          memories={memories?.items ?? []}
+        />
       )}
     </div>
   )
 }
 
 const DayConversation = ({
+  date,
   roomId,
   writable,
   summary,
+  summaryPending,
   memories,
 }: {
+  date: string
   roomId: string
   writable: boolean
   summary: string | null
+  summaryPending: boolean
   memories: Parameters<typeof MemoryCard>[0]['items']
 }) => {
   const { data: room } = useRoom(roomId)
   const { data: turnsPage, isLoading } = useTurns(roomId)
   const myParticipantId = room?.participants?.[0]?.id
   const submitTurn = useSubmitTurn(roomId, myParticipantId)
+  const closeDay = useCloseDay(date)
   const transcriptRef = useRef<HTMLDivElement>(null)
+  const hasTurns = (turnsPage?.items?.length ?? 0) > 0
+
+  const handleClose = () => {
+    if (!window.confirm('Подвести итог дня? После этого дописать в этот день будет нельзя.')) return
+    closeDay.mutate(undefined, { onError: (e) => alert(getErrorMessage(e)) })
+  }
 
   useEffect(() => {
     if (transcriptRef.current) {
@@ -95,13 +118,21 @@ const DayConversation = ({
   return (
     <>
       <div ref={transcriptRef} className="flex-1 overflow-y-auto bg-gray-50 rounded-t-lg">
-        {(memories.length > 0 || (!writable && summary)) && (
+        {(memories.length > 0 || summary || summaryPending) && (
           <div className="p-3 space-y-3">
             <MemoryCard items={memories} />
-            {!writable && summary && (
+            {summary && (
               <div className="rounded-lg border border-gray-200 bg-white p-3">
-                <div className="text-xs font-medium text-gray-500 mb-1">Итог дня</div>
+                <div className="text-xs font-medium text-gray-500 mb-1 inline-flex items-center gap-1">
+                  <CheckCircle2 size={12} className="text-green-600" /> Итог дня
+                </div>
                 <div className="text-sm text-gray-800 whitespace-pre-wrap">{summary}</div>
+              </div>
+            )}
+            {!summary && summaryPending && (
+              <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800 inline-flex items-center gap-2">
+                <Loader2 size={14} className="animate-spin" />
+                Итог дня формируется: собеседник перечитывает запись, выделяет главное и запоминает устойчивое. Обычно это занимает меньше минуты.
               </div>
             )}
           </div>
@@ -121,16 +152,32 @@ const DayConversation = ({
       </div>
       <div className="shrink-0">
         {writable ? (
-          <Composer
-            isActive
-            isPending={submitTurn.isPending}
-            onSubmit={(text, restoreText) => {
-              submitTurn.mutate(text, { onError: () => restoreText() })
-            }}
-          />
+          <>
+            {hasTurns && (
+              <div className="px-3 md:px-4 pt-2 bg-white border-t flex justify-end">
+                <button
+                  onClick={handleClose}
+                  disabled={closeDay.isPending || submitTurn.isPending}
+                  className="text-sm px-3 py-1.5 rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 transition-colors"
+                  title="Закрыть день: собеседник подведёт итог и запомнит главное"
+                >
+                  {closeDay.isPending ? 'Закрываю…' : 'Подвести итог дня'}
+                </button>
+              </div>
+            )}
+            <Composer
+              isActive
+              isPending={submitTurn.isPending}
+              onSubmit={(text, restoreText) => {
+                submitTurn.mutate(text, { onError: () => restoreText() })
+              }}
+            />
+          </>
         ) : (
           <div className="p-4 bg-gray-50 border-t text-center text-gray-500 text-sm">
-            Этот день закрыт. Писать можно только за сегодня и вчера.
+            {summary || summaryPending
+              ? 'День закрыт. Итог и всё важное из него собеседник будет помнить дальше.'
+              : 'Этот день закрыт. Писать можно только за сегодня и вчера.'}
           </div>
         )}
       </div>

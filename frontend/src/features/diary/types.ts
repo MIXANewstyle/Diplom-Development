@@ -9,6 +9,7 @@ export interface DiaryDayResponse {
   turnCount: number
   title: string | null
   createdAt: string
+  closedAt: string | null
 }
 
 export interface DiaryCalendarDay {

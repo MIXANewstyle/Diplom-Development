@@ -66,6 +66,35 @@ docker compose -f docker-compose.prod.yml logs -f api-gateway
 - [ ] View the content feed; it should show content locked behind a paywall for FREE users.
 - [ ] Start a Solo Chat session and send a message. If the AI replies, the WebSocket connection (`/ws`) and LLM API are configured correctly.
 - [ ] Purchase a subscription (this uses the stub MVP payment system which runs by default on the `dev` profile). The content should unlock.
+- [ ] Open `/diary`, write a few entries for today and press "Подвести итог дня". Within a minute the
+  day shows a summary; the "Что собеседник помнит о вас" panel on `/diary` lists extracted facts. Write on the next day: the AI
+  refers to the previous day (the prompt contains the previous day's summary and RAG quotes).
+
+### Diary pipeline: automated test and manual checks
+
+The whole diary memory chain (day summary → facts → RAG → ISO-week summary → month summary → "a year
+ago") is covered by `DiaryPipelineIntegrationTest`. It needs a running Docker daemon (Docker Desktop
+is enough) and is skipped silently otherwise:
+```bash
+mvn -f backend/pom.xml -pl chat-service test -Dtest=DiaryPipelineIntegrationTest
+```
+The test starts throwaway `pgvector/pgvector:pg16`, `redis:7-alpine` and `rabbitmq:3-alpine`
+containers, runs the real Flyway migrations, replaces only the LLM/embeddings clients and the clock,
+and asserts what the assembled prompt contains at each step. No API key is needed.
+
+On a live stand the sweep waits for calendar conditions (day closes at `utc_today − 2`, periods at
+`period_end + 3`). To exercise the same steps immediately, use the ADMIN-only operator endpoints
+through the gateway with an admin JWT (`USER_ID` is the author's uuid, dates are ISO):
+```bash
+curl -X POST -H "Authorization: Bearer $JWT" http://localhost/internal/v1/admin/diary/sweep
+curl -X POST -H "Authorization: Bearer $JWT" http://localhost/internal/v1/admin/diary/users/$USER_ID/days/2026-09-17/close
+curl -X POST -H "Authorization: Bearer $JWT" http://localhost/internal/v1/admin/diary/users/$USER_ID/periods/WEEK/2026-09-14/generate
+curl -X POST -H "Authorization: Bearer $JWT" http://localhost/internal/v1/admin/diary/users/$USER_ID/periods/MONTH/2026-09-01/generate
+```
+`sweep` returns the counts of closed days, caught-up summaries, indexed turns and generated period
+summaries; `generate` answers 422 while the period has no closed days with summaries. Day summaries,
+facts and indexing run asynchronously after a close — allow a few seconds and check
+`docker compose -f docker-compose.prod.yml logs chat-service | grep -i diary`.
 
 ## Data Persistence
 PostgreSQL, Redis, RabbitMQ, and Caddy store their data in named Docker volumes. If you ever need to stop the services or restart the host, your data will persist automatically.

@@ -26,6 +26,12 @@ export const getDay = async (date: string): Promise<DiaryDayResponse> => {
   return data
 }
 
+/** Finish the day now: the server archives it and produces the summary, facts and memory asynchronously. */
+export const closeDay = async (date: string): Promise<DiaryDayResponse> => {
+  const { data } = await apiClient.post<DiaryDayResponse>(`/api/v1/diary/days/${date}/close`)
+  return data
+}
+
 export const deleteDay = async (date: string): Promise<void> => {
   await apiClient.delete(`/api/v1/diary/days/${date}`)
 }

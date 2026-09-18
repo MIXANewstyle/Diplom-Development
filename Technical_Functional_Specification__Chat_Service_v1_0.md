@@ -165,6 +165,8 @@ mode keeps the narrowed MVP behaviour.
   and its own hard turn cap.
 - `DiarySweepService` (every `chat.sweeps.diary-interval`) archives ACTIVE diary rooms with
   `diary_date <= utc_today − 2` through `RoomService.endSolo`, which triggers the archive fold.
+  The author can finish a day early with `POST /days/{date}/close` (same `endSolo` path; 409 when
+  the day is already closed or has no turns). The client polls the day while the summary is pending.
 
 ## 4a.2. Layered context (the "I am remembered" mechanism)
 
@@ -204,10 +206,22 @@ Budget `chat.llm.diary.prompt-token-budget` (24k) minus output; each layer has i
 
 ## 4a.4. API (`/api/v1/diary`, BASIC+)
 
-`GET /calendar?month=YYYY-MM`, `PUT|GET|DELETE /days/{date}`, `GET /memories?date=`,
-`GET /periods?type=WEEK|MONTH&start=`, `PUT /periods/{type}/{start}/user-summary`,
+`GET /calendar?month=YYYY-MM`, `PUT|GET|DELETE /days/{date}`, `POST /days/{date}/close`,
+`GET /memories?date=`, `GET /periods?type=WEEK|MONTH&start=`, `PUT /periods/{type}/{start}/user-summary`,
 `POST /periods/{type}/{start}/auto-summary`, `GET|PATCH|DELETE /memory-facts[/{id}]`.
 Gateway route `chat-service-diary`.
+
+Operator endpoints (`/internal/v1/admin/diary`, ADMIN, gateway route `chat-service-admin-diary`) run
+the maintenance steps on demand instead of waiting for the sweep's calendar conditions:
+`POST /sweep` (one full pass, returns counts), `POST /users/{userId}/days/{date}/close`,
+`POST /users/{userId}/days/{date}/resummarize` (re-fold the whole day),
+`POST /users/{userId}/periods/{WEEK|MONTH}/{start}/generate` (auto summary regardless of the due
+date and the per-hour limit; 422 when the period has no day summaries).
+
+Coverage: `DiaryPipelineIntegrationTest` (Testcontainers: `pgvector/pgvector:pg16`, Redis, RabbitMQ;
+skipped without Docker) drives a user through two days, the ISO week and the month with a mutable
+clock, fake LLM and deterministic embeddings, and asserts the assembled prompt at every step
+(previous-day summary, RAG quote with date, month summary, "a year ago" memory, facts).
 
 ## 4a.5. Provider layer
 

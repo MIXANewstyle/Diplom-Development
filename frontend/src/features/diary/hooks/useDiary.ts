@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import {
+  closeDay,
   deleteMemoryFact,
   generateAutoSummary,
   getCalendar,
@@ -11,8 +12,17 @@ import {
   saveUserSummary,
   updateMemoryFact,
 } from '../api'
-import type { DiaryPeriodType } from '../types'
+import type { DiaryDayResponse, DiaryPeriodType } from '../types'
 import { isWritableLocally } from '../lib/dates'
+
+/** A closed day whose summary has not arrived yet (summarization is asynchronous on the server). */
+export const isSummaryPending = (day: DiaryDayResponse | null | undefined): boolean => {
+  if (!day || day.summary || day.status !== 'ARCHIVED' || day.turnCount === 0) return false
+  if (!day.closedAt) return false
+  const closedMs = new Date(day.closedAt).getTime()
+  // give the pipeline two minutes; after that stop polling and show whatever we have
+  return Number.isFinite(closedMs) && Date.now() - closedMs < 2 * 60 * 1000
+}
 
 export const diaryKeys = {
   calendar: (month: string) => ['diary', 'calendar', month] as const,
@@ -35,6 +45,7 @@ export const useDiaryDay = (date: string, valid: boolean) =>
     queryKey: diaryKeys.day(date),
     enabled: valid,
     retry: false,
+    refetchInterval: (query) => (isSummaryPending(query.state.data) ? 3000 : false),
     queryFn: async () => {
       if (isWritableLocally(date)) {
         try {
@@ -55,6 +66,20 @@ export const useDiaryDay = (date: string, valid: boolean) =>
       }
     },
   })
+
+export const useCloseDay = (date: string) => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => closeDay(date),
+    onSuccess: (day) => {
+      queryClient.setQueryData(diaryKeys.day(date), day)
+      queryClient.invalidateQueries({ queryKey: ['diary', 'calendar'] })
+      queryClient.invalidateQueries({ queryKey: ['chat', 'room', day.roomId] })
+      // facts and the RAG index arrive a little later; refresh them when the summary shows up
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: diaryKeys.facts }), 15_000)
+    },
+  })
+}
 
 export const useDiaryMemories = (date: string, enabled: boolean) =>
   useQuery({

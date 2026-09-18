@@ -12,5 +12,6 @@ public record DiaryDayResponse(
         String summary,
         long turnCount,
         String title,
-        OffsetDateTime createdAt
+        OffsetDateTime createdAt,
+        OffsetDateTime closedAt
 ) {}

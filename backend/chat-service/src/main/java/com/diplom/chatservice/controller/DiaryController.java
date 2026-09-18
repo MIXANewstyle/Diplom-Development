@@ -72,6 +72,14 @@ public class DiaryController {
         return ResponseEntity.ok(diaryService.getDay(user.getId(), date));
     }
 
+    /** Finish the day now: archives it and starts the summary → facts → memory pipeline. */
+    @PostMapping("/days/{date}/close")
+    public ResponseEntity<DiaryDayResponse> closeDay(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(diaryService.closeDay(user.getId(), date));
+    }
+
     @DeleteMapping("/days/{date}")
     public ResponseEntity<Void> deleteDay(
             @AuthenticationPrincipal CustomUserDetails user,
