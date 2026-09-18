@@ -20,8 +20,12 @@ import java.util.UUID;
 /**
  * Cache-aside service for user profiles.
  * Mirrors content-service's ProfileCacheService (§6.1 pattern).
- * Cache key: {@code user:{id}:profile}, TTL 60 s.
+ * Cache key: {@code chat:user:{id}:profile}, TTL 60 s.
  * Does NOT consume PROFILE_CHANGED events — the 60 s TTL is the staleness bound.
+ *
+ * <p>The key is namespaced per service on purpose: chat-service and content-service share one Redis
+ * and each serializes its own {@code UserBatchResponse} class into the value, so an unprefixed
+ * {@code user:{id}:profile} made them overwrite each other's entries and fail to deserialize them.
  */
 @Service
 @RequiredArgsConstructor
@@ -29,7 +33,7 @@ import java.util.UUID;
 public class ProfileCacheService {
 
     private static final Duration TTL = Duration.ofSeconds(60);
-    private static final String KEY_PREFIX = "user:";
+    private static final String KEY_PREFIX = "chat:user:";
     private static final String KEY_SUFFIX = ":profile";
 
     private final RedisTemplate<String, Object> redisTemplate;

@@ -17,13 +17,20 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Cache-aside service for user profiles. Cache key: {@code content:user:{id}:profile}, TTL 60 s.
+ *
+ * <p>The key is namespaced per service on purpose: content-service and chat-service share one Redis
+ * and each serializes its own {@code UserBatchResponse} class into the value, so an unprefixed
+ * {@code user:{id}:profile} made them overwrite each other's entries and fail to deserialize them.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ProfileCacheService {
 
     private static final Duration TTL = Duration.ofSeconds(60);
-    private static final String KEY_PREFIX = "user:";
+    private static final String KEY_PREFIX = "content:user:";
     private static final String KEY_SUFFIX = ":profile";
 
     private final RedisTemplate<String, Object> redisTemplate;
