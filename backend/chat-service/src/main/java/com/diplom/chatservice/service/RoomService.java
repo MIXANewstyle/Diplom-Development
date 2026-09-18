@@ -617,6 +617,7 @@ public class RoomService {
         if (checkRole) {
             String role = roleCacheService.getCachedRole(callerId);
             if (role != null && (role.equals("FREE") || role.equals("GUEST"))) {
+                log.warn("Subscription gate rejected user {} (cached role={})", callerId, role);
                 throw new SubscriptionRequiredException();
             }
         }

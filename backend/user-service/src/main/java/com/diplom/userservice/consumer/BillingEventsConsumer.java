@@ -63,6 +63,13 @@ public class BillingEventsConsumer {
         // Billing emits SUBSCRIPTION_CHANGED{BASIC} even on pure renewals (§3.2); without this guard
         // each renewal would emit a redundant ROLE_UPDATED.
         userRepository.findById(userId).ifPresentOrElse(user -> {
+            // A subscription only moves a user between FREE and BASIC. AUTHOR and ADMIN clear the
+            // subscription gate through the role hierarchy, so billing must never rewrite their role:
+            // an expiry would demote an admin to FREE, and a purchase would demote them to BASIC.
+            if (user.getRoleId() != null && user.getRoleId() > ROLE_BASIC_ID) {
+                log.info("SUBSCRIPTION_CHANGED ignored: user {} has role {} above BASIC", userId, user.getRoleId());
+                return;
+            }
             if (!java.util.Objects.equals(user.getRoleId(), targetRoleId)) {
                 userService.updateUserRole(userId, targetRoleId);   // persists role + emits ROLE_UPDATED (one tx)
                 log.info("SUBSCRIPTION_CHANGED applied: user {} role -> {} ({})", userId, targetRoleId, newTier);

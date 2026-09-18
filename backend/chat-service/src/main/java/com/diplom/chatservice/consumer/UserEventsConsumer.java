@@ -57,14 +57,28 @@ public class UserEventsConsumer {
 
     private void handleRoleUpdated(String json) throws JsonProcessingException {
         RoleUpdatedEvent event = objectMapper.readValue(json, RoleUpdatedEvent.class);
-        String roleStr = switch (event.roleId()) {
+        String roleStr = roleName(event.roleId());
+        if (roleStr == null) {
+            // Never downgrade on an unknown id: the cache gates room creation, so writing a guessed
+            // low role here would lock the user out until the next ROLE_UPDATED. Keep the old value.
+            log.warn("Unknown roleId {} in ROLE_UPDATED for user {} — role cache left unchanged",
+                    event.roleId(), event.userId());
+            return;
+        }
+        roleCacheService.putRole(event.userId(), roleStr);
+    }
+
+    /** user_schema.user_roles (V2 seeds 1-4, V4 adds 5). Returns null for ids this service doesn't know. */
+    private static String roleName(Integer roleId) {
+        if (roleId == null) return null;
+        return switch (roleId) {
             case 1 -> "GUEST";
             case 2 -> "FREE";
             case 3 -> "BASIC";
             case 4 -> "AUTHOR";
-            default -> "GUEST";
+            case 5 -> "ADMIN";
+            default -> null;
         };
-        roleCacheService.putRole(event.userId(), roleStr);
     }
 
     private void handleAccountModerated(String json) throws JsonProcessingException {
