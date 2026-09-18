@@ -16,6 +16,11 @@ import java.util.UUID;
  * JDBC access to {@code chat_schema.diary_memory_chunks}. The table has no JPA entity on purpose:
  * the {@code vector} column type is not known to Hibernate without an extra module, and every
  * operation on it is naturally SQL (insert with CAST, cosine ORDER BY).
+ *
+ * <p>The pgvector extension lives in {@code chat_schema} (Flyway runs with that search_path and
+ * V7 pins it there), while the application connection's search_path is the default {@code public}.
+ * The type and the operator are therefore schema-qualified: {@code chat_schema.vector} and
+ * {@code OPERATOR(chat_schema.<=>)}; an unqualified {@code vector} raises "type does not exist".
  */
 @Repository
 @RequiredArgsConstructor
@@ -57,7 +62,7 @@ public class DiaryMemoryChunkJdbcRepository {
                 (id, owner_user_id, room_id, turn_id, period_id, source_id, entry_date, chunk_index,
                  content, embedding, embedding_model, created_at)
             VALUES (:id, :owner, :roomId, :turnId, :periodId, :sourceId, :entryDate, :chunkIndex,
-                    :content, CAST(:embedding AS vector), :model, :createdAt)
+                    :content, CAST(:embedding AS chat_schema.vector), :model, :createdAt)
             ON CONFLICT DO NOTHING
             """;
         MapSqlParameterSource[] batch = new MapSqlParameterSource[chunks.size()];
@@ -88,11 +93,11 @@ public class DiaryMemoryChunkJdbcRepository {
     public List<ChunkHit> searchTopK(UUID ownerUserId, float[] query, LocalDate excludeDate, int k) {
         String sql = """
             SELECT id, source_id, entry_date, content,
-                   1 - (embedding <=> CAST(:q AS vector)) AS score
+                   1 - (embedding OPERATOR(chat_schema.<=>) CAST(:q AS chat_schema.vector)) AS score
             FROM chat_schema.diary_memory_chunks
             WHERE owner_user_id = :owner
               AND entry_date <> :excludeDate
-            ORDER BY embedding <=> CAST(:q AS vector)
+            ORDER BY embedding OPERATOR(chat_schema.<=>) CAST(:q AS chat_schema.vector)
             LIMIT :k
             """;
         MapSqlParameterSource params = new MapSqlParameterSource()
