@@ -82,6 +82,19 @@ The test starts throwaway `pgvector/pgvector:pg16`, `redis:7-alpine` and `rabbit
 containers, runs the real Flyway migrations, replaces only the LLM/embeddings clients and the clock,
 and asserts what the assembled prompt contains at each step. No API key is needed.
 
+If the run ends with `Tests run: 1 … Skipped: 1` and
+`Could not find a valid Docker environment`, Testcontainers did not reach the daemon even though
+`docker` itself works. On Docker Desktop for Windows the cause is usually the pipe it probes:
+Testcontainers tries the legacy `\\.\pipe\docker_engine`, while current Docker Desktop serves the
+`desktop-linux` context on `\\.\pipe\dockerDesktopLinuxEngine`. Point it at the right endpoint once,
+in `%USERPROFILE%\.testcontainers.properties`:
+```properties
+docker.host=npipe:////./pipe/dockerDesktopLinuxEngine
+```
+(the same value works as a `DOCKER_HOST` environment variable). `docker context ls` prints the
+endpoint your installation actually uses. The test is skipped, not failed, without Docker, so
+`BUILD SUCCESS` alone does not mean it ran — check for `Tests run: 1, Failures: 0, Skipped: 0`.
+
 On a live stand the sweep waits for calendar conditions (day closes at `utc_today − 2`, periods at
 `period_end + 3`). To exercise the same steps immediately, use the ADMIN-only operator endpoints
 through the gateway with an admin JWT (`USER_ID` is the author's uuid, dates are ISO):
