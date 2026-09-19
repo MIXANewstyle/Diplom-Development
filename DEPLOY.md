@@ -85,6 +85,10 @@ and asserts what the assembled prompt contains at each step. No API key is neede
 The test is skipped, not failed, when Docker is unreachable, so `BUILD SUCCESS` alone does not mean
 it ran — check the line `Tests run: 1, Failures: 0, Errors: 0, Skipped: 0`.
 
+The API side of the diary — authentication, the role hierarchy, owner isolation, the ADMIN-only
+operator endpoints and the error codes the client maps — is covered by `DiaryApiSecurityTest`, a
+MockMvc slice that needs no Docker and runs in seconds as part of `mvn -pl chat-service test`.
+
 `src/test/resources/docker-java.properties` pins `api.version=1.44` and must stay there while
 Testcontainers is at 1.19.x: docker-java 3.3.x otherwise falls back to Docker API 1.32, which Docker
 Engine 29+ rejects with HTTP 400 (the reply is an empty `Info` body labelled

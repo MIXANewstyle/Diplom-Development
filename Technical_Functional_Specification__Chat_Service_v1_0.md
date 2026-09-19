@@ -222,6 +222,11 @@ Coverage: `DiaryPipelineIntegrationTest` (Testcontainers: `pgvector/pgvector:pg1
 skipped without Docker) drives a user through two days, the ISO week and the month with a mutable
 clock, fake LLM and deterministic embeddings, and asserts the assembled prompt at every step
 (previous-day summary, RAG quote with date, month summary, "a year ago" memory, facts).
+`DiaryApiSecurityTest` (MockMvc slice, no Docker) covers what the pipeline test bypasses: the JWT
+filter, the role hierarchy (AUTHOR/ADMIN reach a `hasRole('BASIC')` endpoint, FREE and invite guests
+do not), that every operation takes its owner from the token rather than the request, the ADMIN-only
+operator endpoints, and the status codes the client maps (409 closed/empty day, 404 missing day,
+422 empty period, 400 unknown period type).
 
 ## 4a.5. Provider layer
 
