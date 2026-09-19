@@ -78,7 +78,7 @@ is enough) and is skipped silently otherwise:
 ```bash
 mvn -f backend/pom.xml -pl chat-service test -Dtest=DiaryPipelineIntegrationTest
 ```
-The test starts throwaway `pgvector/pgvector:pg16`, `redis:7-alpine` and `rabbitmq:3-alpine`
+The test starts throwaway `pgvector/pgvector:pg16`, `redis:7-alpine` and `rabbitmq:3-management-alpine`
 containers, runs the real Flyway migrations, replaces only the LLM/embeddings clients and the clock,
 and asserts what the assembled prompt contains at each step. No API key is needed.
 

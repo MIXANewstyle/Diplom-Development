@@ -90,7 +90,7 @@ class DiaryPipelineIntegrationTest {
 
     @Container
     @ServiceConnection
-    static final RabbitMQContainer rabbit = new RabbitMQContainer("rabbitmq:3-alpine");
+    static final RabbitMQContainer rabbit = new RabbitMQContainer("rabbitmq:3-management-alpine");
 
     private static final Duration ASYNC_TIMEOUT = Duration.ofSeconds(30);
     private static final int STATUS_ACTIVE = 3;
